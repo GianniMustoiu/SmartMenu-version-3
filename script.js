@@ -313,21 +313,36 @@ $('#login-form').addEventListener('submit', async (e) => {
 // =====================================================
 // LOGOUT
 // =====================================================
-    clearSession();
-    sb?.auth.signOut();
+
 $$('.logout-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
+
+    clearSession();
+
+    try {
+      if (sb) {
+        await sb.auth.signOut();
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+
     stopOrdineStatusPolling();
+
     document.body.classList.remove('cliente-night');
+
     currentUser = null;
     currentRistorante = null;
     cart = [];
     lastOrdineId = null;
+    sessionOrders = [];
+
     $('#app-admin').classList.add('hidden');
     $('#app-ristoratore').classList.add('hidden');
     $('#app-cliente').classList.add('hidden');
+
     $('#login-screen').classList.remove('hidden');
-    $('#login-form').reset();
+    $('#login-form')?.reset();
   });
 });
 
