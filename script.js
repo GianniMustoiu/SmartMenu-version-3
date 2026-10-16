@@ -181,6 +181,9 @@ async function enterAsAdmin(email) {
 async function enterAsRistoratore(r) {
   currentRistorante = await loadRistoranteFull(r.id || r.ristoranteId);
   currentUser = { role: 'ristoratore', email: r.email, ristoranteId: r.id || r.ristoranteId };
+    const prevR = loadSession();
+  saveSession({ role: 'ristoratore', email: r.email, ristoranteId: currentUser.ristoranteId,
+                page: prevR && prevR.role === 'ristoratore' ? prevR.page : 'rist-dashboard' });
   $('#login-screen').classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
   $('#rist-nome-sidebar').textContent = (currentRistorante && currentRistorante.nome) || r.nome || 'Ristorante';
