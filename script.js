@@ -1748,7 +1748,9 @@ function renderClienteMenu() {
       </div>
     `;
   }).join('');
-  updateCartCount();
+function updateCartCount() {
+  $('#cart-count').textContent = cart.reduce((s, c) => s + c.qty, 0);
+  saveClientState();
 }
 
 window.changeQty = function(id, delta) {
