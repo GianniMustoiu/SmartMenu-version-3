@@ -161,6 +161,8 @@ async function getRistorante(id) {
 
 async function enterAsAdmin(email) {
   currentUser = { role: 'admin', email: email || 'admin@menupro.it' };
+    const prev = loadSession();
+  saveSession({ role: 'admin', email: currentUser.email, page: prev && prev.role === 'admin' ? prev.page : 'dashboard' });
   $('#login-screen').classList.add('hidden');
   $('#app-admin').classList.remove('hidden');
   $('#admin-user-email').textContent = currentUser.email;
