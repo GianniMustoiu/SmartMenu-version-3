@@ -25,7 +25,18 @@ let currentSala = 0;
 let menuFilterCat = 'tutti';
 let lastOrdineId = null;
 let sessionOrders = []; // { id, codice } ordini del tavolo in questa sessione
+function saveOfflineOrder(order) {
 
+  const orders =
+    JSON.parse(localStorage.getItem("offline_orders") || "[]");
+
+  orders.push(order);
+
+  localStorage.setItem(
+    "offline_orders",
+    JSON.stringify(orders)
+  );
+}
 let chartRicaviAdmin = null;
 let chartPianiAdmin = null;
 let chartIncassiRist = null;
