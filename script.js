@@ -2246,3 +2246,31 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
   clearSession();
   login.classList.remove('hidden');
 })();
+async function syncOfflineOrders() {
+
+  if (!navigator.onLine) return;
+
+  const orders = JSON.parse(
+    localStorage.getItem("offline_orders") || "[]"
+  );
+
+  if (!orders.length) return;
+
+  for (const order of orders) {
+
+    const { error } = await sb
+      .from("ordini")
+      .insert(order);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+  }
+
+  localStorage.removeItem("offline_orders");
+
+  toast("Ordini sincronizzati");
+}
+
+window.addEventListener("online", syncOfflineOrders);
