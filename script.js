@@ -2274,3 +2274,26 @@ async function syncOfflineOrders() {
 }
 
 window.addEventListener("online", syncOfflineOrders);
+function updateNetworkStatus() {
+
+  const el =
+    document.getElementById("network-status");
+
+  if (!el) return;
+
+  if (navigator.onLine) {
+
+    el.innerHTML = "🟢 Online";
+
+  } else {
+
+    el.innerHTML =
+      "🔴 Offline - salvataggio locale attivo";
+
+  }
+}
+
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+
+updateNetworkStatus();
