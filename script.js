@@ -353,6 +353,7 @@ $$('#app-admin .nav-item').forEach(item => {
     $$('#app-admin .nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
     const page = item.dataset.page;
+    updateSessionPage(page, 'admin');
     $$('#app-admin .page').forEach(p => p.classList.add('hidden'));
     $(`#page-${page}`).classList.remove('hidden');
     const titles = {
@@ -371,7 +372,8 @@ $$('#app-admin .nav-item').forEach(item => {
 // =====================================================
 // NAV RISTORATORE
 // =====================================================
-$$('#app-ristoratore .nav-item').forEach(item => {
+$$('#app-ristoratore .nav-item').forEach(item => { 
+  updateSessionPage(page, 'ristoratore');
   item.addEventListener('click', async (e) => {
     e.preventDefault();
     $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
