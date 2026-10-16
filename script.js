@@ -59,6 +59,36 @@ function formatPrice(n) {
 function formatTime(iso) {
   return new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+// =====================================================
+// PERSISTENZA SESSIONE
+// =====================================================
+const SESSION_KEY = 'menupro_session';
+const CLIENT_TTL = 12 * 60 * 60 * 1000; // gli ordini del tavolo si ricordano per 12 ore
+
+function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {} }
+function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; } }
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
+function updateSessionPage(page, role) {
+  const s = loadSession();
+  if (s && s.role === role) { s.page = page; saveSession(s); }
+}
+
+function clientKey(r, t) { return 'menupro_cliente_' + r + '_' + t; }
+function saveClientState() {
+  if (!currentUser || currentUser.role !== 'cliente' || !currentUser.fromQR) return;
+  try {
+    localStorage.setItem(clientKey(currentUser.ristoranteId, currentUser.tavolo), JSON.stringify({
+      ts: Date.now(), orders: sessionOrders, last: lastOrdineId, cart
+    }));
+  } catch (e) {}
+}
+function loadClientState(r, t) {
+  try {
+    const s = JSON.parse(localStorage.getItem(clientKey(r, t)));
+    if (s && Date.now() - s.ts < CLIENT_TTL) return s;
+  } catch (e) {}
+  return {};
+}
 
 // =====================================================
 // SUPABASE HELPERS
