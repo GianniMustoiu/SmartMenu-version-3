@@ -1747,7 +1747,9 @@ function renderClienteMenu() {
         </div>
       </div>
     `;
-  }).join('');
+    }).join('');
+}
+
 function updateCartCount() {
   $('#cart-count').textContent = cart.reduce((s, c) => s + c.qty, 0);
   saveClientState();
