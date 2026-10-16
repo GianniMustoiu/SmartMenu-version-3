@@ -183,7 +183,12 @@ async function loadRistoranteFull(id) {
 }
 
 async function getRistorante(id) {
-  return loadRistoranteFull(id);
+
+  if (navigator.onLine) {
+    return loadRistoranteFull(id);
+  }
+
+  return loadOfflineRestaurant(id);
 }
 
 // =====================================================
