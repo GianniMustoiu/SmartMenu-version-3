@@ -392,13 +392,6 @@ $$('#app-ristoratore .nav-item').forEach(item => {
     if (page === 'rist-tavoli') await renderTavoli();
   });
 });
-    $('#rist-page-title').textContent = titles[page] || page;
-    if (page === 'rist-dashboard') await renderRistDashboard();
-    if (page === 'rist-menu') await renderMenuTable();
-    if (page === 'rist-ordini') await renderOrdiniKanban();
-    if (page === 'rist-tavoli') await renderTavoli();
-  });
-});
 
 // =====================================================
 // CLOSE MODALS
