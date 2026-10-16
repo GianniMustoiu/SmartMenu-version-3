@@ -1860,7 +1860,19 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     totale,
     stato: 'nuovo'
   };
+if (!navigator.onLine) {
 
+  saveOfflineOrder(ordineBase);
+
+  toast(
+    "Ordine salvato offline. Verrà sincronizzato automaticamente."
+  );
+
+  cart = [];
+  updateCartCount();
+
+  return;
+}
   let inserted = null;
   let error = null;
 
