@@ -2122,13 +2122,15 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
 // =====================================================
 // AVVIO: se c'è ?r=...&t=... apri come cliente (QR)
 // =====================================================
+// =====================================================
+// AVVIO 1: QR cliente (?r=...&t=...)
+// =====================================================
 (async function initFromQR() {
   const params = new URLSearchParams(window.location.search);
   const rId = params.get('r');
   const t = parseInt(params.get('t'), 10);
   if (!rId || !t) return;
 
-  // Nascondi subito il login (anche se il DB è lento)
   document.documentElement.classList.add('qr-entry');
   const login = $('#login-screen');
   const appC = $('#app-cliente');
@@ -2139,21 +2141,68 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
   try {
     let r = null;
     if (sb) r = await loadRistoranteFull(rId);
-    if (!r) {
-      toast('Ristorante non trovato o database non collegato');
-      return;
-    }
-    currentUser = { role: 'cliente', ristoranteId: rId, tavolo: t };
+    if (!r) { toast('Ristorante non trovato o database non collegato'); return; }
+
+    currentUser = { role: 'cliente', ristoranteId: rId, tavolo: t, fromQR: true };
     currentRistorante = r;
-    cart = [];
-    lastOrdineId = null;
-    document.body.classList.add('cliente-night');
+
+    // ripristina carrello e ordini già fatti a questo tavolo
+    const saved = loadClientState(rId, t);
+    sessionOrders = saved.orders || [];
+    cart = saved.cart || [];
+    lastOrdineId = saved.last || null;
+
     if ($('#cliente-rist-nome')) $('#cliente-rist-nome').textContent = r.nome;
     if ($('#cliente-tavolo-num')) $('#cliente-tavolo-num').textContent = t;
-    showClienteView('menu');
-    renderClienteMenu();
+
+    if (sessionOrders.length) {
+      updateClienteOrdiniSelect();
+      $('#cliente-stato-btn').style.display = 'inline-flex';
+    }
+    updateCartCount();
+
+    if (!cart.length && lastOrdineId) {
+      await loadClienteOrdineById(lastOrdineId); // mostra ricevuta e riavvia l'aggiornamento stato
+    } else {
+      showClienteView('menu');
+      renderClienteMenu();
+    }
   } catch (e) {
     console.error('QR init error:', e);
     toast('Errore apertura menu da QR');
   }
+})();
+
+// =====================================================
+// AVVIO 2: ripristino sessione admin / ristoratore
+// =====================================================
+(async function restoreSession() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('r') && p.get('t')) return; // è un cliente da QR
+  const s = loadSession();
+  if (!s) return;
+
+  const login = $('#login-screen');
+  login.classList.add('hidden'); // evita il lampo della schermata di login
+
+  try {
+    if (s.role === 'admin') {
+      await enterAsAdmin(s.email);
+      if (s.page && s.page !== 'dashboard')
+        document.querySelector('#app-admin .nav-item[data-page="' + s.page + '"]')?.click();
+      return;
+    }
+    if (s.role === 'ristoratore') {
+      const r = await loadRistoranteFull(s.ristoranteId);
+      if (!r) throw new Error('Ristorante non trovato');
+      await enterAsRistoratore({ id: r.id, email: s.email, nome: r.nome });
+      if (s.page && s.page !== 'rist-dashboard')
+        document.querySelector('#app-ristoratore .nav-item[data-page="' + s.page + '"]')?.click();
+      return;
+    }
+  } catch (e) {
+    console.error('Ripristino sessione fallito:', e);
+  }
+  clearSession();
+  login.classList.remove('hidden');
 })();
