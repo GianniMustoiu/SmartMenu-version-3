@@ -705,7 +705,6 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
 
     await createDefaultTavoli(inserted.id, nTavoli);
     await createDefaultCategorie(inserted.id);
-    await createDefaultMenu(inserted.id);
   }
 
   $('#modal-ristorante').classList.add('hidden');
