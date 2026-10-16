@@ -372,19 +372,26 @@ $$('#app-admin .nav-item').forEach(item => {
 // =====================================================
 // NAV RISTORATORE
 // =====================================================
-$$('#app-ristoratore .nav-item').forEach(item => { 
-  updateSessionPage(page, 'ristoratore');
+$$('#app-ristoratore .nav-item').forEach(item => {
   item.addEventListener('click', async (e) => {
     e.preventDefault();
     $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
     const page = item.dataset.page;
+    updateSessionPage(page, 'ristoratore');
     $$('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
     $(`#page-${page}`).classList.remove('hidden');
     const titles = {
       'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
       'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR'
     };
+    $('#rist-page-title').textContent = titles[page] || page;
+    if (page === 'rist-dashboard') await renderRistDashboard();
+    if (page === 'rist-menu') await renderMenuTable();
+    if (page === 'rist-ordini') await renderOrdiniKanban();
+    if (page === 'rist-tavoli') await renderTavoli();
+  });
+});
     $('#rist-page-title').textContent = titles[page] || page;
     if (page === 'rist-dashboard') await renderRistDashboard();
     if (page === 'rist-menu') await renderMenuTable();
