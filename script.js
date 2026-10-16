@@ -168,6 +168,27 @@ async function doLogin(email, pass) {
     toast('Inserisci la password');
     return false;
   }
+    // ========== 0) Supabase Authentication ==========
+  if (sb && email) {
+    try {
+      const { data: auth, error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+      if (!authErr && auth?.user) {
+        const { data: u } = await sb.from('utenti').select('*').eq('email', email).maybeSingle();
+        if (u && u.ruolo === 'admin') return await enterAsAdmin(u.email);
+        if (u && u.ruolo === 'ristoratore') {
+          const { data: r } = await sb.from('ristoranti').select('*').eq('email', email).maybeSingle();
+          if (r) return await enterAsRistoratore(r);
+          toast('Nessun ristorante collegato a questa email');
+          return false;
+        }
+        await sb.auth.signOut();
+        toast('Utente autenticato ma senza ruolo: aggiungilo nella tabella utenti');
+        return false;
+      }
+    } catch (e) {
+      console.warn('Supabase Auth non disponibile:', e.message);
+    }
+  }
 
   // ========== 1) API server-side /api/utenti ==========
   try {
