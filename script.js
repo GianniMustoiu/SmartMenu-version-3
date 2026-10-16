@@ -83,7 +83,26 @@ function updateSessionPage(page, role) {
   const s = loadSession();
   if (s && s.role === role) { s.page = page; saveSession(s); }
 }
+function saveOfflineRestaurant(data) {
+  try {
+    localStorage.setItem(
+      'menupro_restaurant_' + data.id,
+      JSON.stringify(data)
+    );
+  } catch(e) {}
+}
 
+function loadOfflineRestaurant(id) {
+  try {
+    return JSON.parse(
+      localStorage.getItem(
+        'menupro_restaurant_' + id
+      )
+    );
+  } catch(e) {
+    return null;
+  }
+}
 function clientKey(r, t) { return 'menupro_cliente_' + r + '_' + t; }
 function saveClientState() {
   if (!currentUser || currentUser.role !== 'cliente' || !currentUser.fromQR) return;
