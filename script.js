@@ -1930,6 +1930,7 @@ function updateClienteOrdiniSelect() {
 async function loadClienteOrdineById(ordineId) {
   if (!ordineId || !sb) return;
   lastOrdineId = ordineId;
+  saveClientState();
   const { data: o } = await sb.from('ordini').select('*').eq('id', ordineId).single();
   if (!o) { toast('Ordine non trovato'); return; }
   // items da jsonb o ordine_riga
