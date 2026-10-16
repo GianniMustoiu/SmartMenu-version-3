@@ -278,6 +278,7 @@ $('#login-form').addEventListener('submit', async (e) => {
 // =====================================================
 // LOGOUT
 // =====================================================
+sb?.auth.signOut();
 $$('.logout-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     stopOrdineStatusPolling();
