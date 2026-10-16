@@ -178,6 +178,7 @@ async function loadRistoranteFull(id) {
   }
   r.pagamenti = pagamenti.data || [];
   r.sale = r.sale || ['Sala principale'];
+  saveOfflineRestaurant(r);
   return r;
 }
 
