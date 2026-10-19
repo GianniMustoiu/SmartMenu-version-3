@@ -217,6 +217,8 @@ function stripSecrets(r) { const { password, ...safe } = r; return safe; } // ni
 
 let _offlineToastAt = 0;
 function offlineNotice() {
+  if (currentUser && currentUser.role === 'cliente') return;
+  if (document.body.classList.contains('cliente-night')) return;
   if (Date.now() - _offlineToastAt < 15000) return; // evita messaggi ripetuti
   _offlineToastAt = Date.now();
   toast('Connessione assente: mostro gli ultimi dati salvati');
@@ -2309,6 +2311,7 @@ window.changeQty = function(id, delta) {
     item.qty += delta;
     if (item.qty <= 0) cart = cart.filter(c => c.id !== id);
   }
+  updateCartCount();
   renderClienteMenu();
   if (!$('#cliente-carrello-view').classList.contains('hidden')) renderCarrello();
 };
@@ -2848,6 +2851,7 @@ function assertQrSessionOrBlock() {
   if (login) login.classList.add('hidden');
   if (appC) { appC.classList.remove('hidden'); appC.classList.add('cliente-ui'); }
   document.body.classList.add('cliente-night');
+  try { updateNetworkStatus(); } catch (e) {}
 
   try {
     let r = null;
@@ -2972,23 +2976,31 @@ async function syncOfflineOrders() {
   if (inviati) toast(inviati + (inviati === 1 ? " ordine sincronizzato" : " ordini sincronizzati"));
 }
 
-window.addEventListener("online", () => { toast("Connessione ripristinata"); syncOfflineOrders(); });
+window.addEventListener("online", () => {
+  // toast solo per admin/ristoratore, non per il cliente al tavolo
+  const isCliente = currentUser && currentUser.role === 'cliente';
+  if (!isCliente) toast("Connessione ripristinata");
+  syncOfflineOrders();
+});
+function isClienteUI() {
+  return !!(currentUser && currentUser.role === 'cliente')
+    || document.body.classList.contains('cliente-night')
+    || document.documentElement.classList.contains('qr-entry');
+}
 function updateNetworkStatus() {
-
-  const el =
-    document.getElementById("network-status");
-
+  const el = document.getElementById("network-status");
   if (!el) return;
-
+  // Interfaccia cliente: niente indicatore online/offline
+  if (isClienteUI()) {
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.classList.remove('hidden');
   if (navigator.onLine) {
-
     el.innerHTML = "🟢 Online";
-
   } else {
-
-    el.innerHTML =
-      "🔴 Offline - salvataggio locale attivo";
-
+    el.innerHTML = "🔴 Offline - salvataggio locale attivo";
   }
 }
 
