@@ -1611,10 +1611,8 @@ async function renderRistDashboard() {
   $('#rist-stat-ordini-attivi').textContent = attivi;
   $('#rist-stat-incasso').textContent = formatPrice(incasso);
 
-  const badge = $('#badge-ordini');
   const nuovi = ordini.filter(o => o.stato === 'nuovo').length;
-  if (nuovi > 0) { badge.textContent = nuovi; badge.classList.remove('hidden'); }
-  else badge.classList.add('hidden');
+  updateOrdiniBadge(nuovi);
 
   const recent = ordini.slice(0, 5);
   const list = $('#rist-recent-ordini');
@@ -1884,9 +1882,24 @@ const ORDINI_POLL_MS = 5000;
 let _ordiniPoll = null;
 let _ordiniChannel = null;
 let _ordiniSig = null;
-let _knownOrderIds = null;
+let _knownOrderIds = null;   // null = baseline non ancora stabilita
 let _ordiniBusy = false;
+let _ordiniPending = false;  // un evento è arrivato mentre un controllo era già in corso
 const _titoloOriginale = document.title;
+
+/** Aggiorna il badge rosso accanto a «Ordini» (ristoratore e cassa). */
+function updateOrdiniBadge(n) {
+  const badge = document.getElementById('badge-ordini');
+  if (!badge) return;
+  const num = Math.max(0, Number(n) || 0);
+  if (num > 0) {
+    badge.textContent = String(num);
+    badge.classList.remove('hidden');
+  } else {
+    badge.textContent = '0';
+    badge.classList.add('hidden');
+  }
+}
 
 function beepNuovoOrdine() {
   try {
@@ -1904,6 +1917,7 @@ function beepNuovoOrdine() {
 }
 
 function avvisaNuoviOrdini(n) {
+  if (!n || n < 1) return;
   toast(n === 1 ? '🔔 Nuovo ordine!' : '🔔 ' + n + ' nuovi ordini!');
   beepNuovoOrdine();
   try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
@@ -1911,51 +1925,72 @@ function avvisaNuoviOrdini(n) {
 }
 
 async function checkOrdiniUpdate() {
-  if (_ordiniBusy) return;
+  // se un controllo è già in corso, segna che va rifatto appena finisce
+  if (_ordiniBusy) { _ordiniPending = true; return; }
   // ristoratore e cassa devono entrambi ricevere aggiornamenti in tempo reale
   if (!sb || !currentUser || !currentRistorante) return;
   if (currentUser.role !== 'ristoratore' && currentUser.role !== 'cassa') return;
   if (!navigator.onLine) return;
   _ordiniBusy = true;
   try {
-    const rid = currentRistorante.id;
-    const { data, error } = await sb.from('ordini').select('id,stato,stato_pagamento').eq('id_ristorante', rid);
-    if (error) throw error;
-    if (!currentRistorante || currentRistorante.id !== rid) return;   // nel frattempo è cambiato ristorante/logout
+    do {
+      _ordiniPending = false;
+      const rid = currentRistorante.id;
+      const { data, error } = await sb.from('ordini')
+        .select('id,stato,stato_pagamento')
+        .eq('id_ristorante', rid);
+      if (error) throw error;
+      if (!currentRistorante || currentRistorante.id !== rid) return;
 
-    const rows = data || [];
-    const sig = rows.map(o => o.id + ':' + o.stato + ':' + (o.stato_pagamento || '')).sort().join('|');
+      const rows = data || [];
+      const nNuovi = rows.filter(o => o.stato === 'nuovo').length;
+      // badge sempre allineato ai dati leggeri (anche al primo giro e senza ricaricare la pagina)
+      updateOrdiniBadge(nNuovi);
 
-    // ordini mai visti prima (la prima lettura non genera avvisi)
-    if (_knownOrderIds) {
-      const nuovi = rows.filter(o => !_knownOrderIds.has(o.id) && o.stato === 'nuovo');
-      if (nuovi.length) avvisaNuoviOrdini(nuovi.length);
-    }
-    _knownOrderIds = new Set(rows.map(o => o.id));
+      const sig = rows.map(o => o.id + ':' + o.stato + ':' + (o.stato_pagamento || '')).sort().join('|');
 
-    if (sig !== _ordiniSig) {
-      const primaVolta = _ordiniSig === null;
-      _ordiniSig = sig;
-      if (!primaVolta) await refreshSchermataOrdini();
-    }
+      // Baseline: la prima lettura non genera popup (evita avvisi su ordini già presenti al login).
+      // Dalla seconda in poi: ogni id nuovo in stato «nuovo» fa scattare notifica + beep.
+      if (_knownOrderIds) {
+        const arrivati = rows.filter(o => !_knownOrderIds.has(o.id) && o.stato === 'nuovo');
+        if (arrivati.length) avvisaNuoviOrdini(arrivati.length);
+      }
+      _knownOrderIds = new Set(rows.map(o => o.id));
+
+      if (sig !== _ordiniSig) {
+        const primaVolta = _ordiniSig === null;
+        _ordiniSig = sig;
+        // dalla seconda lettura ridisegna sempre; alla prima solo se ci sono già ordini nuovi
+        // (es. arrivati tra il render iniziale e il primo poll)
+        if (!primaVolta || nNuovi > 0) await refreshSchermataOrdini();
+      }
+    } while (_ordiniPending);
   } catch (e) {
     console.warn('Aggiornamento ordini non riuscito:', e.message || e);
   } finally {
     _ordiniBusy = false;
+    // se durante il finally è arrivato un altro evento
+    if (_ordiniPending) {
+      _ordiniPending = false;
+      setTimeout(() => checkOrdiniUpdate(), 0);
+    }
   }
 }
 
 async function refreshSchermataOrdini() {
   const visible = (id) => { const el = $(id); return el && !el.classList.contains('hidden'); };
-  if (visible('#page-rist-ordini')) await renderOrdiniKanban();
-  else if (visible('#page-rist-dashboard')) await renderRistDashboard();
-  else if (visible('#page-rist-tavoli')) await renderTavoli();
-  else {
-    // pagina menu: aggiorna solo il badge degli ordini nuovi
-    currentRistorante = await loadRistoranteFull(currentRistorante.id);
-    const nuovi = ((currentRistorante && currentRistorante.ordini) || []).filter(o => o.stato === 'nuovo').length;
-    const badge = $('#badge-ordini');
-    if (badge) { badge.textContent = nuovi; badge.classList.toggle('hidden', nuovi === 0); }
+  try {
+    if (visible('#page-rist-ordini')) await renderOrdiniKanban();
+    else if (visible('#page-rist-dashboard')) await renderRistDashboard();
+    else if (visible('#page-rist-tavoli')) await renderTavoli();
+    else if (currentRistorante) {
+      // altre pagine: ricarica e aggiorna solo il badge
+      currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
+      const nuovi = ((currentRistorante && currentRistorante.ordini) || []).filter(o => o.stato === 'nuovo').length;
+      updateOrdiniBadge(nuovi);
+    }
+  } catch (e) {
+    console.warn('refreshSchermataOrdini:', e.message || e);
   }
 }
 
@@ -1963,10 +1998,11 @@ function startOrdiniWatch() {
   stopOrdiniWatch();
   _ordiniSig = null;
   _knownOrderIds = null;
-  checkOrdiniUpdate();                                        // lettura iniziale
+  _ordiniPending = false;
+  checkOrdiniUpdate();                                        // lettura iniziale (stabilisce baseline)
   _ordiniPoll = setInterval(checkOrdiniUpdate, ORDINI_POLL_MS);
   try {
-    if (sb && sb.channel) {
+    if (sb && currentRistorante && sb.channel) {
       _ordiniChannel = sb.channel('ordini-' + currentRistorante.id)
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'ordini', filter: 'id_ristorante=eq.' + currentRistorante.id },
@@ -1982,6 +2018,7 @@ function stopOrdiniWatch() {
   _ordiniChannel = null;
   _ordiniSig = null;
   _knownOrderIds = null;
+  _ordiniPending = false;
   document.title = _titoloOriginale;
 }
 
@@ -2557,9 +2594,7 @@ async function renderOrdiniKanban() {
   $('#kanban-prep').innerHTML = prep.length ? prep.map(cardHtml).join('') : '<p class="kanban-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
   $('#kanban-pronto').innerHTML = pronti.length ? pronti.map(cardHtml).join('') : '<p class="kanban-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
 
-  const badge = $('#badge-ordini');
-  if (nuovi.length > 0) { badge.textContent = nuovi.length; badge.classList.remove('hidden'); }
-  else badge.classList.add('hidden');
+  updateOrdiniBadge(nuovi.length);
 
   setupKanbanDragDrop();
 }
