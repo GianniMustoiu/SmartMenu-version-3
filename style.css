@@ -762,3 +762,29 @@ html.qr-entry #network-status {
 }
 .wallet-mock > i { font-size: 56px; color: var(--text); margin-bottom: 10px; }
 .wallet-mock p { color: var(--muted); font-size: 13px; }
+
+/* =====================================================
+   CHIUSURA FISCALE
+   ===================================================== */
+.chiusura-alert {
+  padding: 12px 16px; border-radius: 10px; margin-bottom: 16px;
+  font-size: 14px; line-height: 1.45;
+  background: rgba(224, 160, 48, 0.15); border: 1px solid rgba(224, 160, 48, 0.4);
+  color: #fbbf24;
+}
+.chiusura-alert.ok {
+  background: rgba(34, 160, 107, 0.12); border-color: rgba(34, 160, 107, 0.35);
+  color: #34d399;
+}
+.chiusura-alert.danger {
+  background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+.chiusura-breakdown { display: flex; flex-direction: column; gap: 8px; }
+.chiusura-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.chiusura-row:last-child { border-bottom: none; }
+.chiusura-row .label { color: var(--muted); }
+.chiusura-row .val { font-weight: 700; }
