@@ -1884,10 +1884,6 @@ window.changeQty = function(id, delta) {
   if (!$('#cliente-carrello-view').classList.contains('hidden')) renderCarrello();
 };
 
-function updateCartCount() {
-  $('#cart-count').textContent = cart.reduce((s, c) => s + c.qty, 0);
-}
-
 $('#cliente-carrello-btn')?.addEventListener('click', () => {
   renderCarrello();
   showClienteView('carrello');
