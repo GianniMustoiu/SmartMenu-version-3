@@ -1,5 +1,6 @@
+
 // =====================================================
-// MenuPro Versione collegata a Supabase
+// MenuPro – Versione collegata a Supabase
 // =====================================================
 
 const BUILD = 'build-2026-10-19-pagamenti-v5';
@@ -2707,7 +2708,7 @@ if (!navigator.onLine) {
   $('#cliente-stato-btn').style.display = 'inline-flex';
   startOrdineStatusPolling();
   toast('Ordine inviato!');
-});
+}
 
 
 function updateClienteOrdiniSelect() {
@@ -3353,4 +3354,3 @@ async function stampaComande() {
 document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
   stampaComande();
 });
-
