@@ -368,8 +368,10 @@ td.actions .btn { margin-right: 4px; }
 .kanban-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .kanban-card {
   background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--muted);
-  border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: transform .12s, border-color .15s;
+  border-radius: 10px; padding: 12px 14px; cursor: grab; transition: transform .12s, border-color .15s, opacity .15s, box-shadow .15s;
+  user-select: none;
 }
+.kanban-card:active { cursor: grabbing; }
 .kanban-card:hover { transform: translateY(-2px); border-color: var(--primary); }
 .kanban-card.stato-nuovo { border-left-color: #fbbf24; }
 .kanban-card.stato-in_preparazione { border-left-color: #7cc0ee; }
@@ -377,6 +379,19 @@ td.actions .btn { margin-right: 4px; }
 .kanban-card.stato-consegnato { border-left-color: #b3a89a; }
 .kanban-card h4 { font-size: 15px; margin-bottom: 4px; }
 .kanban-card p { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.kanban-card.kanban-dragging {
+  opacity: 0.45;
+  transform: scale(0.98) rotate(1deg);
+  box-shadow: 0 8px 20px rgba(0,0,0,.25);
+}
+.kanban-col.drag-over {
+  outline: 2px dashed var(--primary);
+  outline-offset: -4px;
+  background: var(--primary-soft);
+}
+.kanban-col.drag-over .kanban-body {
+  min-height: 80px;
+}
 .pag-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 .prep-line { font-size: 16px; }
