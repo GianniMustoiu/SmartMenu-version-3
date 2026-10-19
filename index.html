@@ -409,8 +409,60 @@
             <label class="payment-opt"><input type="radio" name="pagamento" value="cassa" /> <i class="fas fa-cash-register"></i> Pago in cassa</label>
           </div>
         </div>
+        <div id="circuito-wrap" class="form-group">
+          <label>Circuito / wallet</label>
+          <div id="circuito-options" class="circuito-options">
+            <!-- riempito da JS -->
+          </div>
+          <small style="color:var(--muted);display:block;margin-top:6px">Scegli come pagare online. Non memorizziamo i dati della carta.</small>
+        </div>
         <button id="btn-invia-ordine" class="btn btn-primary btn-block"><i class="fas fa-paper-plane"></i> Conferma ordine</button>
         <button id="btn-torna-menu" class="btn btn-secondary btn-block" style="margin-top:10px">Aggiungi altro</button>
+      </section>
+
+      <section id="cliente-pagamento-view" class="hidden">
+        <button type="button" id="btn-indietro-pagamento" class="btn-back">
+          <i class="fas fa-arrow-left"></i> Indietro
+        </button>
+        <div class="pay-card">
+          <div class="pay-card-header">
+            <i id="pay-circuito-icon" class="fab fa-cc-visa"></i>
+            <h2 id="pay-circuito-nome">Pagamento</h2>
+            <p>Totale da pagare: <strong id="pay-totale">€0,00</strong></p>
+          </div>
+          <div id="pay-form-carta" class="pay-form">
+            <p class="pay-secure-note"><i class="fas fa-lock"></i> I dati restano sul tuo dispositivo: salviamo solo il tipo di circuito (es. Visa), non il numero della carta.</p>
+            <div class="form-group">
+              <label>Intestatario</label>
+              <input type="text" id="pay-intestatario" placeholder="Mario Rossi" autocomplete="cc-name" />
+            </div>
+            <div class="form-group">
+              <label>Numero carta</label>
+              <input type="text" id="pay-numero" inputmode="numeric" placeholder="ACCT-000035" maxlength="23" autocomplete="cc-number" />
+            </div>
+            <div class="form-row" style="padding:0;gap:12px">
+              <div class="form-group" style="flex:1">
+                <label>Scadenza</label>
+                <input type="text" id="pay-scadenza" placeholder="MM/AA" maxlength="5" autocomplete="cc-exp" />
+              </div>
+              <div class="form-group" style="flex:1">
+                <label>CVV</label>
+                <input type="password" id="pay-cvv" inputmode="numeric" placeholder="•••" maxlength="4" autocomplete="cc-csc" />
+              </div>
+            </div>
+          </div>
+          <div id="pay-form-wallet" class="pay-form hidden">
+            <p class="pay-secure-note"><i class="fas fa-lock"></i> Pagamento con wallet. Conferma per simulare l’autorizzazione (demo).</p>
+            <div class="wallet-mock">
+              <i id="pay-wallet-big-icon" class="fab fa-apple-pay"></i>
+              <p id="pay-wallet-hint">Usa il Face ID / impressione digitale sul tuo dispositivo.</p>
+            </div>
+          </div>
+          <button type="button" id="btn-paga-ora" class="btn btn-primary btn-block" style="margin-top:8px">
+            <i class="fas fa-lock"></i> Paga <span id="pay-btn-totale"></span>
+          </button>
+          <p class="pay-demo-hint">Modalità demo: nessun addebito reale. In produzione collega Stripe o un PSP certificato.</p>
+        </div>
       </section>
       <section id="cliente-ricevuta-view" class="hidden">
         <div class="ricevuta-card">
