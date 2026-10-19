@@ -184,11 +184,30 @@ async function loadRistoranteFull(id) {
 
 async function getRistorante(id) {
 
-  if (navigator.onLine) {
-    return loadRistoranteFull(id);
+  if (navigator.onLine && sb) {
+
+    try {
+
+      const r = await loadRistoranteFull(id);
+
+      if (r) {
+        saveOfflineRestaurant(r);
+        return r;
+      }
+
+    } catch (e) {
+      console.warn('Errore online, uso cache locale', e);
+    }
   }
 
-  return loadOfflineRestaurant(id);
+  const cached = loadOfflineRestaurant(id);
+
+  if (cached) {
+    console.log('Ristorante caricato dalla cache');
+    return cached;
+  }
+
+  return null;
 }
 
 // =====================================================
