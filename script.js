@@ -2750,7 +2750,15 @@ function qrExpKey(r, t) {
   return 'menupro_qr_exp_' + r + '_' + t;
 }
 
-function renewQrSession(r, t) {
+function renewQrSession(r, t, force = false) {
+  // force=true solo se vuoi ripartire da 30 min (es. sessione già scaduta)
+  // Al refresh della pagina NON si rinnova: resta il tempo rimanente.
+  try {
+    if (!force) {
+      const existing = parseInt(sessionStorage.getItem(qrExpKey(r, t)) || '0', 10);
+      if (existing > Date.now()) return existing;
+    }
+  } catch (e) {}
   const exp = Date.now() + QR_SESSION_MS;
   try { sessionStorage.setItem(qrExpKey(r, t), String(exp)); } catch (e) {}
   return exp;
@@ -2849,7 +2857,7 @@ function assertQrSessionOrBlock() {
     currentUser = { role: 'cliente', ristoranteId: rId, tavolo: t, fromQR: true };
     currentRistorante = r;
 
-    // Ogni scansione del QR rinnova 30 minuti di sessione
+    // Prima scansione / sessione scaduta → 30 min; refresh → tiene il tempo rimasto
     renewQrSession(rId, t);
     startQrSessionWatch();
 
