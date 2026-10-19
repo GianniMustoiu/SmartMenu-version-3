@@ -1689,8 +1689,12 @@ async function renderOrdiniKanban() {
     const items = (o.items || []).slice(0, 3).map(i => `${i.qty}× ${i.nome}`).join(', ');
     const more = (o.items || []).length > 3 ? '...' : '';
     const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+    // data-stato-origine: per il drag (consegnato resta nella colonna pronto)
+    const dragStato = (o.stato === 'consegnato') ? 'pronto' : o.stato;
     return `
-      <div class="kanban-card stato-${o.stato}" onclick="apriDettaglioOrdine('${o.id}')">
+      <div class="kanban-card stato-${o.stato}" draggable="true"
+           data-ordine-id="${o.id}" data-stato="${dragStato}"
+           onclick="apriDettaglioOrdine('${o.id}')">
         <h4>Tavolo ${o.tavolo} · ${formatPrice(o.totale)}</h4>
         <p>${items}${more}</p>
         <div class="pag-row">
@@ -1701,13 +1705,102 @@ async function renderOrdiniKanban() {
     `;
   }
 
-  $('#kanban-nuovo').innerHTML = nuovi.length ? nuovi.map(cardHtml).join('') : '<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
-  $('#kanban-prep').innerHTML = prep.length ? prep.map(cardHtml).join('') : '<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
-  $('#kanban-pronto').innerHTML = pronti.length ? pronti.map(cardHtml).join('') : '<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
+  $('#kanban-nuovo').innerHTML = nuovi.length ? nuovi.map(cardHtml).join('') : '<p class="kanban-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
+  $('#kanban-prep').innerHTML = prep.length ? prep.map(cardHtml).join('') : '<p class="kanban-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
+  $('#kanban-pronto').innerHTML = pronti.length ? pronti.map(cardHtml).join('') : '<p class="kanban-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nessun ordine</p>';
 
   const badge = $('#badge-ordini');
   if (nuovi.length > 0) { badge.textContent = nuovi.length; badge.classList.remove('hidden'); }
   else badge.classList.add('hidden');
+
+  setupKanbanDragDrop();
+}
+
+// =====================================================
+// DRAG & DROP KANBAN ORDINI
+// Conferma solo per salto "grande": da nuovo → pronto
+// =====================================================
+let _kanbanDrag = null; // { id, fromStato, el }
+let _kanbanJustDragged = false;
+
+function setupKanbanDragDrop() {
+  const board = document.querySelector('#page-rist-ordini .kanban');
+  if (!board || board.dataset.dndBound) return;
+  board.dataset.dndBound = '1';
+
+  board.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.kanban-card');
+    if (!card || !card.dataset.ordineId) return;
+    _kanbanDrag = {
+      id: card.dataset.ordineId,
+      fromStato: card.dataset.stato,
+      el: card
+    };
+    card.classList.add('kanban-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', card.dataset.ordineId); } catch (_) {}
+  });
+
+  board.addEventListener('dragend', (e) => {
+    const card = e.target.closest('.kanban-card');
+    if (card) card.classList.remove('kanban-dragging');
+    board.querySelectorAll('.kanban-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+    // evita che il click apra il dettaglio subito dopo un drop
+    if (_kanbanJustDragged) {
+      setTimeout(() => { _kanbanJustDragged = false; }, 50);
+    }
+    _kanbanDrag = null;
+  });
+
+  board.addEventListener('dragover', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col || !_kanbanDrag) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    board.querySelectorAll('.kanban-col.drag-over').forEach(c => {
+      if (c !== col) c.classList.remove('drag-over');
+    });
+    col.classList.add('drag-over');
+  });
+
+  board.addEventListener('dragleave', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    // lascia solo se usciamo davvero dalla colonna
+    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+
+  board.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const col = e.target.closest('.kanban-col');
+    board.querySelectorAll('.kanban-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+    if (!col || !_kanbanDrag) return;
+
+    const toStato = col.dataset.stato; // nuovo | in_preparazione | pronto
+    const { id, fromStato } = _kanbanDrag;
+    _kanbanJustDragged = true;
+    _kanbanDrag = null;
+
+    if (!toStato || toStato === fromStato) return;
+
+    // Salto "grande": da Nuovo direttamente a Pronto → chiedi conferma
+    if (fromStato === 'nuovo' && toStato === 'pronto') {
+      const ok = confirm('Vuoi segnare questo ordine come PRONTO saltando la preparazione?');
+      if (!ok) return;
+    }
+
+    await cambiaStato(id, toStato);
+  });
+
+  // se l'utente ha appena trascinato, non aprire il dettaglio sul click
+  board.addEventListener('click', (e) => {
+    if (!_kanbanJustDragged) return;
+    const card = e.target.closest('.kanban-card');
+    if (card) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
 }
 
 window.apriDettaglioOrdine = async function(ordineId) {
