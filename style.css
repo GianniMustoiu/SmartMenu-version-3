@@ -584,3 +584,12 @@ body.cliente-night { background: #0a0f1c; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Indicatore connessione: fuori dal flusso, non sposta il layout */
+#network-status {
+  position: fixed; top: 8px; right: 12px; z-index: 250;
+  font-size: 12px; padding: 3px 10px; border-radius: 99px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  pointer-events: none;
+}
+#network-status:empty { display: none; }
