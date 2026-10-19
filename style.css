@@ -708,3 +708,9 @@ body.cliente-night { background: #0a0f1c; }
 .qr-expired-card h2 { font-size: 20px; margin-bottom: 10px; }
 .qr-expired-card p { color: var(--muted); font-size: 14px; margin: 0 0 10px; line-height: 1.5; }
 .qr-expired-hint { font-size: 12px !important; margin-top: 14px !important; }
+
+/* Cliente: niente badge online/offline */
+body.cliente-night #network-status,
+html.qr-entry #network-status {
+  display: none !important;
+}
