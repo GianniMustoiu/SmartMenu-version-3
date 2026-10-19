@@ -367,7 +367,10 @@
               <i class="fas fa-sync"></i> Aggiorna
             </button>
             <button type="button" id="btn-chiusura-stampa" class="btn btn-secondary">
-              <i class="fas fa-print"></i> Stampa riepilogo
+              <i class="fas fa-print"></i> Stampa
+            </button>
+            <button type="button" id="btn-chiusura-pdf" class="btn btn-secondary">
+              <i class="fas fa-file-pdf"></i> Scarica PDF
             </button>
             <button type="button" id="btn-chiusura-esegui" class="btn btn-primary">
               <i class="fas fa-lock"></i> Esegui chiusura
@@ -950,7 +953,33 @@
     </div>
   </div>
 
+
+  <div id="modal-chiusura-fiscale" class="modal hidden">
+    <div class="modal-content" style="max-width:460px">
+      <div class="modal-header">
+        <h3><i class="fas fa-cash-register" style="color:var(--primary);margin-right:8px"></i> Chiusura fiscale</h3>
+        <button type="button" class="close-modal" data-modal="modal-chiusura-fiscale" id="btn-chiusura-modal-x">&times;</button>
+      </div>
+      <div class="chiusura-modal-body">
+        <p class="chiusura-modal-lead" id="chiusura-modal-lead">Stai per chiudere la giornata.</p>
+        <div class="chiusura-modal-stats" id="chiusura-modal-stats"></div>
+        <div id="chiusura-modal-warn" class="chiusura-modal-warn hidden"></div>
+        <p class="chiusura-modal-note">Il riepilogo verrà registrato nello storico. Puoi anche scaricare il PDF.</p>
+      </div>
+      <div class="modal-footer" style="flex-wrap:wrap">
+        <button type="button" class="btn btn-secondary" id="btn-chiusura-modal-annulla">Annulla</button>
+        <button type="button" class="btn btn-secondary" id="btn-chiusura-modal-pdf">
+          <i class="fas fa-file-pdf"></i> Solo PDF
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-chiusura-modal-ok">
+          <i class="fas fa-lock"></i> Conferma chiusura
+        </button>
+      </div>
+    </div>
+  </div>
+
 <div id="toast" class="toast hidden"></div>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=6"></script>
   <script src="script.js?v=6"></script>
