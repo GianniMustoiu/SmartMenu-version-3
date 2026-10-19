@@ -273,6 +273,76 @@ async function enterAsAdmin(email) {
   return true;
 }
 
+// =====================================================
+// PIÙ LOCALI PER UN UTENTE (stessa email su più ristoranti)
+// =====================================================
+async function loadRistorantiByEmail(email) {
+  if (!sb || !email) return [];
+  const { data, error } = await sb.from('ristoranti').select('*')
+    .eq('email', String(email).trim().toLowerCase()).order('nome');
+  if (error) { console.error('loadRistorantiByEmail:', error); return []; }
+  return data || [];
+}
+
+function lastRistKey(email) { return 'menupro_last_rist_' + String(email || '').toLowerCase(); }
+
+// entra nell'area ristoratore: se l'utente ha più locali apre l'ultimo usato
+async function enterRistoratoreByEmail(email) {
+  const list = await loadRistorantiByEmail(email);
+  if (!list.length) { toast('Nessun ristorante collegato a questa email'); return false; }
+  let lastId = null;
+  try { lastId = localStorage.getItem(lastRistKey(email)); } catch (e) {}
+  const r = list.find(x => x.id === lastId) || list[0];
+  return await enterAsRistoratore(r);
+}
+
+async function populateRistSwitcher() {
+  const wrap = $('#rist-switcher-wrap');
+  const sel = $('#rist-switcher');
+  if (!wrap || !sel) return;
+  if (!currentUser || currentUser.role !== 'ristoratore' || currentUser.fromAdmin || !currentUser.email) {
+    wrap.classList.add('hidden');
+    return;
+  }
+  let list = await loadRistorantiByEmail(currentUser.email);
+  if (!list.length && currentRistorante) list = [currentRistorante];   // offline: almeno il locale corrente
+  if (list.length < 2) { wrap.classList.add('hidden'); return; }
+  sel.innerHTML = list.map(r =>
+    `<option value="${r.id}" ${r.id === currentRistorante?.id ? 'selected' : ''}>${r.nome}${r.citta ? ' – ' + r.citta : ''}</option>`
+  ).join('');
+  wrap.classList.remove('hidden');
+}
+
+async function renderRistAll() {
+  await renderRistDashboard();
+  await renderMenuTable();
+  await renderOrdiniKanban();
+  await renderTavoli();
+}
+
+async function switchRistorante(id) {
+  if (!id || !currentUser || currentUser.role !== 'ristoratore') return;
+  if (currentRistorante && currentRistorante.id === id) return;
+  const r = await loadRistoranteFull(id);
+  if (!r) { toast('Impossibile aprire il locale'); await populateRistSwitcher(); return; }
+  stopOrdiniWatch();
+  currentRistorante = r;
+  currentUser.ristoranteId = id;
+  currentSala = 0;
+  menuFilterCat = 'tutti';
+  try { localStorage.setItem(lastRistKey(currentUser.email), id); } catch (e) {}
+  const sess = loadSession();
+  if (sess && sess.role === 'ristoratore') { sess.ristoranteId = id; saveSession(sess); }
+  $('#rist-nome-sidebar').textContent = r.nome || 'Ristorante';
+  await renderRistAll();
+  startOrdiniWatch();
+  toast('Locale: ' + (r.nome || ''));
+}
+
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'rist-switcher') switchRistorante(e.target.value);
+});
+
 async function enterAsRistoratore(r) {
   currentRistorante = await getRistorante(
   r.id || r.ristoranteId
@@ -285,10 +355,9 @@ async function enterAsRistoratore(r) {
   $('#app-ristoratore').classList.remove('hidden');
   $('#rist-nome-sidebar').textContent = (currentRistorante && currentRistorante.nome) || r.nome || 'Ristorante';
   $('#rist-user-email').textContent = r.email;
-  await renderRistDashboard();
-  await renderMenuTable();
-  await renderOrdiniKanban();
-  await renderTavoli();
+  try { localStorage.setItem(lastRistKey(r.email), currentUser.ristoranteId); } catch (e) {}
+  await populateRistSwitcher();
+  await renderRistAll();
   startOrdiniWatch();
   return true;
 }
@@ -309,10 +378,7 @@ async function doLogin(email, pass) {
         const { data: u } = await sb.from('utenti').select('*').eq('email', email).maybeSingle();
         if (u && u.ruolo === 'admin') return await enterAsAdmin(u.email);
         if (u && u.ruolo === 'ristoratore') {
-          const { data: r } = await sb.from('ristoranti').select('*').eq('email', email).maybeSingle();
-          if (r) return await enterAsRistoratore(r);
-          toast('Nessun ristorante collegato a questa email');
-          return false;
+          return await enterRistoratoreByEmail(email);
         }
         await sb.auth.signOut();
         toast('Utente autenticato ma senza ruolo: aggiungilo nella tabella utenti');
@@ -336,12 +402,8 @@ async function doLogin(email, pass) {
         return await enterAsAdmin(json.user.email);
       }
       if (json.user.ruolo === 'ristoratore') {
-        // se l'API non manda ristoranteId, cercalo per email
-        if (!json.user.ristoranteId && !json.user.id && sb) {
-          const { data: r } = await sb.from('ristoranti').select('*').eq('email', json.user.email).maybeSingle();
-          if (r) return await enterAsRistoratore(r);
-        }
-        return await enterAsRistoratore(json.user);
+        // i locali si cercano sempre per email (json.user.id è l'id dell'utente, non del ristorante)
+        return await enterRistoratoreByEmail(json.user.email);
       }
     }
   } catch (e) {
@@ -373,26 +435,23 @@ async function doLogin(email, pass) {
     }
 
     if (u && u.ruolo === 'ristoratore') {
-      const { data: r } = await sb.from('ristoranti').select('*').eq('email', email).maybeSingle();
-      if (r) return await enterAsRistoratore(r);
-      toast('Utente trovato ma nessun ristorante collegato a questa email');
-      return false;
+      return await enterRistoratoreByEmail(email);
     }
 
     // poi cerca direttamente in ristoranti (compatibilità)
-    const { data: r, error } = await sb
+    const { data: rr, error } = await sb
       .from('ristoranti')
-      .select('*')
+      .select('id')
       .eq('email', email)
       .eq('password', pass)
-      .maybeSingle();
+      .limit(1);
 
     if (error) {
       console.error(error);
       toast('Errore database: ' + (error.message || 'controlla config.js'));
       return false;
     }
-    if (r) return await enterAsRistoratore(r);
+    if (rr && rr.length) return await enterRistoratoreByEmail(email);
   } catch (e) {
     console.error(e);
     toast('Errore di connessione');
@@ -417,6 +476,7 @@ $$('.logout-btn').forEach(btn => {
 
     clearSession();
     stopOrdiniWatch();
+    $('#rist-switcher-wrap')?.classList.add('hidden');
 
     try {
       if (sb) {
@@ -621,7 +681,7 @@ async function renderAdminTable(filter = '') {
   }
   body.innerHTML = data.map(r => `
     <tr>
-      <td><strong>${r.nome}</strong></td>
+      <td><strong>${r.nome}</strong><br><small style="color:var(--muted)">${r.email || ''}</small></td>
       <td>${r.titolare || '—'}</td>
       <td>${r.citta || '—'}</td>
       <td>${(r.sale || []).length}</td>
@@ -644,8 +704,9 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#modal-title').textContent = 'Nuovo ristorante';
   $('#form-ristorante').reset();
   $('#edit-id').value = '';
-  $('#password').required = true;
+  $('#password').required = false;   // obbligatoria solo se l'utente non esiste (controllo in salvataggio)
   $('#password').type = 'password';
+  if ($('#email-hint')) $('#email-hint').textContent = '';
   $('#toggle-pass i').className = 'fas fa-eye';
   const d = new Date();
   d.setMonth(d.getMonth() + 1);
@@ -654,6 +715,19 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#n_tavoli').value = 8;
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
   $('#modal-ristorante').classList.remove('hidden');
+});
+
+
+$('#email')?.addEventListener('blur', async () => {
+  const hint = $('#email-hint');
+  if (!hint || !sb || $('#edit-id').value) return;       // solo per i nuovi locali
+  const email = $('#email').value.trim().toLowerCase();
+  if (!email) { hint.textContent = ''; return; }
+  const { data: u } = await sb.from('utenti').select('ruolo').eq('email', email).maybeSingle();
+  if (!u) { hint.textContent = ''; return; }
+  hint.textContent = u.ruolo === 'admin'
+    ? '⚠ Email di un account admin: non utilizzabile'
+    : '✔ Utente già esistente: il locale verrà aggiunto al suo account. Password non necessaria (quella esistente non viene modificata).';
 });
 
 async function createDefaultTavoli(ristoranteId, n) {
@@ -762,14 +836,19 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     toast('Ristorante e utente aggiornati');
   } else {
     // --- NUOVO ristorante + UTENTE ---
-    if (!password) {
-      toast('Password obbligatoria per il ristoratore');
+    const { data: utenteEsistente } = await sb.from('utenti').select('id,ruolo').eq('email', email).maybeSingle();
+    if (utenteEsistente && utenteEsistente.ruolo === 'admin') {
+      toast('Questa email appartiene a un account admin: usane un\'altra');
+      return;
+    }
+    if (!utenteEsistente && !password) {
+      toast('Password obbligatoria per il nuovo ristoratore');
       return;
     }
 
     const { data: inserted, error } = await sb.from('ristoranti').insert({
       ...data,
-      password
+      password: password || null
     }).select().single();
 
     if (error) {
@@ -778,15 +857,17 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
       return;
     }
 
-    // crea l'UTENTE ristoratore (email + password + nome)
-    const { error: errUser } = await sb.from('utenti').insert({
+    // crea l'UTENTE ristoratore solo se non esiste già (altrimenti il locale si aggiunge al suo account)
+    const { error: errUser } = utenteEsistente ? { error: null } : await sb.from('utenti').insert({
       email,
       password_hash: password,
       ruolo: 'ristoratore',
       nome: titolare || nomeRist
     });
 
-    if (errUser) {
+    if (utenteEsistente) {
+      toast('Locale aggiunto all\'utente esistente ' + email);
+    } else if (errUser) {
       console.error('Errore creazione utente:', errUser);
       toast('Ristorante creato, ma utente non salvato: ' + errUser.message);
     } else {
@@ -834,7 +915,13 @@ window.deleteRistorante = async function(id) {
   const { error } = await sb.from('ristoranti').delete().eq('id', id);
   if (error) { toast('Errore eliminazione: ' + error.message); console.error(error); return; }
 
+  let altriLocali = 0;
   if (rist && rist.email) {
+    const { count } = await sb.from('ristoranti').select('id', { count: 'exact', head: true })
+      .eq('email', String(rist.email).trim().toLowerCase());
+    altriLocali = count || 0;
+  }
+  if (rist && rist.email && altriLocali === 0) {
     const { error: errU } = await sb.from('utenti').delete()
       .eq('email', String(rist.email).trim().toLowerCase())
       .eq('ruolo', 'ristoratore');          // mai toccare gli admin
