@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -320,6 +321,12 @@
       </section>
 
       <section id="page-rist-ordini" class="page hidden">
+        <div class="toolbar" style="margin-bottom:16px">
+          <p class="hint-inline" style="margin:0">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
+          <button type="button" id="btn-stampa-comande" class="btn btn-secondary">
+            <i class="fas fa-print"></i> Stampa comande
+          </button>
+        </div>
         <div class="kanban">
           <div class="kanban-col" data-stato="nuovo">
             <div class="kanban-header"><i class="fas fa-bell"></i> Nuovi <span id="count-nuovo" class="kanban-count">0</span></div>
@@ -425,6 +432,9 @@
           </p>
           <button id="btn-aggiorna-stato" class="btn btn-secondary btn-block" style="margin-top:10px;display:none">
             <i class="fas fa-sync"></i> Aggiorna stato
+          </button>
+          <button id="btn-scarica-ricevuta" class="btn btn-secondary btn-block hidden" style="margin-top:10px">
+            <i class="fas fa-download"></i> Scarica ricevuta
           </button>
           <button id="btn-nuovo-ordine" class="btn btn-primary btn-block" style="margin-top:10px">
             <i class="fas fa-plus"></i> Ordina ancora
