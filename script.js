@@ -1,4 +1,3 @@
-
 // =====================================================
 // MenuPro – Versione collegata a Supabase
 // =====================================================
@@ -710,13 +709,15 @@ $$('#app-ristoratore .nav-item').forEach(item => {
     $(`#page-${page}`).classList.remove('hidden');
     const titles = {
       'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
-      'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR'
+      'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
+      'rist-chiusura': 'Chiusura fiscale'
     };
     $('#rist-page-title').textContent = titles[page] || page;
     if (page === 'rist-dashboard') await renderRistDashboard();
     if (page === 'rist-menu') await renderMenuTable();
     if (page === 'rist-ordini') await renderOrdiniKanban();
     if (page === 'rist-tavoli') await renderTavoli();
+    if (page === 'rist-chiusura') await renderChiusuraFiscale();
   });
 });
 
@@ -1821,6 +1822,321 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', () => { document.title = _titoloOriginale; checkOrdiniUpdate(); });
 window.addEventListener('online', () => checkOrdiniUpdate());
+
+
+// =====================================================
+// CHIUSURA FISCALE (ristoratore)
+// =====================================================
+function ymdLocal(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function sameDayLocal(iso, ymd) {
+  if (!iso || !ymd) return false;
+  const d = new Date(iso);
+  return ymdLocal(d) === ymd;
+}
+
+function chiusuraStorageKey(ristId) {
+  return 'menupro_chiusure_' + ristId;
+}
+
+function loadChiusureLocali(ristId) {
+  try {
+    return JSON.parse(localStorage.getItem(chiusuraStorageKey(ristId)) || '[]');
+  } catch (e) { return []; }
+}
+
+function saveChiusuraLocale(ristId, record) {
+  const list = loadChiusureLocali(ristId).filter(x => x.data_giornata !== record.data_giornata);
+  list.unshift(record);
+  try { localStorage.setItem(chiusuraStorageKey(ristId), JSON.stringify(list.slice(0, 60))); } catch (e) {}
+}
+
+function collectChiusuraStats(ordini, ymd) {
+  const delGiorno = (ordini || []).filter(o => sameDayLocal(o.createdAt || o.created_at, ymd));
+  let totale = 0, carta = 0, cassa = 0, pagato = 0, inAttesa = 0, nonPagato = 0;
+  const perCircuito = {};
+  const perStato = {};
+  const aperti = [];
+
+  delGiorno.forEach(o => {
+    const t = Number(o.totale) || 0;
+    totale += t;
+    const metodo = o.pagamento === 'cassa' ? 'cassa' : 'carta';
+    if (metodo === 'carta') carta += t; else cassa += t;
+    const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+    if (ps === 'pagato') pagato += t;
+    else if (ps === 'non_pagato') nonPagato += t;
+    else inAttesa += t;
+    const circ = o.circuito_pagamento || (metodo === 'carta' ? 'non_specificato' : '—');
+    if (metodo === 'carta') perCircuito[circ] = (perCircuito[circ] || 0) + t;
+    perStato[o.stato || 'nuovo'] = (perStato[o.stato || 'nuovo'] || 0) + 1;
+    if (isOrdineAncoraAperto(o.stato)) aperti.push(o);
+  });
+
+  return {
+    delGiorno,
+    n: delGiorno.length,
+    totale, carta, cassa, pagato, inAttesa, nonPagato,
+    perCircuito, perStato, aperti
+  };
+}
+
+function renderBreakdown(el, entries, emptyMsg) {
+  if (!el) return;
+  if (!entries.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px">' + emptyMsg + '</p>';
+    return;
+  }
+  el.innerHTML = entries.map(([label, val, isMoney]) => `
+    <div class="chiusura-row">
+      <span class="label">${label}</span>
+      <span class="val">${isMoney ? formatPrice(val) : val}</span>
+    </div>
+  `).join('');
+}
+
+async function renderChiusuraFiscale() {
+  if (!currentRistorante) return;
+  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+
+  const dataInput = $('#chiusura-data');
+  if (dataInput && !dataInput.value) dataInput.value = ymdLocal();
+  const ymd = (dataInput && dataInput.value) || ymdLocal();
+
+  const stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
+
+  if ($('#ch-tot-incasso')) $('#ch-tot-incasso').textContent = formatPrice(stats.totale);
+  if ($('#ch-n-ordini')) $('#ch-n-ordini').textContent = stats.n;
+  if ($('#ch-tot-carta')) $('#ch-tot-carta').textContent = formatPrice(stats.carta);
+  if ($('#ch-tot-cassa')) $('#ch-tot-cassa').textContent = formatPrice(stats.cassa);
+
+  const alert = $('#chiusura-alert');
+  if (alert) {
+    if (stats.aperti.length) {
+      alert.className = 'chiusura-alert danger';
+      alert.classList.remove('hidden');
+      alert.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Ci sono <strong>' +
+        stats.aperti.length + '</strong> ordini ancora aperti (nuovo / in preparazione / pronto). ' +
+        'Chiudili o consegnali prima della chiusura, oppure la chiusura li segnerà come chiusi.';
+    } else if (stats.n === 0) {
+      alert.className = 'chiusura-alert';
+      alert.classList.remove('hidden');
+      alert.innerHTML = '<i class="fas fa-info-circle"></i> Nessun ordine in questa giornata.';
+    } else {
+      alert.className = 'chiusura-alert ok';
+      alert.classList.remove('hidden');
+      alert.innerHTML = '<i class="fas fa-check-circle"></i> Tutti gli ordini della giornata risultano chiusi o consegnati. Puoi eseguire la chiusura fiscale.';
+    }
+  }
+
+  renderBreakdown($('#chiusura-metodi'), [
+    ['Carta (online)', stats.carta, true],
+    ['Cassa', stats.cassa, true],
+    ['Già pagati', stats.pagato, true],
+    ['In attesa', stats.inAttesa, true],
+    ['Non pagati', stats.nonPagato, true]
+  ], 'Nessun dato');
+
+  const circEntries = Object.entries(stats.perCircuito)
+    .map(([id, v]) => [labelCircuito(id === 'non_specificato' ? '' : id) || id, v, true])
+    .sort((a, b) => b[1] - a[1]);
+  renderBreakdown($('#chiusura-circuiti'), circEntries, 'Nessun pagamento con carta');
+
+  const statoEntries = Object.entries(stats.perStato)
+    .map(([s, n]) => [labelStato(s), n, false]);
+  renderBreakdown($('#chiusura-stati'), statoEntries, 'Nessun ordine');
+
+  const tbody = $('#chiusura-ordini-body');
+  if (tbody) {
+    if (!stats.delGiorno.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">Nessun ordine</td></tr>';
+    } else {
+      const sorted = [...stats.delGiorno].sort((a, b) =>
+        new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+      tbody.innerHTML = sorted.map(o => {
+        const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+        const metodo = o.pagamento === 'cassa' ? 'Cassa' : 'Carta';
+        const circ = o.circuito_pagamento ? labelCircuito(o.circuito_pagamento) : '—';
+        return `<tr>
+          <td>${formatTime(o.createdAt || o.created_at)}</td>
+          <td>#${o.codice || ''}</td>
+          <td>${o.tavolo}</td>
+          <td><span class="badge-stato ${o.stato}">${labelStato(o.stato)}</span></td>
+          <td>${metodo} · <span class="badge-pag ${ps}">${labelPagamentoStato(ps)}</span></td>
+          <td>${circ}</td>
+          <td><strong>${formatPrice(o.totale)}</strong></td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  await renderStoricoChiusure(ymd);
+}
+
+async function renderStoricoChiusure(ymdFocus) {
+  const el = $('#chiusura-storico');
+  if (!el || !currentRistorante) return;
+  let rows = loadChiusureLocali(currentRistorante.id);
+  if (sb) {
+    try {
+      const { data } = await sb.from('chiusure_fiscali')
+        .select('*')
+        .eq('id_ristorante', currentRistorante.id)
+        .order('data_giornata', { ascending: false })
+        .limit(30);
+      if (data && data.length) {
+        // merge prefer DB
+        const byDay = {};
+        rows.forEach(r => { byDay[r.data_giornata] = r; });
+        data.forEach(r => { byDay[r.data_giornata] = r; });
+        rows = Object.values(byDay).sort((a, b) => String(b.data_giornata).localeCompare(String(a.data_giornata)));
+      }
+    } catch (e) { /* tabella assente */ }
+  }
+  if (!rows.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna chiusura registrata ancora.</p>';
+    return;
+  }
+  el.innerHTML = rows.slice(0, 15).map(r => `
+    <div class="recent-item">
+      <span><strong>${r.data_giornata}</strong> · ${r.n_ordini || 0} ordini
+        ${r.data_giornata === ymdFocus ? ' <span class="badge-stato pronto">giornata selezionata</span>' : ''}
+      </span>
+      <span>${formatPrice(r.totale || 0)}</span>
+    </div>
+  `).join('');
+}
+
+async function eseguiChiusuraFiscale() {
+  if (!currentRistorante) return;
+  if (!assertNotCliente()) return;
+  const ymd = ($('#chiusura-data') && $('#chiusura-data').value) || ymdLocal();
+  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  const stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
+
+  let msg = 'Confermi la chiusura fiscale del ' + ymd + '?\n\n' +
+    'Ordini: ' + stats.n + '\nIncasso: ' + formatPrice(stats.totale) +
+    '\nCarta: ' + formatPrice(stats.carta) + ' · Cassa: ' + formatPrice(stats.cassa);
+  if (stats.aperti.length) {
+    msg += '\n\nATTENZIONE: ' + stats.aperti.length +
+      ' ordini ancora aperti verranno segnati come CHIUSI e pagati.';
+  }
+  if (!confirm(msg)) return;
+
+  // Chiudi ordini ancora aperti della giornata
+  if (sb && stats.aperti.length) {
+    for (const o of stats.aperti) {
+      try {
+        await sb.from('ordini').update({ stato: 'chiuso', stato_pagamento: 'pagato' }).eq('id', o.id);
+        await sb.from('tavoli').update({ occupato: false })
+          .eq('id_ristorante', currentRistorante.id).eq('numero', o.tavolo);
+      } catch (e) { console.warn('chiusura ordine', o.id, e); }
+    }
+  }
+
+  const record = {
+    id_ristorante: currentRistorante.id,
+    data_giornata: ymd,
+    chiuso_at: new Date().toISOString(),
+    n_ordini: stats.n,
+    totale: Math.round(stats.totale * 100) / 100,
+    totale_carta: Math.round(stats.carta * 100) / 100,
+    totale_cassa: Math.round(stats.cassa * 100) / 100,
+    totale_pagato: Math.round(stats.pagato * 100) / 100,
+    totale_in_attesa: Math.round(stats.inAttesa * 100) / 100,
+    dettaglio: {
+      circuiti: stats.perCircuito,
+      stati: stats.perStato,
+      aperti_chiusi: stats.aperti.map(o => o.id)
+    }
+  };
+
+  saveChiusuraLocale(currentRistorante.id, record);
+
+  if (sb) {
+    try {
+      await sb.from('chiusure_fiscali').upsert(record, { onConflict: 'id_ristorante,data_giornata' });
+    } catch (e) {
+      console.warn('chiusure_fiscali upsert skip', e.message || e);
+    }
+  }
+
+  toast('Chiusura fiscale del ' + ymd + ' registrata');
+  await renderChiusuraFiscale();
+  await renderRistDashboard();
+  await renderOrdiniKanban();
+}
+
+function assertNotCliente() {
+  return !(currentUser && currentUser.role === 'cliente');
+}
+
+function stampaRiepilogoChiusura() {
+  if (!currentRistorante) return;
+  const ymd = ($('#chiusura-data') && $('#chiusura-data').value) || ymdLocal();
+  const stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
+  const circLines = Object.entries(stats.perCircuito)
+    .map(([id, v]) => `<div class="chiusura-row"><span>${labelCircuito(id) || id}</span><span>${formatPrice(v)}</span></div>`)
+    .join('') || '<div>—</div>';
+
+  let area = document.getElementById('print-area');
+  if (!area) {
+    area = document.createElement('div');
+    area.id = 'print-area';
+    document.body.appendChild(area);
+  }
+  area.innerHTML = `
+    <div style="font-family:system-ui,sans-serif;color:#111;max-width:640px;margin:0 auto;padding:16px">
+      <h1 style="font-size:20px;margin:0 0 4px">Chiusura fiscale</h1>
+      <p style="margin:0 0 12px;color:#444">${currentRistorante.nome || ''} · Giornata ${ymd}</p>
+      <p style="font-size:13px;color:#666">Stampato il ${new Date().toLocaleString('it-IT')}</p>
+      <hr/>
+      <p><strong>Ordini:</strong> ${stats.n}</p>
+      <p><strong>Incasso totale:</strong> ${formatPrice(stats.totale)}</p>
+      <p>Carta: ${formatPrice(stats.carta)} · Cassa: ${formatPrice(stats.cassa)}</p>
+      <p>Pagati: ${formatPrice(stats.pagato)} · In attesa: ${formatPrice(stats.inAttesa)} · Non pagati: ${formatPrice(stats.nonPagato)}</p>
+      <h3 style="font-size:15px;margin:16px 0 8px">Circuiti carta</h3>
+      ${circLines}
+      <h3 style="font-size:15px;margin:16px 0 8px">Ordini</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;border-bottom:1px solid #ccc">Ora</th>
+          <th style="text-align:left;border-bottom:1px solid #ccc">Codice</th>
+          <th style="text-align:left;border-bottom:1px solid #ccc">Tav.</th>
+          <th style="text-align:left;border-bottom:1px solid #ccc">Pag.</th>
+          <th style="text-align:right;border-bottom:1px solid #ccc">Totale</th>
+        </tr></thead>
+        <tbody>
+          ${stats.delGiorno.map(o => `
+            <tr>
+              <td style="padding:4px 0">${formatTime(o.createdAt || o.created_at)}</td>
+              <td>${o.codice || ''}</td>
+              <td>${o.tavolo}</td>
+              <td>${o.pagamento === 'cassa' ? 'Cassa' : 'Carta'}${o.circuito_pagamento ? ' · ' + labelCircuito(o.circuito_pagamento) : ''}</td>
+              <td style="text-align:right">${formatPrice(o.totale)}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="5">Nessun ordine</td></tr>'}
+        </tbody>
+      </table>
+      <p style="margin-top:24px;font-size:11px;color:#888">Documento di riepilogo gestionale MenuPro (non sostituisce lo scontrino fiscale del registratore di cassa certificato).</p>
+    </div>
+  `;
+  area.classList.add('printing');
+  const cleanup = () => { area.classList.remove('printing'); area.innerHTML = ''; };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(() => { window.print(); setTimeout(cleanup, 1500); }, 100);
+}
+
+document.getElementById('btn-chiusura-refresh')?.addEventListener('click', () => renderChiusuraFiscale());
+document.getElementById('btn-chiusura-esegui')?.addEventListener('click', () => eseguiChiusuraFiscale());
+document.getElementById('btn-chiusura-stampa')?.addEventListener('click', () => stampaRiepilogoChiusura());
+document.getElementById('chiusura-data')?.addEventListener('change', () => renderChiusuraFiscale());
+
 
 // =====================================================
 // ORDINI KANBAN
