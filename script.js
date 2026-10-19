@@ -134,6 +134,70 @@ function loadClientState(r, t) {
   } catch (e) {}
   return {};
 }
+function clearClientState(r, t) {
+  try { localStorage.removeItem(clientKey(r, t)); } catch (e) {}
+}
+function isOrdineAncoraAperto(stato) {
+  return stato && stato !== 'chiuso' && stato !== 'consegnato';
+}
+
+/** Dopo chiusura conto: toglie dalla sessione locale gli ordini chiusi/consegnati. */
+async function syncClientSessionConDb(rId, tavolo) {
+  if (!sb || !sessionOrders.length) {
+    // se non c'è DB, non mostrare ricevuta di ordini "fantasma"
+    return { activeOrders: sessionOrders, lastActiveId: lastOrdineId };
+  }
+  try {
+    const ids = sessionOrders.map(o => o.id).filter(Boolean);
+    let rows = [];
+    if (ids.length) {
+      const { data } = await sb.from('ordini').select('id,codice,stato').in('id', ids);
+      rows = data || [];
+    }
+    // anche eventuali ordini aperti di questo tavolo non in sessione (altro dispositivo)
+    const { data: apertiTavolo } = await sb.from('ordini')
+      .select('id,codice,stato')
+      .eq('id_ristorante', rId)
+      .eq('tavolo', tavolo)
+      .or('stato.eq.nuovo,stato.eq.in_preparazione,stato.eq.pronto')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    const byId = {};
+    rows.forEach(o => { byId[o.id] = o; });
+    (apertiTavolo || []).forEach(o => { byId[o.id] = o; });
+
+    const activeOrders = [];
+    const seen = new Set();
+    // prima quelli della sessione ancora aperti
+    for (const so of sessionOrders) {
+      const db = byId[so.id];
+      if (db && isOrdineAncoraAperto(db.stato) && !seen.has(so.id)) {
+        activeOrders.push({ id: so.id, codice: db.codice || so.codice });
+        seen.add(so.id);
+      }
+    }
+    // poi altri aperti al tavolo
+    for (const o of (apertiTavolo || [])) {
+      if (!seen.has(o.id) && isOrdineAncoraAperto(o.stato)) {
+        activeOrders.push({ id: o.id, codice: o.codice });
+        seen.add(o.id);
+      }
+    }
+
+    let lastActiveId = null;
+    if (lastOrdineId && byId[lastOrdineId] && isOrdineAncoraAperto(byId[lastOrdineId].stato)) {
+      lastActiveId = lastOrdineId;
+    } else if (activeOrders.length) {
+      lastActiveId = activeOrders[0].id;
+    }
+
+    return { activeOrders, lastActiveId };
+  } catch (e) {
+    console.warn('syncClientSessionConDb', e);
+    return { activeOrders: sessionOrders, lastActiveId: lastOrdineId };
+  }
+}
+
 
 // =====================================================
 // SUPABASE HELPERS
@@ -2543,6 +2607,23 @@ function applyOrdineStatusUI(o) {
     toast('Stato ordine: ' + labelStato(stato));
   }
   _lastKnownStato = stato;
+
+  // Conto chiuso / consegnato: togli dalla sessione e torna al menu (nuovo cliente al tavolo)
+  if (!isOrdineAncoraAperto(stato) && currentUser && currentUser.fromQR) {
+    sessionOrders = sessionOrders.filter(x => x.id !== (lastOrdineId));
+    if (!sessionOrders.length) {
+      lastOrdineId = null;
+      clearClientState(currentUser.ristoranteId, currentUser.tavolo);
+      if ($('#cliente-stato-btn')) $('#cliente-stato-btn').style.display = 'none';
+      stopOrdineStatusPolling();
+      // non forzare il menu se l'utente sta ancora guardando la ricevuta del "grazie":
+      // solo al prossimo scan QR vedrà il menu pulito. Se vuole ordinare ancora, "Ordina ancora" resta.
+    } else {
+      lastOrdineId = sessionOrders[sessionOrders.length - 1].id;
+      saveClientState();
+      updateClienteOrdiniSelect();
+    }
+  }
 }
 
 function startOrdineStatusPolling() {
@@ -2778,17 +2859,33 @@ function assertQrSessionOrBlock() {
     cart = saved.cart || [];
     lastOrdineId = saved.last || null;
 
+    // Se il conto è stato chiuso, non mostrare più la ricevuta del vecchio ordine
+    const synced = await syncClientSessionConDb(rId, t);
+    sessionOrders = synced.activeOrders || [];
+    lastOrdineId = synced.lastActiveId || null;
+    if (!sessionOrders.length) {
+      lastOrdineId = null;
+      // tavolo libero: reset sessione locale (evita ricevuta fantasma)
+      clearClientState(rId, t);
+      cart = cart || []; // tiene solo un eventuale carrello non inviato
+    }
+    saveClientState();
+
     if ($('#cliente-rist-nome')) $('#cliente-rist-nome').textContent = r.nome;
     if ($('#cliente-tavolo-num')) $('#cliente-tavolo-num').textContent = t;
 
     if (sessionOrders.length) {
       updateClienteOrdiniSelect();
       $('#cliente-stato-btn').style.display = 'inline-flex';
+    } else {
+      updateClienteOrdiniSelect();
+      if ($('#cliente-stato-btn')) $('#cliente-stato-btn').style.display = 'none';
     }
     updateCartCount();
 
+    // Mostra ricevuta solo se c'è ancora un ordine APERTO a questo tavolo
     if (!cart.length && lastOrdineId) {
-      await loadClienteOrdineById(lastOrdineId); // mostra ricevuta e riavvia l'aggiornamento stato
+      await loadClienteOrdineById(lastOrdineId);
     } else {
       showClienteView('menu');
       renderClienteMenu();
