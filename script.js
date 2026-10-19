@@ -85,7 +85,12 @@ function applyPaymentOptions() {
   $$('input[name="pagamento"]').forEach(inp => {
     const ok = !!m[inp.value];
     const label = inp.closest('label');
-    if (label) label.style.display = ok ? '' : 'none';
+    if (label) {
+      label.classList.toggle('hidden', !ok);
+      // inline + !important: vince anche su "display:flex !important" del CSS, senza dipendere da style.css
+      if (ok) label.style.removeProperty('display');
+      else label.style.setProperty('display', 'none', 'important');
+    }
     if (!ok && inp.checked) checkedHidden = true;
   });
   // se il metodo selezionato non è più ammesso, seleziona il primo disponibile
@@ -1791,6 +1796,7 @@ window.deleteTavolo = async function(id) {
 // CLIENTE
 // =====================================================
 function showClienteView(view) {
+  if (view === 'carrello') applyPaymentOptions();
   ['cliente-menu-view', 'cliente-carrello-view', 'cliente-ricevuta-view', 'cliente-stato-view'].forEach(id => {
     $(`#${id}`)?.classList.add('hidden');
   });
