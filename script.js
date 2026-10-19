@@ -108,6 +108,8 @@ function applyPaymentOptions() {
 // =====================================================
 const SESSION_KEY = 'menupro_session';
 const CLIENT_TTL = 12 * 60 * 60 * 1000; // gli ordini del tavolo si ricordano per 12 ore
+const QR_SESSION_MS = 30 * 60 * 1000; // sessione cliente da QR: 30 minuti, poi riscansione
+let _qrExpireTimer = null;
 
 function saveSession(s) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {} }
 function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; } }
@@ -2286,6 +2288,7 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     toast('Sessione cliente non valida. Riscansiona il QR.');
     return;
   }
+  if (!assertQrSessionOrBlock()) return;
   if (!sb) {
     toast('Database non collegato: controlla config.js');
     return;
@@ -2657,6 +2660,93 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
 // =====================================================
 // AVVIO 1: QR cliente (?r=...&t=...)
 // =====================================================
+
+// =====================================================
+// SESSIONE QR (scade dopo 30 minuti → riscansione)
+// Ogni apertura del link QR rinnova i 30 minuti.
+// =====================================================
+function qrExpKey(r, t) {
+  return 'menupro_qr_exp_' + r + '_' + t;
+}
+
+function renewQrSession(r, t) {
+  const exp = Date.now() + QR_SESSION_MS;
+  try { sessionStorage.setItem(qrExpKey(r, t), String(exp)); } catch (e) {}
+  return exp;
+}
+
+function getQrExpiresAt(r, t) {
+  try {
+    const v = parseInt(sessionStorage.getItem(qrExpKey(r, t)) || '0', 10);
+    return v || 0;
+  } catch (e) { return 0; }
+}
+
+function isQrSessionValid() {
+  if (!currentUser || currentUser.role !== 'cliente') return true;
+  // demo admin senza fromQR: nessun limite
+  if (!currentUser.fromQR) return true;
+  const exp = getQrExpiresAt(currentUser.ristoranteId, currentUser.tavolo);
+  return exp > Date.now();
+}
+
+function minutiQrRimanenti() {
+  if (!currentUser || !currentUser.fromQR) return null;
+  const exp = getQrExpiresAt(currentUser.ristoranteId, currentUser.tavolo);
+  const ms = exp - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / 60000);
+}
+
+function updateQrSessionUI() {
+  const banner = document.getElementById('qr-session-banner');
+  const overlay = document.getElementById('qr-expired-overlay');
+  const timerEl = document.getElementById('qr-session-timer');
+  if (!currentUser || !currentUser.fromQR) {
+    if (banner) banner.classList.add('hidden');
+    if (overlay) overlay.classList.add('hidden');
+    return;
+  }
+  const valid = isQrSessionValid();
+  const min = minutiQrRimanenti();
+  if (timerEl && min !== null) {
+    timerEl.textContent = valid
+      ? (min <= 1 ? 'meno di 1 min' : min + ' min')
+      : 'scaduta';
+  }
+  if (banner) {
+    banner.classList.toggle('hidden', !valid);
+    banner.classList.toggle('qr-session-warn', valid && min !== null && min <= 5);
+  }
+  if (overlay) {
+    overlay.classList.toggle('hidden', valid);
+  }
+  // disabilita invio ordine se scaduto
+  const btn = document.getElementById('btn-invia-ordine');
+  if (btn) {
+    btn.disabled = !valid;
+    btn.title = valid ? '' : 'Sessione scaduta: riscansione il QR sul tavolo';
+  }
+}
+
+function startQrSessionWatch() {
+  if (_qrExpireTimer) clearInterval(_qrExpireTimer);
+  updateQrSessionUI();
+  _qrExpireTimer = setInterval(() => {
+    updateQrSessionUI();
+    if (currentUser && currentUser.fromQR && !isQrSessionValid()) {
+      // lascia l'overlay visibile; ferma solo se non serve più
+    }
+  }, 15000);
+}
+
+function assertQrSessionOrBlock() {
+  if (isQrSessionValid()) return true;
+  updateQrSessionUI();
+  toast('Sessione scaduta. Riscansiona il QR sul tavolo per ordinare di nuovo.');
+  return false;
+}
+
 (async function initFromQR() {
   const params = new URLSearchParams(window.location.search);
   const rId = params.get('r');
@@ -2677,6 +2767,10 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
 
     currentUser = { role: 'cliente', ristoranteId: rId, tavolo: t, fromQR: true };
     currentRistorante = r;
+
+    // Ogni scansione del QR rinnova 30 minuti di sessione
+    renewQrSession(rId, t);
+    startQrSessionWatch();
 
     // ripristina carrello e ordini già fatti a questo tavolo
     const saved = loadClientState(rId, t);
