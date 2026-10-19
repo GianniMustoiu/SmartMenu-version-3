@@ -1173,7 +1173,7 @@ $$('.period-btn').forEach(btn => {
 
 async function renderRistDashboard() {
   if (!currentRistorante) return;
-  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  currentRistorante = await getRistorante(currentRistorante.id);
   const menu = currentRistorante.menu || [];
   const ordini = currentRistorante.ordini || [];
   const tavoli = currentRistorante.tavoli || [];
