@@ -323,9 +323,14 @@
       <section id="page-rist-ordini" class="page hidden">
         <div class="toolbar" style="margin-bottom:16px">
           <p class="hint-inline" style="margin:0">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
-          <button type="button" id="btn-stampa-comande" class="btn btn-secondary">
-            <i class="fas fa-print"></i> Stampa comande
-          </button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button type="button" id="btn-stampa-comande" class="btn btn-secondary">
+              <i class="fas fa-print"></i> Stampa comande
+            </button>
+            <button type="button" id="btn-chiudi-tutto" class="btn btn-danger">
+              <i class="fas fa-lock"></i> Chiudi tutto
+            </button>
+          </div>
         </div>
         <div class="kanban">
           <div class="kanban-col" data-stato="nuovo">
