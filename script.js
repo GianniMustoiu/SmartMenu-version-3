@@ -234,7 +234,9 @@ async function enterAsAdmin(email) {
 }
 
 async function enterAsRistoratore(r) {
-  currentRistorante = await loadRistoranteFull(r.id || r.ristoranteId);
+  currentRistorante = await getRistorante(
+  r.id || r.ristoranteId
+);
   currentUser = { role: 'ristoratore', email: r.email, ristoranteId: r.id || r.ristoranteId };
     const prevR = loadSession();
   saveSession({ role: 'ristoratore', email: r.email, ristoranteId: currentUser.ristoranteId,
