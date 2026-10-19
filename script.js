@@ -166,7 +166,6 @@ async function loadRistoranti() {
 
 
 async function loadRistoranteFull(id) {
-  async function loadRistoranteFull(id) {
 
   if (!navigator.onLine) {
     return loadOfflineRestaurant(id);
