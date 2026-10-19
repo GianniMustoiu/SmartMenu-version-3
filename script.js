@@ -2257,7 +2257,7 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
       return;
     }
     if (s.role === 'ristoratore') {
-      const r = await loadRistoranteFull(s.ristoranteId);
+      const r = await getRistorante(s.ristoranteId);
       if (!r) throw new Error('Ristorante non trovato');
       await enterAsRistoratore({ id: r.id, email: s.email, nome: r.nome });
       if (s.page && s.page !== 'rist-dashboard')
