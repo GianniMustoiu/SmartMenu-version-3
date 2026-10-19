@@ -2,6 +2,8 @@
 // MenuPro – Versione collegata a Supabase
 // =====================================================
 
+const BUILD = 'build-2026-10-19-pagamenti-v5';
+console.info('[MenuPro]', BUILD);
 const cfg = window.MENUPRO_CONFIG || {};
 let sb = null;
 try {
@@ -81,6 +83,7 @@ function metodiAccettati(r) {
 
 function applyPaymentOptions() {
   const m = metodiAccettati(currentRistorante);
+  console.info('[MenuPro] pagamenti_accettati =', currentRistorante && currentRistorante.pagamenti_accettati);
   let checkedHidden = false;
   $$('input[name="pagamento"]').forEach(inp => {
     const ok = !!m[inp.value];
