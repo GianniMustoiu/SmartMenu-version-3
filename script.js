@@ -2012,6 +2012,95 @@ async function renderStoricoChiusure(ymdFocus) {
   `).join('');
 }
 
+function formatDataIt(ymd) {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd || '';
+  const [y, m, d] = ymd.split('-');
+  return d + '/' + m + '/' + y;
+}
+
+function chiediConfermaChiusura(ymd, stats) {
+  return new Promise((resolve) => {
+    const modal = $('#modal-chiusura-fiscale');
+    if (!modal) {
+      resolve(confirm('Confermi la chiusura fiscale del ' + ymd + '?'));
+      return;
+    }
+    const lead = $('#chiusura-modal-lead');
+    if (lead) {
+      lead.innerHTML = 'Stai per chiudere la giornata del <strong>' + formatDataIt(ymd) + '</strong>' +
+        (currentRistorante && currentRistorante.nome ? ' · ' + currentRistorante.nome : '') + '.';
+    }
+    const statsEl = $('#chiusura-modal-stats');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="chiusura-stat-pill wide">
+          <span class="k">Incasso totale</span>
+          <span class="v">${formatPrice(stats.totale)}</span>
+        </div>
+        <div class="chiusura-stat-pill">
+          <span class="k">Ordini</span>
+          <span class="v">${stats.n}</span>
+        </div>
+        <div class="chiusura-stat-pill">
+          <span class="k">Già pagati</span>
+          <span class="v">${formatPrice(stats.pagato)}</span>
+        </div>
+        <div class="chiusura-stat-pill">
+          <span class="k">Carta</span>
+          <span class="v">${formatPrice(stats.carta)}</span>
+        </div>
+        <div class="chiusura-stat-pill">
+          <span class="k">Cassa</span>
+          <span class="v">${formatPrice(stats.cassa)}</span>
+        </div>`;
+    }
+    const warn = $('#chiusura-modal-warn');
+    if (warn) {
+      if (stats.aperti.length) {
+        warn.classList.remove('hidden');
+        warn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>' +
+          stats.aperti.length + ' ordini ancora aperti</strong> verranno segnati come chiusi e pagati.';
+      } else {
+        warn.classList.add('hidden');
+        warn.innerHTML = '';
+      }
+    }
+
+    const btnOk = $('#btn-chiusura-modal-ok');
+    const btnNo = $('#btn-chiusura-modal-annulla');
+    const btnX = $('#btn-chiusura-modal-x');
+    const btnPdf = $('#btn-chiusura-modal-pdf');
+
+    const cleanup = (val) => {
+      modal.classList.add('hidden');
+      btnOk?.removeEventListener('click', onOk);
+      btnNo?.removeEventListener('click', onNo);
+      btnX?.removeEventListener('click', onNo);
+      btnPdf?.removeEventListener('click', onPdf);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    };
+    const onOk = () => cleanup(true);
+    const onNo = () => cleanup(false);
+    const onPdf = async () => { await scaricaPdfChiusura(ymd, stats); };
+    const onBackdrop = (e) => { if (e.target === modal) cleanup(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') cleanup(false);
+      if (e.key === 'Enter') cleanup(true);
+    };
+
+    btnOk?.addEventListener('click', onOk);
+    btnNo?.addEventListener('click', onNo);
+    btnX?.addEventListener('click', onNo);
+    btnPdf?.addEventListener('click', onPdf);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    modal.classList.remove('hidden');
+    setTimeout(() => btnOk?.focus(), 40);
+  });
+}
+
 async function eseguiChiusuraFiscale() {
   if (!currentRistorante) return;
   if (!assertNotCliente()) return;
@@ -2019,16 +2108,13 @@ async function eseguiChiusuraFiscale() {
   currentRistorante = await loadRistoranteFull(currentRistorante.id);
   const stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
 
-  let msg = 'Confermi la chiusura fiscale del ' + ymd + '?\n\n' +
-    'Ordini: ' + stats.n + '\nIncasso: ' + formatPrice(stats.totale) +
-    '\nCarta: ' + formatPrice(stats.carta) + ' · Cassa: ' + formatPrice(stats.cassa);
-  if (stats.aperti.length) {
-    msg += '\n\nATTENZIONE: ' + stats.aperti.length +
-      ' ordini ancora aperti verranno segnati come CHIUSI e pagati.';
-  }
-  if (!confirm(msg)) return;
+  const ok = await chiediConfermaChiusura(ymd, stats);
+  if (!ok) return;
 
-  // Chiudi ordini ancora aperti della giornata
+  await completaChiusuraFiscale(ymd, stats);
+}
+
+async function completaChiusuraFiscale(ymd, stats) {
   if (sb && stats.aperti.length) {
     for (const o of stats.aperti) {
       try {
@@ -2066,10 +2152,133 @@ async function eseguiChiusuraFiscale() {
     }
   }
 
-  toast('Chiusura fiscale del ' + ymd + ' registrata');
+  try { await scaricaPdfChiusura(ymd, stats); } catch (e) { console.warn('pdf', e); }
+
+  toast('Chiusura fiscale del ' + formatDataIt(ymd) + ' registrata');
   await renderChiusuraFiscale();
   await renderRistDashboard();
   await renderOrdiniKanban();
+}
+
+function ensureJsPdf() {
+  return new Promise((resolve, reject) => {
+    if (window.jspdf && window.jspdf.jsPDF) return resolve(window.jspdf.jsPDF);
+    const existing = document.querySelector('script[data-jspdf]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.jspdf.jsPDF));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.dataset.jspdf = '1';
+    s.onload = () => resolve(window.jspdf.jsPDF);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function scaricaPdfChiusura(ymd, stats) {
+  if (!currentRistorante) return;
+  if (!ymd) ymd = ($('#chiusura-data') && $('#chiusura-data').value) || ymdLocal();
+  if (!stats) {
+    currentRistorante = await loadRistoranteFull(currentRistorante.id);
+    stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
+  }
+
+  let jsPDF;
+  try {
+    jsPDF = await ensureJsPdf();
+  } catch (e) {
+    toast('Impossibile caricare il generatore PDF');
+    return;
+  }
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const nome = currentRistorante.nome || 'Ristorante';
+  const margin = 18;
+  let y = 20;
+  const line = (txt, size = 11, style = 'normal') => {
+    doc.setFont('helvetica', style);
+    doc.setFontSize(size);
+    doc.setTextColor(20);
+    doc.text(String(txt), margin, y);
+    y += size * 0.45 + 3;
+  };
+  const rule = () => {
+    doc.setDrawColor(180);
+    doc.line(margin, y, 210 - margin, y);
+    y += 6;
+  };
+
+  line('CHIUSURA FISCALE', 18, 'bold');
+  line(nome, 13, 'bold');
+  line('Giornata: ' + formatDataIt(ymd), 11);
+  line('Generato: ' + new Date().toLocaleString('it-IT'), 9);
+  y += 2;
+  rule();
+
+  line('RIEPILOGO', 12, 'bold');
+  line('Ordini totali: ' + stats.n);
+  line('Incasso totale: ' + formatPrice(stats.totale), 12, 'bold');
+  line('Carta: ' + formatPrice(stats.carta) + '    Cassa: ' + formatPrice(stats.cassa));
+  line('Pagati: ' + formatPrice(stats.pagato) + '    In attesa: ' + formatPrice(stats.inAttesa) +
+    '    Non pagati: ' + formatPrice(stats.nonPagato));
+  y += 2;
+  rule();
+
+  line('CIRCUITI CARTA', 12, 'bold');
+  const circs = Object.entries(stats.perCircuito);
+  if (!circs.length) line('Nessun pagamento con carta');
+  else circs.forEach(([id, v]) => line((labelCircuito(id) || id) + ': ' + formatPrice(v)));
+  y += 2;
+  rule();
+
+  line('STATI ORDINE', 12, 'bold');
+  Object.entries(stats.perStato).forEach(([s, n]) => line(labelStato(s) + ': ' + n));
+  y += 2;
+  rule();
+
+  line('DETTAGLIO ORDINI', 12, 'bold');
+  const sorted = [...stats.delGiorno].sort((a, b) =>
+    new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+  if (!sorted.length) {
+    line('Nessun ordine', 10);
+  } else {
+    sorted.forEach(o => {
+      if (y > 275) { doc.addPage(); y = 20; }
+      const ora = formatTime(o.createdAt || o.created_at);
+      const met = o.pagamento === 'cassa' ? 'Cassa' : 'Carta';
+      const circ = o.circuito_pagamento ? ' · ' + labelCircuito(o.circuito_pagamento) : '';
+      const row = ora + '  #' + (o.codice || '') + '  T' + o.tavolo + '  ' + met + circ + '  ' + formatPrice(o.totale);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(20);
+      doc.text(row, margin, y);
+      y += 5;
+    });
+  }
+
+  y += 10;
+  if (y > 280) { doc.addPage(); y = 20; }
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.text(
+    'Documento gestionale MenuPro. Non sostituisce lo scontrino del registratore di cassa certificato.',
+    margin, y, { maxWidth: 174 }
+  );
+
+  const filename = 'chiusura-fiscale-' + ymd + '.pdf';
+  doc.save(filename);
+  toast('PDF scaricato: ' + filename);
+}
+
+async function scaricaPdfChiusuraDaUI() {
+  if (!currentRistorante) return;
+  const ymd = ($('#chiusura-data') && $('#chiusura-data').value) || ymdLocal();
+  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  const stats = collectChiusuraStats(currentRistorante.ordini || [], ymd);
+  await scaricaPdfChiusura(ymd, stats);
 }
 
 function assertNotCliente() {
@@ -2135,6 +2344,7 @@ function stampaRiepilogoChiusura() {
 document.getElementById('btn-chiusura-refresh')?.addEventListener('click', () => renderChiusuraFiscale());
 document.getElementById('btn-chiusura-esegui')?.addEventListener('click', () => eseguiChiusuraFiscale());
 document.getElementById('btn-chiusura-stampa')?.addEventListener('click', () => stampaRiepilogoChiusura());
+document.getElementById('btn-chiusura-pdf')?.addEventListener('click', () => scaricaPdfChiusuraDaUI());
 document.getElementById('chiusura-data')?.addEventListener('change', () => renderChiusuraFiscale());
 
 
