@@ -1,5 +1,5 @@
 // =====================================================
-// MenuPro – Versione collegata a Supabase
+// MenuPro Versione collegata a Supabase
 // =====================================================
 
 const BUILD = 'build-2026-10-19-pagamenti-v5';
@@ -72,6 +72,88 @@ function formatPrice(n) {
 function formatTime(iso) {
   return new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+
+// =====================================================
+// CIRCUITI DI PAGAMENTO (solo tipologia in DB, mai PAN/CVV)
+// =====================================================
+const CIRCUITI_DEFAULT = [
+  { id: 'visa', nome: 'Visa', icona: 'fab fa-cc-visa', tipo: 'carta', posizione: 1 },
+  { id: 'mastercard', nome: 'Mastercard', icona: 'fab fa-cc-mastercard', tipo: 'carta', posizione: 2 },
+  { id: 'amex', nome: 'American Express', icona: 'fab fa-cc-amex', tipo: 'carta', posizione: 3 },
+  { id: 'apple_pay', nome: 'Apple Pay', icona: 'fab fa-apple-pay', tipo: 'wallet', posizione: 4 },
+  { id: 'google_pay', nome: 'Google Pay', icona: 'fab fa-google-pay', tipo: 'wallet', posizione: 5 }
+];
+let circuitiCatalog = CIRCUITI_DEFAULT.slice();
+let selectedCircuito = 'visa';
+
+function labelCircuito(id) {
+  const c = circuitiCatalog.find(x => x.id === id) || CIRCUITI_DEFAULT.find(x => x.id === id);
+  return c ? c.nome : (id || '—');
+}
+
+async function loadCircuitiCatalog() {
+  if (!sb) { circuitiCatalog = CIRCUITI_DEFAULT.slice(); return circuitiCatalog; }
+  try {
+    const { data, error } = await sb.from('circuiti_pagamento').select('*').eq('attivo', true).order('posizione');
+    if (error) throw error;
+    if (data && data.length) circuitiCatalog = data;
+    else circuitiCatalog = CIRCUITI_DEFAULT.slice();
+  } catch (e) {
+    console.warn('circuiti_pagamento non disponibile, uso default:', e.message || e);
+    circuitiCatalog = CIRCUITI_DEFAULT.slice();
+  }
+  return circuitiCatalog;
+}
+
+async function circuitiPerRistorante(r) {
+  const all = await loadCircuitiCatalog();
+  if (!sb || !r || !r.id) return all;
+  try {
+    const { data, error } = await sb.from('ristorante_circuiti').select('id_circuito').eq('id_ristorante', r.id);
+    if (error) throw error;
+    if (!data || !data.length) return all; // nessuno configurato = tutti
+    const allowed = new Set(data.map(x => x.id_circuito));
+    const filtered = all.filter(c => allowed.has(c.id));
+    return filtered.length ? filtered : all;
+  } catch (e) {
+    return all;
+  }
+}
+
+function renderCircuitoOptions(list) {
+  const wrap = $('#circuito-wrap');
+  const el = $('#circuito-options');
+  if (!el) return;
+  const items = list && list.length ? list : CIRCUITI_DEFAULT;
+  if (!items.find(c => c.id === selectedCircuito)) selectedCircuito = items[0].id;
+  el.innerHTML = items.map(c => `
+    <label class="circuito-opt ${c.id === selectedCircuito ? 'selected' : ''}">
+      <input type="radio" name="circuito" value="${c.id}" ${c.id === selectedCircuito ? 'checked' : ''} />
+      <i class="${c.icona || 'fas fa-credit-card'}"></i>
+      <span>${c.nome}</span>
+    </label>
+  `).join('');
+  el.querySelectorAll('input[name="circuito"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      selectedCircuito = inp.value;
+      el.querySelectorAll('.circuito-opt').forEach(l => l.classList.toggle('selected', l.querySelector('input')?.checked));
+    });
+  });
+}
+
+function toggleCircuitoVisibility() {
+  const wrap = $('#circuito-wrap');
+  if (!wrap) return;
+  const pag = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
+  wrap.classList.toggle('hidden', pag !== 'carta');
+}
+
+async function refreshCircuitiUI() {
+  const list = await circuitiPerRistorante(currentRistorante);
+  renderCircuitoOptions(list);
+  toggleCircuitoVisibility();
+}
+
 // =====================================================
 // METODI DI PAGAMENTO ACCETTATI (scelti dall'admin per ristorante)
 // valori colonna: 'online' | 'banco' | 'entrambi'   ->   radio: 'carta' | 'cassa'
@@ -101,6 +183,8 @@ function applyPaymentOptions() {
     const first = [...$$('input[name="pagamento"]')].find(i => m[i.value]);
     if (first) first.checked = true;
   }
+  toggleCircuitoVisibility();
+  refreshCircuitiUI();
 }
 
 // =====================================================
@@ -2231,7 +2315,7 @@ window.deleteTavolo = async function(id) {
 // =====================================================
 function showClienteView(view) {
   if (view === 'carrello') applyPaymentOptions();
-  ['cliente-menu-view', 'cliente-carrello-view', 'cliente-ricevuta-view', 'cliente-stato-view'].forEach(id => {
+  ['cliente-menu-view', 'cliente-carrello-view', 'cliente-pagamento-view', 'cliente-ricevuta-view', 'cliente-stato-view'].forEach(id => {
     $(`#${id}`)?.classList.add('hidden');
   });
   $(`#cliente-${view}-view`)?.classList.remove('hidden');
@@ -2356,6 +2440,117 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     return;
   }
   if (!assertQrSessionOrBlock()) return;
+
+  const pagamento = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
+  if (!metodiAccettati(currentRistorante)[pagamento]) {
+    toast('Questo ristorante non accetta il pagamento selezionato');
+    applyPaymentOptions();
+    return;
+  }
+
+  // Carta / wallet → schermata pagamento (salva solo il circuito, non i dati carta)
+  if (pagamento === 'carta') {
+    const circ = document.querySelector('input[name="circuito"]:checked')?.value || selectedCircuito || 'visa';
+    selectedCircuito = circ;
+    openPagamentoUI(circ);
+    return;
+  }
+
+  // Cassa → invio diretto
+  await inviaOrdineFinale({ pagamento: 'cassa', circuito: null });
+});
+
+function openPagamentoUI(circuitoId) {
+  const c = circuitiCatalog.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT[0];
+  selectedCircuito = c.id;
+  const totale = cart.reduce((s, x) => s + x.prezzo * x.qty, 0);
+  const iconEl = $('#pay-circuito-icon');
+  if (iconEl) iconEl.className = c.icona || 'fas fa-credit-card';
+  if ($('#pay-circuito-nome')) $('#pay-circuito-nome').textContent = 'Paga con ' + c.nome;
+  if ($('#pay-totale')) $('#pay-totale').textContent = formatPrice(totale);
+  if ($('#pay-btn-totale')) $('#pay-btn-totale').textContent = formatPrice(totale);
+
+  const isWallet = c.tipo === 'wallet';
+  $('#pay-form-carta')?.classList.toggle('hidden', isWallet);
+  $('#pay-form-wallet')?.classList.toggle('hidden', !isWallet);
+  if (isWallet) {
+    const wi = $('#pay-wallet-big-icon');
+    if (wi) wi.className = c.icona || 'fas fa-mobile-alt';
+    if ($('#pay-wallet-hint')) {
+      $('#pay-wallet-hint').textContent = c.id === 'apple_pay'
+        ? 'Conferma con Face ID / Touch ID sul tuo iPhone.'
+        : 'Conferma con Google Pay sul tuo dispositivo.';
+    }
+  } else {
+    // reset campi (restano solo in memoria, non vanno in DB)
+    if ($('#pay-intestatario')) $('#pay-intestatario').value = '';
+    if ($('#pay-numero')) $('#pay-numero').value = '';
+    if ($('#pay-scadenza')) $('#pay-scadenza').value = '';
+    if ($('#pay-cvv')) $('#pay-cvv').value = '';
+  }
+  showClienteView('pagamento');
+}
+
+$('#btn-indietro-pagamento')?.addEventListener('click', () => {
+  showClienteView('carrello');
+  renderCarrello();
+  applyPaymentOptions();
+});
+
+$('#btn-paga-ora')?.addEventListener('click', async () => {
+  if (!assertQrSessionOrBlock()) return;
+  const c = circuitiCatalog.find(x => x.id === selectedCircuito) || CIRCUITI_DEFAULT[0];
+  if (c.tipo !== 'wallet') {
+    const num = ($('#pay-numero')?.value || '').replace(/\s+/g, '');
+    const scad = ($('#pay-scadenza')?.value || '').trim();
+    const cvv = ($('#pay-cvv')?.value || '').trim();
+    const nome = ($('#pay-intestatario')?.value || '').trim();
+    if (nome.length < 2) { toast('Inserisci l\'intestatario'); return; }
+    if (num.length < 12) { toast('Numero carta non valido'); return; }
+    if (!/^\d{2}\/\d{2}$/.test(scad)) { toast('Scadenza nel formato MM/AA'); return; }
+    if (cvv.length < 3) { toast('CVV non valido'); return; }
+    // I valori restano solo in variabili locali e NON vengono inviati al database
+  }
+  const btn = $('#btn-paga-ora');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autorizzazione...'; }
+  // Demo: simula autorizzazione PSP (in produzione: Stripe/Adyen/…)
+  await new Promise(r => setTimeout(r, 700));
+  try {
+    await inviaOrdineFinale({ pagamento: 'carta', circuito: selectedCircuito });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-lock"></i> Paga <span id="pay-btn-totale"></span>';
+      const tot = cart.length ? cart.reduce((s, x) => s + x.prezzo * x.qty, 0) : 0;
+      // dopo invio cart è vuoto: label già ok
+      if ($('#pay-btn-totale')) $('#pay-btn-totale').textContent = '';
+    }
+  }
+});
+
+// Input helpers (solo UX, niente persistenza)
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'pay-numero') {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 19);
+    e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+  }
+  if (e.target && e.target.id === 'pay-scadenza') {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+    e.target.value = v;
+  }
+});
+
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.name === 'pagamento') toggleCircuitoVisibility();
+});
+
+async function inviaOrdineFinale({ pagamento, circuito }) {
+  if (!cart.length) { toast('Il carrello è vuoto'); return; }
+  if (!currentRistorante || !currentUser) {
+    toast('Sessione cliente non valida. Riscansiona il QR.');
+    return;
+  }
   if (!sb) {
     toast('Database non collegato: controlla config.js');
     return;
@@ -2363,7 +2558,6 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
 
   const totale = cart.reduce((s, c) => s + c.prezzo * c.qty, 0);
   const codice = 'ORD-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-  const pagamento = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
   if (!metodiAccettati(currentRistorante)[pagamento]) {
     toast('Questo ristorante non accetta il pagamento selezionato');
     applyPaymentOptions();
@@ -2372,6 +2566,7 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
   const stato_pagamento = defaultPagStato(pagamento);
   const note = ($('#ordine-note')?.value || '').trim();
   const tavoloNum = currentUser.tavolo;
+  const circuitoPagamento = (pagamento === 'carta' && circuito) ? circuito : null;
 
   // Schema nuovo: senza colonna items (usa ordine_riga). Schema vecchio: con items jsonb.
   const ordineBase = {
@@ -2382,7 +2577,9 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     pagamento,
     stato_pagamento,
     totale,
-    stato: 'nuovo'
+    stato: 'nuovo',
+    // SOLO tipologia circuito (visa, apple_pay, …) — mai numero/CVV
+    circuito_pagamento: circuitoPagamento
   };
 if (!navigator.onLine) {
 
@@ -2409,9 +2606,19 @@ if (!navigator.onLine) {
     items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
   }).select().single());
 
-  // se fallisce per colonna items, riprova senza
+  // se fallisce per colonna items o circuito_pagamento, riprova senza
   if (error && String(error.message || '').toLowerCase().includes('items')) {
     ({ data: inserted, error } = await sb.from('ordini').insert(ordineBase).select().single());
+  }
+  if (error && String(error.message || '').toLowerCase().includes('circuito')) {
+    const { circuito_pagamento, ...senzaCirc } = ordineBase;
+    ({ data: inserted, error } = await sb.from('ordini').insert({
+      ...senzaCirc,
+      items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
+    }).select().single());
+    if (error && String(error.message || '').toLowerCase().includes('items')) {
+      ({ data: inserted, error } = await sb.from('ordini').insert(senzaCirc).select().single());
+    }
   }
 
   if (error || !inserted) {
@@ -2440,7 +2647,8 @@ if (!navigator.onLine) {
     await sb.from('pagamento').insert({
       id_ordine: inserted.id,
       metodo: pagamento,
-      importo: totale
+      importo: totale,
+      circuito: circuitoPagamento
     });
   } catch (e) { console.warn('pagamento skip', e); }
 
@@ -2459,7 +2667,9 @@ if (!navigator.onLine) {
   $('#ricevuta-rist').textContent = currentRistorante.nome;
   $('#ricevuta-tavolo').textContent = currentUser.tavolo;
   $('#ricevuta-ora').textContent = formatTime(inserted.created_at);
-  $('#ricevuta-pagamento').textContent = pagamento === 'cassa' ? 'Pago in cassa' : 'Carta';
+  $('#ricevuta-pagamento').textContent = pagamento === 'cassa'
+    ? 'Pago in cassa'
+    : ('Carta' + (circuitoPagamento ? ' · ' + labelCircuito(circuitoPagamento) : ''));
   $('#ricevuta-totale').textContent = formatPrice(totale);
   $('#ricevuta-stato').textContent = 'Nuovo';
   $('#ricevuta-stato').className = 'badge-stato nuovo';
@@ -2479,6 +2689,7 @@ if (!navigator.onLine) {
     tavolo: currentUser.tavolo,
     ora: formatTime(inserted.created_at),
     pagamento,
+    circuito: circuitoPagamento,
     totale,
     items: cart.map(i => ({ qty: i.qty, nome: i.nome, prezzo: i.prezzo })),
     note
@@ -2885,6 +3096,7 @@ function assertQrSessionOrBlock() {
 
     if ($('#cliente-rist-nome')) $('#cliente-rist-nome').textContent = r.nome;
     if ($('#cliente-tavolo-num')) $('#cliente-tavolo-num').textContent = t;
+    await refreshCircuitiUI();
 
     if (sessionOrders.length) {
       updateClienteOrdiniSelect();
@@ -3034,7 +3246,7 @@ function buildRicevutaHtml(r) {
   <div class="meta">
     <div><strong>${r.ristorante || ''}</strong></div>
     <div>Tavolo ${r.tavolo} · ${r.ora || ''}</div>
-    <div>Pagamento: Carta (online)</div>
+    <div>Pagamento: Carta (online)${r.circuito ? ' · ' + labelCircuito(r.circuito) : ''}</div>
     ${r.note ? '<div>Note: ' + r.note + '</div>' : ''}
   </div>
   ${rows}
@@ -3141,3 +3353,4 @@ async function stampaComande() {
 document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
   stampaComande();
 });
+
