@@ -1912,7 +1912,9 @@ function avvisaNuoviOrdini(n) {
 
 async function checkOrdiniUpdate() {
   if (_ordiniBusy) return;
-  if (!sb || !currentUser || currentUser.role !== 'ristoratore' || !currentRistorante) return;
+  // ristoratore e cassa devono entrambi ricevere aggiornamenti in tempo reale
+  if (!sb || !currentUser || !currentRistorante) return;
+  if (currentUser.role !== 'ristoratore' && currentUser.role !== 'cassa') return;
   if (!navigator.onLine) return;
   _ordiniBusy = true;
   try {
