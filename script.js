@@ -867,6 +867,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#scadenza').value = d.toISOString().slice(0, 10);
   $('#sale').value = 'Sala principale';
   $('#n_tavoli').value = 8;
+  if ($('#n_casse')) $('#n_casse').value = 1;
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
   $('#modal-ristorante').classList.remove('hidden');
 });
@@ -924,6 +925,57 @@ async function createDefaultMenu(ristoranteId) {
     id_ristorante: ristoranteId,
     disponibile: true
   })));
+}
+
+/** Slug sicuro dal nome ristorante (es. "La Trattoria" → "latrattoria") */
+function slugifyNome(nome) {
+  return String(nome || 'ristorante')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 30) || 'ristorante';
+}
+
+/**
+ * Crea account cassa per un ristorante.
+ * Email: {slug}@cassa1.it, {slug}@cassa2.it, …
+ * Password predefinita: cassa123
+ * Ruolo: 'cassa'
+ */
+async function createCasse(ristoranteId, nomeRist, nCasse, passwordDefault = 'cassa123') {
+  const n = Math.max(0, Math.min(20, parseInt(nCasse) || 0));
+  if (n === 0 || !sb) return [];
+
+  const slug = slugifyNome(nomeRist);
+  const create = [];
+
+  for (let i = 1; i <= n; i++) {
+    const email = `${slug}@cassa${i}.it`;
+    const { data: esiste } = await sb.from('utenti').select('id').eq('email', email).maybeSingle();
+    if (esiste) continue;
+    create.push({
+      email,
+      password_hash: passwordDefault,
+      ruolo: 'cassa',
+      nome: `Cassa ${i} – ${nomeRist}`
+    });
+  }
+
+  if (!create.length) return [];
+
+  const { error } = await sb.from('utenti').insert(create);
+  if (error) {
+    console.error('Errore creazione casse:', error);
+    // fallback: una per una
+    const ok = [];
+    for (const u of create) {
+      const { error: e2 } = await sb.from('utenti').insert(u);
+      if (!e2) ok.push(u.email);
+      else console.error('Cassa non creata', u.email, e2);
+    }
+    return ok;
+  }
+  return create.map(u => u.email);
 }
 
 $('#form-ristorante')?.addEventListener('submit', async (e) => {
@@ -987,7 +1039,18 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
       });
       if (errU) console.error('Errore create utente:', errU);
     }
-    toast('Ristorante e utente aggiornati');
+    // opzionale: crea altre casse se indicato (non cancella quelle già esistenti)
+    const nCasseEdit = parseInt($('#n_casse')?.value) || 0;
+    if (nCasseEdit > 0) {
+      const emailsCasse = await createCasse(id, nomeRist, nCasseEdit);
+      if (emailsCasse.length) {
+        toast(`Ristorante aggiornato + ${emailsCasse.length} casse: ${emailsCasse.join(', ')} (pwd: cassa123)`);
+      } else {
+        toast('Ristorante e utente aggiornati');
+      }
+    } else {
+      toast('Ristorante e utente aggiornati');
+    }
   } else {
     // --- NUOVO ristorante + UTENTE ---
     const { data: utenteEsistente } = await sb.from('utenti').select('id,ruolo').eq('email', email).maybeSingle();
@@ -1030,6 +1093,14 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
 
     await createDefaultTavoli(inserted.id, nTavoli);
     await createDefaultCategorie(inserted.id);
+
+    const nCasse = parseInt($('#n_casse')?.value) || 0;
+    if (nCasse > 0) {
+      const emailsCasse = await createCasse(inserted.id, nomeRist, nCasse);
+      if (emailsCasse.length) {
+        toast(`Casse create (${emailsCasse.length}): ${emailsCasse.join(', ')} — password: cassa123`);
+      }
+    }
   }
 
   $('#modal-ristorante').classList.add('hidden');
@@ -1057,6 +1128,8 @@ window.editRistorante = async function(id) {
   $('#sale').value = (r.sale || []).join(', ');
   const { count } = await sb.from('tavoli').select('*', { count: 'exact', head: true }).eq('id_ristorante', id);
   $('#n_tavoli').value = count || 8;
+  // in modifica non ricreiamo le casse (già esistenti); campo a 0
+  if ($('#n_casse')) $('#n_casse').value = 0;
   $('#modal-ristorante').classList.remove('hidden');
 };
 
