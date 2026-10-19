@@ -83,26 +83,6 @@ function updateSessionPage(page, role) {
   const s = loadSession();
   if (s && s.role === role) { s.page = page; saveSession(s); }
 }
-function saveOfflineRestaurant(data) {
-  try {
-    localStorage.setItem(
-      'menupro_restaurant_' + data.id,
-      JSON.stringify(data)
-    );
-  } catch(e) {}
-}
-
-function loadOfflineRestaurant(id) {
-  try {
-    return JSON.parse(
-      localStorage.getItem(
-        'menupro_restaurant_' + id
-      )
-    );
-  } catch(e) {
-    return null;
-  }
-}
 function clientKey(r, t) { return 'menupro_cliente_' + r + '_' + t; }
 function saveClientState() {
   if (!currentUser || currentUser.role !== 'cliente' || !currentUser.fromQR) return;
@@ -124,60 +104,46 @@ function loadClientState(r, t) {
 // SUPABASE HELPERS
 // =====================================================
 
-async function loadRistoranti() {
+// ---------- Cache offline ----------
+function cacheSet(key, val) {
+  try { localStorage.setItem('menupro_cache_' + key, JSON.stringify(val)); } catch (e) {} // quota piena: ignora
+}
+function cacheGet(key) {
+  try { return JSON.parse(localStorage.getItem('menupro_cache_' + key)); } catch (e) { return null; }
+}
+function cacheDel(key) {
+  try { localStorage.removeItem('menupro_cache_' + key); } catch (e) {}
+}
+function stripSecrets(r) { const { password, ...safe } = r; return safe; } // niente password in locale
 
-  // OFFLINE
-  if (!navigator.onLine) {
-
-    try {
-
-      const cached =
-        JSON.parse(localStorage.getItem('menupro_ristoranti'));
-
-      return cached || [];
-
-    } catch (e) {
-
-      return [];
-    }
-  }
-
-  // ONLINE
-
-  if (!sb) return [];
-
-  const { data, error } = await sb
-    .from('ristoranti')
-    .select('*')
-    .order('creato', { ascending: false });
-
-  if (error) {
-    console.error(error);
-    return [];
-  }
-
-  localStorage.setItem(
-    'menupro_ristoranti',
-    JSON.stringify(data || [])
-  );
-
-  return data || [];
+let _offlineToastAt = 0;
+function offlineNotice() {
+  if (Date.now() - _offlineToastAt < 15000) return; // evita messaggi ripetuti
+  _offlineToastAt = Date.now();
+  toast('Connessione assente: mostro gli ultimi dati salvati');
 }
 
-
-async function loadRistoranteFull(id) {
-
-  if (!navigator.onLine) {
-    return loadOfflineRestaurant(id);
+async function loadRistoranti() {
+  try {
+    if (!sb) throw new Error('sb null');
+    const { data, error } = await sb.from('ristoranti').select('*').order('creato', { ascending: false });
+    if (error) throw error;
+    const list = data || [];
+    cacheSet('ristoranti', list.map(stripSecrets));
+    return list;
+  } catch (e) {
+    console.warn('loadRistoranti offline:', e.message || e);
+    const cached = cacheGet('ristoranti');
+    if (cached) { offlineNotice(); return cached; }
+    toast('Errore caricamento ristoranti');
+    return [];
   }
+}
 
-  const { data: r, error } =
-    await sb
-      .from('ristoranti')
-      .select('*')
-      .eq('id', id)
-      .single();
-  if (error || !r) return null;
+async function _fetchRistoranteFull(id) {
+  const { data: r, error } = await sb.from('ristoranti').select('*').eq('id', id).single();
+  if (error && error.code === 'PGRST116') return null;   // non esiste davvero
+  if (error || !r) throw error || new Error('nessuna risposta');
 
   const [tavoli, piatti, categorie, ordini, pagamenti] = await Promise.all([
     sb.from('tavoli').select('*').eq('id_ristorante', id).order('numero'),
@@ -186,6 +152,8 @@ async function loadRistoranteFull(id) {
     sb.from('ordini').select('*').eq('id_ristorante', id).order('created_at', { ascending: false }),
     sb.from('pagamenti_abbonamento').select('*').eq('id_ristorante', id).order('data', { ascending: false })
   ]);
+  const failed = [tavoli, piatti, categorie, ordini, pagamenti].find(x => x.error);
+  if (failed) throw failed.error;
 
   r.tavoli = tavoli.data || [];
   r.menu = (piatti.data || []).map(p => ({
@@ -222,36 +190,26 @@ async function loadRistoranteFull(id) {
   }
   r.pagamenti = pagamenti.data || [];
   r.sale = r.sale || ['Sala principale'];
-  saveOfflineRestaurant(r);
   return r;
 }
 
+async function loadRistoranteFull(id) {
+  try {
+    if (!sb) throw new Error('sb null');
+    const r = await _fetchRistoranteFull(id);
+    if (r) cacheSet('rist_' + id, stripSecrets(r));
+    else cacheDel('rist_' + id);          // cancellato davvero dal database
+    return r;
+  } catch (e) {
+    console.warn('loadRistoranteFull offline:', e.message || e);
+    const cached = cacheGet('rist_' + id);
+    if (cached) { offlineNotice(); return cached; }
+    return null;
+  }
+}
+
 async function getRistorante(id) {
-
-  if (navigator.onLine && sb) {
-
-    try {
-
-      const r = await loadRistoranteFull(id);
-
-      if (r) {
-        saveOfflineRestaurant(r);
-        return r;
-      }
-
-    } catch (e) {
-      console.warn('Errore online, uso cache locale', e);
-    }
-  }
-
-  const cached = loadOfflineRestaurant(id);
-
-  if (cached) {
-    console.log('Ristorante caricato dalla cache');
-    return cached;
-  }
-
-  return null;
+  return loadRistoranteFull(id);
 }
 
 // =====================================================
@@ -1947,7 +1905,10 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
   };
 if (!navigator.onLine) {
 
-  saveOfflineOrder(ordineBase);
+  saveOfflineOrder({
+    ...ordineBase,
+    items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
+  });
 
   toast(
     "Ordine salvato offline. Verrà sincronizzato automaticamente."
@@ -2328,37 +2289,45 @@ $('#form-reset-pass')?.addEventListener('submit', async (e) => {
   } catch (e) {
     console.error('Ripristino sessione fallito:', e);
   }
-  clearSession();
+  // se sei offline NON cancellare la sessione, altrimenti il refresh ti sloggherebbe
+  if (navigator.onLine) clearSession();
   login.classList.remove('hidden');
 })();
 async function syncOfflineOrders() {
-
-  if (!navigator.onLine) return;
-
-  const orders = JSON.parse(
-    localStorage.getItem("offline_orders") || "[]"
-  );
-
+  if (!navigator.onLine || !sb) return;
+  let orders = [];
+  try { orders = JSON.parse(localStorage.getItem("offline_orders") || "[]"); } catch (e) {}
   if (!orders.length) return;
 
+  const rimasti = [];
+  let inviati = 0;
   for (const order of orders) {
-
-    const { error } = await sb
-      .from("ordini")
-      .insert(order);
-
-    if (error) {
-      console.error(error);
-      return;
+    const items = order.items || [];
+    let { data: ins, error } = await sb.from('ordini').insert(order).select().single();
+    if (error && String(error.message || '').toLowerCase().includes('items')) {
+      const { items: _omit, ...senzaItems } = order;
+      ({ data: ins, error } = await sb.from('ordini').insert(senzaItems).select().single());
     }
+    if (error || !ins) { console.error(error); rimasti.push(order); continue; }
+    inviati++;
+    try {
+      if (items.length) await sb.from('ordine_riga').insert(items.map(c => ({
+        id_ordine: ins.id, id_piatto: c.id || null, piatto: c.nome,
+        qty_piatti: c.qty, prezzo_pagato: Number(c.prezzo) * c.qty
+      })));
+    } catch (e) { console.warn('ordine_riga sync', e); }
+    try {
+      await sb.from('tavoli').update({ occupato: true })
+        .eq('id_ristorante', order.id_ristorante).eq('numero', order.tavolo);
+    } catch (e) {}
   }
-
-  localStorage.removeItem("offline_orders");
-
-  toast("Ordini sincronizzati");
+  // tieni in coda solo quelli non inviati (nessuna perdita, nessun duplicato)
+  if (rimasti.length) localStorage.setItem("offline_orders", JSON.stringify(rimasti));
+  else localStorage.removeItem("offline_orders");
+  if (inviati) toast(inviati + (inviati === 1 ? " ordine sincronizzato" : " ordini sincronizzati"));
 }
 
-window.addEventListener("online", syncOfflineOrders);
+window.addEventListener("online", () => { toast("Connessione ripristinata"); syncOfflineOrders(); });
 function updateNetworkStatus() {
 
   const el =
