@@ -783,6 +783,23 @@
     </div>
   </div>
 
+  <div id="modal-conferma-stato" class="modal hidden">
+    <div class="modal-content" style="max-width:420px">
+      <div class="modal-header">
+        <h3><i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-right:8px"></i> Conferma stato</h3>
+        <button type="button" class="close-modal" data-modal="modal-conferma-stato" id="btn-conferma-stato-x">&times;</button>
+      </div>
+      <div class="conferma-stato-body">
+        <p id="conferma-stato-msg">Vuoi segnare questo ordine come <strong>Pronto</strong> saltando la preparazione?</p>
+        <p class="conferma-stato-hint">L'ordine passerà direttamente da Nuovo a Pronto, senza la fase di preparazione.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-conferma-stato-no">Annulla</button>
+        <button type="button" class="btn btn-primary" id="btn-conferma-stato-si"><i class="fas fa-check"></i> Sì, segna pronto</button>
+      </div>
+    </div>
+  </div>
+
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=6"></script>
