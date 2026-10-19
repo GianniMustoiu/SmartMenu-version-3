@@ -674,3 +674,37 @@ body.cliente-night { background: #0a0f1c; }
   color: #111;
   background: #fff;
 }
+
+/* =====================================================
+   SESSIONE QR (30 min)
+   ===================================================== */
+.qr-session-banner {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 14px; font-size: 13px;
+  background: var(--primary-soft); color: var(--primary);
+  border-bottom: 1px solid var(--border);
+}
+.qr-session-banner.qr-session-warn {
+  background: rgba(224, 160, 48, 0.18);
+  color: #fbbf24;
+}
+.qr-expired-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(5, 9, 18, 0.82);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.qr-expired-overlay.hidden { display: none !important; }
+.qr-expired-card {
+  max-width: 380px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px; text-align: center;
+  box-shadow: var(--shadow);
+}
+.qr-expired-card > i {
+  font-size: 42px; color: var(--primary); margin-bottom: 12px;
+}
+.qr-expired-card h2 { font-size: 20px; margin-bottom: 10px; }
+.qr-expired-card p { color: var(--muted); font-size: 14px; margin: 0 0 10px; line-height: 1.5; }
+.qr-expired-hint { font-size: 12px !important; margin-top: 14px !important; }
