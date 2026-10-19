@@ -289,6 +289,7 @@ async function enterAsRistoratore(r) {
   await renderMenuTable();
   await renderOrdiniKanban();
   await renderTavoli();
+  startOrdiniWatch();
   return true;
 }
 
@@ -415,6 +416,7 @@ $$('.logout-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
 
     clearSession();
+    stopOrdiniWatch();
 
     try {
       if (sb) {
@@ -1466,6 +1468,121 @@ window.deletePiatto = async function(id) {
 };
 
 // =====================================================
+// AGGIORNAMENTO AUTOMATICO ORDINI (ristoratore / cameriera)
+// Realtime Supabase (istantaneo) + controllo ogni 5 s come rete di sicurezza.
+// Il controllo è leggero: scarica solo id/stato e ridisegna la schermata solo se qualcosa è cambiato.
+// =====================================================
+const ORDINI_POLL_MS = 5000;
+let _ordiniPoll = null;
+let _ordiniChannel = null;
+let _ordiniSig = null;
+let _knownOrderIds = null;
+let _ordiniBusy = false;
+const _titoloOriginale = document.title;
+
+function beepNuovoOrdine() {
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    const ctx = new C();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+    o.start(); o.stop(ctx.currentTime + 0.5);
+    setTimeout(() => ctx.close(), 700);
+  } catch (e) {}          // il browser può bloccare l'audio finché non c'è un tocco dell'utente
+}
+
+function avvisaNuoviOrdini(n) {
+  toast(n === 1 ? '🔔 Nuovo ordine!' : '🔔 ' + n + ' nuovi ordini!');
+  beepNuovoOrdine();
+  try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {}
+  if (document.hidden) document.title = '🔔 Nuovo ordine – ' + _titoloOriginale;
+}
+
+async function checkOrdiniUpdate() {
+  if (_ordiniBusy) return;
+  if (!sb || !currentUser || currentUser.role !== 'ristoratore' || !currentRistorante) return;
+  if (!navigator.onLine) return;
+  _ordiniBusy = true;
+  try {
+    const rid = currentRistorante.id;
+    const { data, error } = await sb.from('ordini').select('id,stato,stato_pagamento').eq('id_ristorante', rid);
+    if (error) throw error;
+    if (!currentRistorante || currentRistorante.id !== rid) return;   // nel frattempo è cambiato ristorante/logout
+
+    const rows = data || [];
+    const sig = rows.map(o => o.id + ':' + o.stato + ':' + (o.stato_pagamento || '')).sort().join('|');
+
+    // ordini mai visti prima (la prima lettura non genera avvisi)
+    if (_knownOrderIds) {
+      const nuovi = rows.filter(o => !_knownOrderIds.has(o.id) && o.stato === 'nuovo');
+      if (nuovi.length) avvisaNuoviOrdini(nuovi.length);
+    }
+    _knownOrderIds = new Set(rows.map(o => o.id));
+
+    if (sig !== _ordiniSig) {
+      const primaVolta = _ordiniSig === null;
+      _ordiniSig = sig;
+      if (!primaVolta) await refreshSchermataOrdini();
+    }
+  } catch (e) {
+    console.warn('Aggiornamento ordini non riuscito:', e.message || e);
+  } finally {
+    _ordiniBusy = false;
+  }
+}
+
+async function refreshSchermataOrdini() {
+  const visible = (id) => { const el = $(id); return el && !el.classList.contains('hidden'); };
+  if (visible('#page-rist-ordini')) await renderOrdiniKanban();
+  else if (visible('#page-rist-dashboard')) await renderRistDashboard();
+  else if (visible('#page-rist-tavoli')) await renderTavoli();
+  else {
+    // pagina menu: aggiorna solo il badge degli ordini nuovi
+    currentRistorante = await loadRistoranteFull(currentRistorante.id);
+    const nuovi = ((currentRistorante && currentRistorante.ordini) || []).filter(o => o.stato === 'nuovo').length;
+    const badge = $('#badge-ordini');
+    if (badge) { badge.textContent = nuovi; badge.classList.toggle('hidden', nuovi === 0); }
+  }
+}
+
+function startOrdiniWatch() {
+  stopOrdiniWatch();
+  _ordiniSig = null;
+  _knownOrderIds = null;
+  checkOrdiniUpdate();                                        // lettura iniziale
+  _ordiniPoll = setInterval(checkOrdiniUpdate, ORDINI_POLL_MS);
+  try {
+    if (sb && sb.channel) {
+      _ordiniChannel = sb.channel('ordini-' + currentRistorante.id)
+        .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'ordini', filter: 'id_ristorante=eq.' + currentRistorante.id },
+            () => checkOrdiniUpdate())
+        .subscribe();
+    }
+  } catch (e) { console.warn('Realtime non disponibile, resta il controllo periodico:', e); }
+}
+
+function stopOrdiniWatch() {
+  if (_ordiniPoll) { clearInterval(_ordiniPoll); _ordiniPoll = null; }
+  try { if (_ordiniChannel && sb) sb.removeChannel(_ordiniChannel); } catch (e) {}
+  _ordiniChannel = null;
+  _ordiniSig = null;
+  _knownOrderIds = null;
+  document.title = _titoloOriginale;
+}
+
+// al rientro nella scheda / al ritorno della rete: controlla subito
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { document.title = _titoloOriginale; checkOrdiniUpdate(); }
+});
+window.addEventListener('focus', () => { document.title = _titoloOriginale; checkOrdiniUpdate(); });
+window.addEventListener('online', () => checkOrdiniUpdate());
+
+// =====================================================
 // ORDINI KANBAN
 // =====================================================
 async function renderOrdiniKanban() {
@@ -1632,7 +1749,11 @@ document.addEventListener('pointermove', (e) => {
 // TAVOLI + QR (URL reali)
 // =====================================================
 function qrData(ristoranteId, tavolo) {
-  const base = (cfg.SITE_URL || window.location.origin).replace(/\/$/, '');
+  // Il QR punta al sito da cui lo stai generando, così coincide sempre con la versione che stai usando.
+  // SITE_URL di config.js serve solo se lavori in locale (localhost).
+  const o = window.location.origin;
+  const isLocal = /localhost|127\.0\.0\.1|^file:/.test(o);
+  const base = ((isLocal && cfg.SITE_URL) ? cfg.SITE_URL : o).replace(/\/$/, '');
   return `${base}/?r=${ristoranteId}&t=${tavolo}`;
 }
 
