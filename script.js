@@ -125,11 +125,45 @@ function loadClientState(r, t) {
 // =====================================================
 
 async function loadRistoranti() {
+
+  // OFFLINE
+  if (!navigator.onLine) {
+
+    try {
+
+      const cached =
+        JSON.parse(localStorage.getItem('menupro_ristoranti'));
+
+      return cached || [];
+
+    } catch (e) {
+
+      return [];
+    }
+  }
+
+  // ONLINE
+
   if (!sb) return [];
-  const { data, error } = await sb.from('ristoranti').select('*').order('creato', { ascending: false });
-  if (error) { console.error(error); toast('Errore caricamento ristoranti'); return []; }
+
+  const { data, error } = await sb
+    .from('ristoranti')
+    .select('*')
+    .order('creato', { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  localStorage.setItem(
+    'menupro_ristoranti',
+    JSON.stringify(data || [])
+  );
+
   return data || [];
 }
+
 
 async function loadRistoranteFull(id) {
   const { data: r, error } = await sb.from('ristoranti').select('*').eq('id', id).single();
