@@ -1228,7 +1228,12 @@ window.editRistorante = async function(id) {
 };
 
 window.deleteRistorante = async function(id) {
-  if (!confirm('Eliminare il ristorante e il suo utente? L\'operazione non si può annullare.')) return;
+  const ok = await chiediConfermaStato(
+    'Eliminare questo <strong>ristorante</strong> e, se non ha altri locali, anche l\'utente collegato?',
+    'L\'operazione non si può annullare. Menu, tavoli e ordini del locale verranno rimossi.',
+    { title: 'Elimina ristorante', confirmLabel: 'Sì, elimina', confirmIcon: 'fas fa-trash', danger: true }
+  );
+  if (!ok) return;
 
   // leggi l'email PRIMA di cancellare, serve per eliminare l'utente collegato
   const { data: rist } = await sb.from('ristoranti').select('email').eq('id', id).maybeSingle();
@@ -2808,11 +2813,19 @@ window.apriDettaglioOrdine = async function(ordineId) {
   } else if (o.stato === 'pronto') {
     actions = `<button class="btn btn-primary" onclick="cambiaStato('${o.id}','consegnato')"><i class="fas fa-hand-holding"></i> Consegnato</button>`;
   }
+  // Incasso contanti (importo + resto + scontrino)
+  if (ps !== 'pagato') {
+    actions += `<button class="btn btn-primary" onclick="apriIncassa('${o.id}')"><i class="fas fa-cash-register"></i> Incassa</button>`;
+  } else {
+    actions += `<button class="btn btn-secondary" onclick="apriIncassa('${o.id}')"><i class="fas fa-receipt"></i> Ristampa scontrino</button>`;
+  }
+  actions += `<button class="btn btn-secondary" onclick="apriFattura('${o.id}')"><i class="fas fa-file-invoice"></i> Fattura</button>`;
+  // ciclo manuale stato pagamento (fallback)
   const nextPag = { in_attesa: 'pagato', pagato: 'non_pagato', non_pagato: 'in_attesa' }[ps] || 'pagato';
   const pagBtnLabel = { pagato: 'Segna pagato', non_pagato: 'Segna non pagato', in_attesa: 'Segna in attesa' }[nextPag];
-  actions += `<button class="btn btn-secondary" onclick="togglePagamento('${o.id}')"><i class="fas fa-money-bill-wave"></i> ${pagBtnLabel}</button>`;
+  actions += `<button class="btn btn-secondary btn-sm" onclick="togglePagamento('${o.id}')"><i class="fas fa-exchange-alt"></i> ${pagBtnLabel}</button>`;
   if (o.stato !== 'chiuso') {
-    actions += `<button class="btn btn-danger" onclick="chiudiConto('${o.id}')"><i class="fas fa-file-invoice-dollar"></i> Chiudi conto</button>`;
+    actions += `<button class="btn btn-danger" onclick="chiudiConto('${o.id}')"><i class="fas fa-lock"></i> Chiudi conto</button>`;
   }
   actions += `<button class="btn btn-secondary close-modal" data-modal="modal-ordine">Chiudi</button>`;
   $('#ordine-detail-actions').innerHTML = actions;
@@ -4201,4 +4214,432 @@ async function stampaComande() {
 
 document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
   stampaComande();
+});
+
+
+// =====================================================
+// PAGAMENTO IN CASSA (contanti + resto + scontrino)
+// =====================================================
+let _incassaOrdineId = null;
+let _incassaTotale = 0;
+
+function parseEuroInput(val) {
+  if (val == null || val === '') return NaN;
+  const n = Number(String(val).replace(',', '.').replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function aggiornaRestoIncassa() {
+  const ricevuto = parseEuroInput($('#incassa-ricevuto')?.value);
+  const box = $('#incassa-resto-box');
+  const restoEl = $('#incassa-resto');
+  const warn = $('#incassa-warn');
+  const btn = $('#btn-incassa-ok');
+  if (!Number.isFinite(ricevuto)) {
+    if (restoEl) restoEl.textContent = '—';
+    box?.classList.remove('ok', 'bad');
+    warn?.classList.add('hidden');
+    if (btn) btn.disabled = true;
+    return;
+  }
+  const resto = round2(ricevuto - _incassaTotale);
+  if (restoEl) restoEl.textContent = formatPrice(Math.max(0, resto));
+  if (resto < -0.001) {
+    box?.classList.add('bad');
+    box?.classList.remove('ok');
+    warn?.classList.remove('hidden');
+    if (btn) btn.disabled = true;
+  } else {
+    box?.classList.add('ok');
+    box?.classList.remove('bad');
+    warn?.classList.add('hidden');
+    if (btn) btn.disabled = false;
+  }
+}
+
+function buildIncassaQuick(totale) {
+  const wrap = $('#incassa-quick');
+  if (!wrap) return;
+  const exact = round2(totale);
+  // tagli comuni >= totale + esatto
+  const cuts = [exact, 5, 10, 20, 50, 100, 200]
+    .map(round2)
+    .filter((v, i, a) => v >= exact - 0.001 && a.indexOf(v) === i)
+    .sort((a, b) => a - b)
+    .slice(0, 6);
+  wrap.innerHTML = cuts.map(v =>
+    `<button type="button" data-amt="${v}">${formatPrice(v)}</button>`
+  ).join('') + `<button type="button" data-amt="exact">Esatto</button>`;
+  wrap.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const v = b.dataset.amt === 'exact' ? exact : Number(b.dataset.amt);
+      if ($('#incassa-ricevuto')) $('#incassa-ricevuto').value = v.toFixed(2);
+      aggiornaRestoIncassa();
+    });
+  });
+}
+
+window.apriIncassa = function(ordineId) {
+  const o = (currentRistorante?.ordini || []).find(x => x.id === ordineId);
+  if (!o) { toast('Ordine non trovato'); return; }
+  _incassaOrdineId = ordineId;
+  _incassaTotale = round2(o.totale || 0);
+  $('#incassa-ordine-id').value = ordineId;
+  $('#incassa-totale').textContent = formatPrice(_incassaTotale);
+  $('#incassa-meta').textContent = `Tavolo ${o.tavolo} · #${o.codice || ''} · ${formatTime(o.createdAt || o.created_at)}`;
+  const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+  // se già pagato, precompila con il totale (ristampa)
+  const pre = ps === 'pagato' ? _incassaTotale : _incassaTotale;
+  if ($('#incassa-ricevuto')) $('#incassa-ricevuto').value = pre.toFixed(2);
+  if ($('#incassa-stampa')) $('#incassa-stampa').checked = true;
+  buildIncassaQuick(_incassaTotale);
+  aggiornaRestoIncassa();
+  $('#modal-ordine')?.classList.add('hidden');
+  $('#modal-incassa')?.classList.remove('hidden');
+  setTimeout(() => {
+    const inp = $('#incassa-ricevuto');
+    if (inp) { inp.focus(); inp.select(); }
+  }, 50);
+};
+
+$('#incassa-ricevuto')?.addEventListener('input', aggiornaRestoIncassa);
+$('#incassa-ricevuto')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); $('#btn-incassa-ok')?.click(); }
+});
+
+function chiudiModalIncassa() {
+  $('#modal-incassa')?.classList.add('hidden');
+  _incassaOrdineId = null;
+}
+
+$('#btn-incassa-annulla')?.addEventListener('click', chiudiModalIncassa);
+$('#btn-incassa-x')?.addEventListener('click', chiudiModalIncassa);
+$('#modal-incassa')?.addEventListener('click', (e) => {
+  if (e.target === $('#modal-incassa')) chiudiModalIncassa();
+});
+
+function buildScontrinoCassaHtml(o, ricevuto, resto) {
+  const nome = (currentRistorante && currentRistorante.nome) || 'Ristorante';
+  const items = (o.items || []).map(i =>
+    `<div class="sc-row"><span>${i.qty || 1}× ${i.nome || i.piatto || 'Piatto'}</span><span>${formatPrice((Number(i.prezzo)||0) * (i.qty||1))}</span></div>`
+  ).join('') || '<div class="sc-row"><span>—</span><span></span></div>';
+  return `
+    <div class="scontrino-cassa">
+      <div class="sc-brand">${nome}</div>
+      <div class="sc-title">SCONTRINO</div>
+      <div class="sc-row"><span>Tavolo ${o.tavolo}</span><span>#${o.codice || ''}</span></div>
+      <div class="sc-row"><span>${formatTime(o.createdAt || o.created_at)}</span><span>CONTANTI</span></div>
+      <div class="sc-sep">························</div>
+      ${items}
+      <div class="sc-sep">························</div>
+      <div class="sc-row sc-tot"><span>TOTALE</span><span>${formatPrice(o.totale || 0)}</span></div>
+      <div class="sc-row"><span>Ricevuto</span><span>${formatPrice(ricevuto)}</span></div>
+      <div class="sc-row sc-tot"><span>RESTO</span><span>${formatPrice(resto)}</span></div>
+      <div class="sc-foot">Grazie · Pagamento in cassa<br>Documento gestionale MenuPro</div>
+    </div>`;
+}
+
+function stampaAreaHtml(html) {
+  let area = document.getElementById('print-area');
+  if (!area) {
+    area = document.createElement('div');
+    area.id = 'print-area';
+    document.body.appendChild(area);
+  }
+  area.innerHTML = html;
+  area.classList.add('printing');
+  const cleanup = () => {
+    area.classList.remove('printing');
+    area.innerHTML = '';
+  };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1500);
+  }, 80);
+}
+
+async function confermaIncassa() {
+  if (!_incassaOrdineId || !currentRistorante) return;
+  const ricevuto = parseEuroInput($('#incassa-ricevuto')?.value);
+  if (!Number.isFinite(ricevuto) || ricevuto + 0.001 < _incassaTotale) {
+    toast('Importo insufficiente');
+    return;
+  }
+  const resto = round2(ricevuto - _incassaTotale);
+  const o = (currentRistorante.ordini || []).find(x => x.id === _incassaOrdineId);
+  if (!o) { toast('Ordine non trovato'); return; }
+
+  if (sb) {
+    // prova a salvare anche contanti/resto se le colonne esistono
+    let { error } = await sb.from('ordini').update({
+      stato_pagamento: 'pagato',
+      pagamento: 'cassa',
+      contanti_ricevuti: ricevuto,
+      resto: resto
+    }).eq('id', _incassaOrdineId);
+    if (error) {
+      ({ error } = await sb.from('ordini').update({
+        stato_pagamento: 'pagato',
+        pagamento: 'cassa'
+      }).eq('id', _incassaOrdineId));
+    }
+    if (error) {
+      toast('Errore salvataggio: ' + error.message);
+      return;
+    }
+  }
+  // aggiorna in memoria
+  o.stato_pagamento = 'pagato';
+  o.pagamento = 'cassa';
+  o.contanti_ricevuti = ricevuto;
+  o.resto = resto;
+
+  const doPrint = $('#incassa-stampa')?.checked !== false;
+  chiudiModalIncassa();
+  await renderOrdiniKanban();
+  try { await renderRistDashboard(); } catch (e) {}
+
+  if (doPrint) {
+    // assicura items
+    if (!(o.items && o.items.length) && sb) {
+      try {
+        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
+        if (righe && righe.length) {
+          o.items = righe.map(r => ({
+            nome: r.piatto || r.nome || 'Piatto',
+            qty: r.qty_piatti || r.qty || 1,
+            prezzo: r.prezzo_pagato != null ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1)) : 0
+          }));
+        }
+      } catch (e) {}
+    }
+    stampaAreaHtml(buildScontrinoCassaHtml(o, ricevuto, resto));
+  }
+  toast(resto > 0.001
+    ? `Incassato ${formatPrice(ricevuto)} · Resto ${formatPrice(resto)}`
+    : `Incassato esatto ${formatPrice(ricevuto)}`);
+}
+
+$('#btn-incassa-ok')?.addEventListener('click', () => { confermaIncassa(); });
+
+// =====================================================
+// FATTURA (persona fisica / giuridica)
+// =====================================================
+let _fatturaOrdineId = null;
+let _fatturaTipo = 'pf'; // pf | pg
+
+function setFatturaTipo(tipo) {
+  _fatturaTipo = tipo === 'pg' ? 'pg' : 'pf';
+  $$('.fattura-tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === _fatturaTipo));
+  $('#fattura-pf')?.classList.toggle('hidden', _fatturaTipo !== 'pf');
+  $('#fattura-pg')?.classList.toggle('hidden', _fatturaTipo !== 'pg');
+}
+
+$$('.fattura-tipo-btn').forEach(btn => {
+  btn.addEventListener('click', () => setFatturaTipo(btn.dataset.tipo));
+});
+
+function resetFatturaForm() {
+  ['fat-nome','fat-cognome','fat-nascita','fat-indirizzo-pf','fat-cf',
+   'fat-ragione','fat-indirizzo-pg','fat-piva','fat-pec','fat-sdi'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  setFatturaTipo('pf');
+  if ($('#fattura-stampa')) $('#fattura-stampa').checked = true;
+}
+
+window.apriFattura = function(ordineId) {
+  const o = (currentRistorante?.ordini || []).find(x => x.id === ordineId);
+  if (!o) { toast('Ordine non trovato'); return; }
+  _fatturaOrdineId = ordineId;
+  $('#fattura-ordine-id').value = ordineId;
+  $('#fattura-meta').textContent =
+    `Ordine #${o.codice || ''} · Tavolo ${o.tavolo} · Totale ${formatPrice(o.totale || 0)}`;
+  resetFatturaForm();
+  // se già c'erano dati in memoria
+  if (o.fattura && typeof o.fattura === 'object') {
+    const f = o.fattura;
+    setFatturaTipo(f.tipo === 'pg' ? 'pg' : 'pf');
+    if (f.tipo === 'pg') {
+      if ($('#fat-ragione')) $('#fat-ragione').value = f.ragione_sociale || '';
+      if ($('#fat-indirizzo-pg')) $('#fat-indirizzo-pg').value = f.indirizzo || '';
+      if ($('#fat-piva')) $('#fat-piva').value = f.piva || '';
+      if ($('#fat-pec')) $('#fat-pec').value = f.pec || '';
+      if ($('#fat-sdi')) $('#fat-sdi').value = f.codice_destinatario || '';
+    } else {
+      if ($('#fat-nome')) $('#fat-nome').value = f.nome || '';
+      if ($('#fat-cognome')) $('#fat-cognome').value = f.cognome || '';
+      if ($('#fat-nascita')) $('#fat-nascita').value = f.data_nascita || '';
+      if ($('#fat-indirizzo-pf')) $('#fat-indirizzo-pf').value = f.indirizzo || '';
+      if ($('#fat-cf')) $('#fat-cf').value = f.cf || '';
+    }
+  }
+  $('#modal-ordine')?.classList.add('hidden');
+  $('#modal-fattura')?.classList.remove('hidden');
+};
+
+function chiudiModalFattura() {
+  $('#modal-fattura')?.classList.add('hidden');
+  _fatturaOrdineId = null;
+}
+$('#btn-fattura-annulla')?.addEventListener('click', chiudiModalFattura);
+$('#btn-fattura-x')?.addEventListener('click', chiudiModalFattura);
+$('#modal-fattura')?.addEventListener('click', (e) => {
+  if (e.target === $('#modal-fattura')) chiudiModalFattura();
+});
+
+function raccogliDatiFattura() {
+  if (_fatturaTipo === 'pf') {
+    const nome = ($('#fat-nome')?.value || '').trim();
+    const cognome = ($('#fat-cognome')?.value || '').trim();
+    const data_nascita = ($('#fat-nascita')?.value || '').trim();
+    const indirizzo = ($('#fat-indirizzo-pf')?.value || '').trim();
+    const cf = ($('#fat-cf')?.value || '').trim().toUpperCase().replace(/\s/g, '');
+    if (!nome || !cognome) return { error: 'Inserisci nome e cognome' };
+    if (!data_nascita) return { error: 'Inserisci la data di nascita' };
+    if (!indirizzo) return { error: 'Inserisci l\'indirizzo di fatturazione' };
+    if (!/^[A-Z0-9]{16}$/i.test(cf)) return { error: 'Codice fiscale non valido (16 caratteri)' };
+    return {
+      tipo: 'pf',
+      nome, cognome, data_nascita, indirizzo, cf,
+      intestazione: `${nome} ${cognome}`
+    };
+  }
+  const ragione_sociale = ($('#fat-ragione')?.value || '').trim();
+  const indirizzo = ($('#fat-indirizzo-pg')?.value || '').trim();
+  const piva = ($('#fat-piva')?.value || '').trim().replace(/\s/g, '');
+  const pec = ($('#fat-pec')?.value || '').trim();
+  const codice_destinatario = ($('#fat-sdi')?.value || '').trim().toUpperCase();
+  if (!ragione_sociale) return { error: 'Inserisci la ragione sociale' };
+  if (!indirizzo) return { error: 'Inserisci l\'indirizzo di fatturazione' };
+  if (!/^\d{11}$/.test(piva)) return { error: 'Partita IVA non valida (11 cifre)' };
+  if (!pec && !codice_destinatario) {
+    return { error: 'Inserisci almeno la PEC oppure il codice destinatario (SDI)' };
+  }
+  if (codice_destinatario && !/^[A-Z0-9]{6,7}$/i.test(codice_destinatario)) {
+    return { error: 'Codice destinatario non valido (6-7 caratteri)' };
+  }
+  if (pec && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pec)) {
+    return { error: 'Indirizzo PEC non valido' };
+  }
+  return {
+    tipo: 'pg',
+    ragione_sociale, indirizzo, piva, pec, codice_destinatario,
+    intestazione: ragione_sociale
+  };
+}
+
+function buildFatturaHtml(o, fat) {
+  const nomeRist = (currentRistorante && currentRistorante.nome) || 'Ristorante';
+  const citta = (currentRistorante && currentRistorante.citta) || '';
+  const rows = (o.items || []).map(i => {
+    const qty = i.qty || 1;
+    const pre = Number(i.prezzo) || 0;
+    return `<tr><td>${qty}× ${i.nome || i.piatto || 'Piatto'}</td><td style="text-align:right">${formatPrice(pre * qty)}</td></tr>`;
+  }).join('') || '<tr><td colspan="2">—</td></tr>';
+
+  let clienteHtml = '';
+  if (fat.tipo === 'pf') {
+    clienteHtml = `
+      <div><strong>${fat.nome} ${fat.cognome}</strong></div>
+      <div>CF: ${fat.cf}</div>
+      <div>Nato/a il ${fat.data_nascita.split('-').reverse().join('/')}</div>
+      <div>${fat.indirizzo}</div>`;
+  } else {
+    clienteHtml = `
+      <div><strong>${fat.ragione_sociale}</strong></div>
+      <div>P.IVA: ${fat.piva}</div>
+      ${fat.pec ? `<div>PEC: ${fat.pec}</div>` : ''}
+      ${fat.codice_destinatario ? `<div>Cod. SDI: ${fat.codice_destinatario}</div>` : ''}
+      <div>${fat.indirizzo}</div>`;
+  }
+
+  const num = 'FT-' + (o.codice || String(o.id || '').slice(0, 8));
+  return `
+    <div class="fattura-doc">
+      <h1>Fattura</h1>
+      <div class="fd-meta">${num} · ${new Date().toLocaleString('it-IT')} · Ordine #${o.codice || ''}</div>
+      <div class="fd-grid">
+        <div class="fd-box">
+          <h3>Cedente / prestatore</h3>
+          <div><strong>${nomeRist}</strong></div>
+          ${citta ? `<div>${citta}</div>` : ''}
+          <div>Tavolo ${o.tavolo}</div>
+        </div>
+        <div class="fd-box">
+          <h3>Cessionario / committente</h3>
+          ${clienteHtml}
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Descrizione</th><th style="text-align:right">Importo</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="fd-tot">Totale ${formatPrice(o.totale || 0)}</div>
+      <p class="fd-note">Documento gestionale emesso da MenuPro a scopo informativo.
+        Non sostituisce la fattura elettronica trasmessa al Sistema di Interscambio (SdI)
+        né lo scontrino fiscale del registratore di cassa certificato, ove previsto.</p>
+    </div>`;
+}
+
+async function confermaFattura() {
+  if (!_fatturaOrdineId || !currentRistorante) return;
+  const dati = raccogliDatiFattura();
+  if (dati.error) { toast(dati.error); return; }
+
+  const o = (currentRistorante.ordini || []).find(x => x.id === _fatturaOrdineId);
+  if (!o) { toast('Ordine non trovato'); return; }
+
+  // salva su ordine se possibile (colonna jsonb fattura)
+  if (sb) {
+    let { error } = await sb.from('ordini').update({ fattura: dati }).eq('id', o.id);
+    if (error) {
+      // fallback: salva intestazione in note senza sovrascrivere note esistenti
+      try {
+        const notaFat = (o.note ? o.note + ' | ' : '') + 'Fattura: ' + dati.intestazione;
+        await sb.from('ordini').update({ note: notaFat }).eq('id', o.id);
+      } catch (e) {}
+    }
+  }
+  o.fattura = dati;
+
+  const doPrint = $('#fattura-stampa')?.checked !== false;
+  chiudiModalFattura();
+
+  if (doPrint) {
+    if (!(o.items && o.items.length) && sb) {
+      try {
+        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
+        if (righe && righe.length) {
+          o.items = righe.map(r => ({
+            nome: r.piatto || r.nome || 'Piatto',
+            qty: r.qty_piatti || r.qty || 1,
+            prezzo: r.prezzo_pagato != null ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1)) : 0
+          }));
+        }
+      } catch (e) {}
+    }
+    stampaAreaHtml(buildFatturaHtml(o, dati));
+  }
+  toast('Fattura emessa per ' + dati.intestazione);
+}
+
+$('#btn-fattura-ok')?.addEventListener('click', () => { confermaFattura(); });
+
+// CF uppercase while typing
+$('#fat-cf')?.addEventListener('input', (e) => {
+  const pos = e.target.selectionStart;
+  e.target.value = e.target.value.toUpperCase();
+  try { e.target.setSelectionRange(pos, pos); } catch (err) {}
+});
+$('#fat-sdi')?.addEventListener('input', (e) => {
+  const pos = e.target.selectionStart;
+  e.target.value = e.target.value.toUpperCase();
+  try { e.target.setSelectionRange(pos, pos); } catch (err) {}
 });
