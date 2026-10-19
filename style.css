@@ -922,3 +922,115 @@ html.qr-entry #network-status {
 .chiusura-modal-note {
   font-size: 12px; color: var(--muted); margin: 0 0 4px; line-height: 1.45;
 }
+
+
+/* =====================================================
+   INCASSO CASSA + FATTURA
+   ===================================================== */
+.incassa-body, .fattura-body {
+  padding: 18px 24px 8px;
+}
+.incassa-totale-box {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--primary-soft); border: 1px solid rgba(59,130,246,.35);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+}
+.incassa-totale-box .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+.incassa-totale-box .v { font-size: 26px; font-weight: 700; color: var(--primary); }
+.incassa-meta, .fattura-meta {
+  color: var(--muted); font-size: 13px; margin: 0 0 14px;
+}
+.incassa-quick {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+}
+.incassa-quick button {
+  flex: 1 1 auto; min-width: 64px;
+  padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.incassa-quick button:hover { border-color: var(--primary); color: var(--primary); }
+.incassa-resto-box {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 6px;
+}
+.incassa-resto-box .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+.incassa-resto-box .v { font-size: 22px; font-weight: 700; }
+.incassa-resto-box.ok .v { color: #34d399; }
+.incassa-resto-box.bad .v { color: #f87171; }
+.incassa-warn {
+  color: #f87171; font-size: 13px; margin: 4px 0 0; font-weight: 600;
+}
+.fattura-tipo-tabs {
+  display: flex; gap: 8px; margin-bottom: 16px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px;
+}
+.fattura-tipo-btn {
+  flex: 1; border: none; background: transparent; color: var(--muted);
+  padding: 9px 12px; border-radius: 8px; font-weight: 600; font-size: 13px;
+  cursor: pointer;
+}
+.fattura-tipo-btn.active {
+  background: var(--primary); color: #fff;
+}
+.fattura-fields .form-group { margin-bottom: 12px; }
+.fattura-hint {
+  font-size: 12px; color: var(--muted); margin: 0 0 8px; line-height: 1.45;
+}
+
+/* Scontrino incasso (stampa) */
+.scontrino-cassa {
+  width: 72mm; max-width: 100%; margin: 0 auto;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px; color: #111; background: #fff;
+  border: 1px solid #222; padding: 10px 12px;
+  page-break-inside: avoid;
+}
+.scontrino-cassa .sc-title {
+  text-align: center; font-size: 14px; font-weight: 700;
+  letter-spacing: .1em; margin-bottom: 6px;
+}
+.scontrino-cassa .sc-brand {
+  text-align: center; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; margin-bottom: 2px;
+}
+.scontrino-cassa .sc-sep { text-align: center; color: #666; margin: 6px 0; }
+.scontrino-cassa .sc-row {
+  display: flex; justify-content: space-between; gap: 8px; padding: 2px 0;
+}
+.scontrino-cassa .sc-tot {
+  font-weight: 700; font-size: 13px; margin-top: 4px;
+}
+.scontrino-cassa .sc-foot {
+  text-align: center; font-size: 10px; color: #555; margin-top: 8px;
+}
+
+/* Fattura stampa */
+.fattura-doc {
+  max-width: 640px; margin: 0 auto; padding: 20px;
+  font-family: system-ui, sans-serif; color: #111; background: #fff;
+  font-size: 13px; line-height: 1.45;
+}
+.fattura-doc h1 { font-size: 20px; margin: 0 0 4px; }
+.fattura-doc .fd-meta { color: #555; margin-bottom: 16px; }
+.fattura-doc .fd-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;
+}
+.fattura-doc .fd-box {
+  border: 1px solid #ccc; border-radius: 8px; padding: 12px;
+}
+.fattura-doc .fd-box h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: #666; margin: 0 0 6px;
+}
+.fattura-doc table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.fattura-doc th, .fattura-doc td {
+  border-bottom: 1px solid #ddd; padding: 8px 6px; text-align: left; font-size: 13px;
+}
+.fattura-doc th { color: #555; font-size: 11px; text-transform: uppercase; }
+.fattura-doc .fd-tot {
+  text-align: right; font-size: 18px; font-weight: 700; margin-top: 10px;
+}
+.fattura-doc .fd-note { font-size: 11px; color: #777; margin-top: 20px; }
