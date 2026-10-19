@@ -508,9 +508,77 @@ async function enterAsRistoratore(r) {
   $('#rist-nome-sidebar').textContent = (currentRistorante && currentRistorante.nome) || r.nome || 'Ristorante';
   $('#rist-user-email').textContent = r.email;
   try { localStorage.setItem(lastRistKey(r.email), currentUser.ristoranteId); } catch (e) {}
+  applyCassaNavRestrictions(false);
   await populateRistSwitcher();
   await renderRistAll();
   startOrdiniWatch();
+  return true;
+}
+
+/** Pagine permesse agli account cassa */
+const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura']);
+
+function applyCassaNavRestrictions(isCassa) {
+  $$('#app-ristoratore .nav-item').forEach(item => {
+    const page = item.getAttribute('data-page');
+    if (!page) return;
+    if (isCassa && !CASSA_PAGES.has(page)) {
+      item.classList.add('hidden');
+    } else {
+      item.classList.remove('hidden');
+    }
+  });
+  // switcher multi-locale non serve alle casse
+  const sw = $('#rist-switcher-wrap');
+  if (sw && isCassa) sw.classList.add('hidden');
+}
+
+/**
+ * Entra come cassa: vede solo Ordini, Tavoli & QR, Chiusura fiscale
+ */
+async function enterAsCassa(u) {
+  const ristId = u.id_ristorante;
+  if (!ristId) {
+    toast('Questa cassa non è collegata a nessun ristorante. Esegui supabase-casse.sql e ricrea le casse.');
+    return false;
+  }
+  const r = await getRistorante(ristId);
+  if (!r) {
+    toast('Ristorante della cassa non trovato');
+    return false;
+  }
+  currentRistorante = r;
+  currentUser = {
+    role: 'cassa',
+    email: u.email,
+    ristoranteId: ristId,
+    nome: u.nome || 'Cassa'
+  };
+  saveSession({
+    role: 'cassa',
+    email: u.email,
+    ristoranteId: ristId,
+    page: 'rist-ordini'
+  });
+  $('#login-screen').classList.add('hidden');
+  $('#app-admin')?.classList.add('hidden');
+  $('#app-cliente')?.classList.add('hidden');
+  $('#app-ristoratore').classList.remove('hidden');
+  $('#rist-nome-sidebar').textContent = (r.nome || 'Ristorante') + ' · Cassa';
+  $('#rist-user-email').textContent = u.email;
+  applyCassaNavRestrictions(true);
+
+  // mostra solo Ordini come pagina iniziale
+  $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
+  $$('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
+  const ordNav = document.querySelector('#app-ristoratore .nav-item[data-page="rist-ordini"]');
+  if (ordNav) ordNav.classList.add('active');
+  $('#page-rist-ordini')?.classList.remove('hidden');
+  $('#rist-page-title').textContent = 'Ordini';
+
+  await renderOrdiniKanban();
+  startOrdiniWatch();
+  toast('Accesso cassa: ' + (u.nome || u.email));
   return true;
 }
 
@@ -531,6 +599,9 @@ async function doLogin(email, pass) {
         if (u && u.ruolo === 'admin') return await enterAsAdmin(u.email);
         if (u && u.ruolo === 'ristoratore') {
           return await enterRistoratoreByEmail(email);
+        }
+        if (u && u.ruolo === 'cassa') {
+          return await enterAsCassa(u);
         }
         await sb.auth.signOut();
         toast('Utente autenticato ma senza ruolo: aggiungilo nella tabella utenti');
@@ -556,6 +627,9 @@ async function doLogin(email, pass) {
       if (json.user.ruolo === 'ristoratore') {
         // i locali si cercano sempre per email (json.user.id è l'id dell'utente, non del ristorante)
         return await enterRistoratoreByEmail(json.user.email);
+      }
+      if (json.user.ruolo === 'cassa') {
+        return await enterAsCassa(json.user);
       }
     }
   } catch (e) {
@@ -588,6 +662,10 @@ async function doLogin(email, pass) {
 
     if (u && u.ruolo === 'ristoratore') {
       return await enterRistoratoreByEmail(email);
+    }
+
+    if (u && u.ruolo === 'cassa') {
+      return await enterAsCassa(u);
     }
 
     // poi cerca direttamente in ristoranti (compatibilità)
@@ -701,12 +779,17 @@ $$('#app-admin .nav-item').forEach(item => {
 $$('#app-ristoratore .nav-item').forEach(item => {
   item.addEventListener('click', async (e) => {
     e.preventDefault();
+    const page = item.dataset.page;
+    // account cassa: solo ordini, tavoli, chiusura
+    if (currentUser && currentUser.role === 'cassa' && !CASSA_PAGES.has(page)) {
+      toast('Accesso non consentito per la cassa');
+      return;
+    }
     $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
     item.classList.add('active');
-    const page = item.dataset.page;
-    updateSessionPage(page, 'ristoratore');
+    updateSessionPage(page, currentUser?.role === 'cassa' ? 'cassa' : 'ristoratore');
     $$('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
-    $(`#page-${page}`).classList.remove('hidden');
+    $(`#page-${page}`)?.classList.remove('hidden');
     const titles = {
       'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
       'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
@@ -940,11 +1023,11 @@ function slugifyNome(nome) {
  * Crea account cassa per un ristorante.
  * Email: {slug}@cassa1.it, {slug}@cassa2.it, …
  * Password predefinita: cassa123
- * Ruolo: 'cassa'
+ * Ruolo: 'cassa' + id_ristorante
  */
 async function createCasse(ristoranteId, nomeRist, nCasse, passwordDefault = 'cassa123') {
   const n = Math.max(0, Math.min(20, parseInt(nCasse) || 0));
-  if (n === 0 || !sb) return [];
+  if (n === 0 || !sb || !ristoranteId) return [];
 
   const slug = slugifyNome(nomeRist);
   const create = [];
@@ -957,19 +1040,30 @@ async function createCasse(ristoranteId, nomeRist, nCasse, passwordDefault = 'ca
       email,
       password_hash: passwordDefault,
       ruolo: 'cassa',
-      nome: `Cassa ${i} – ${nomeRist}`
+      nome: `Cassa ${i} – ${nomeRist}`,
+      id_ristorante: ristoranteId
     });
   }
 
   if (!create.length) return [];
 
-  const { error } = await sb.from('utenti').insert(create);
+  // prova con id_ristorante; se la colonna non esiste ancora, riprova senza
+  let { error } = await sb.from('utenti').insert(create);
+  if (error && String(error.message || '').toLowerCase().includes('id_ristorante')) {
+    console.warn('Colonna id_ristorante assente: esegui supabase-casse.sql. Inserisco senza link.');
+    const senza = create.map(({ id_ristorante, ...rest }) => rest);
+    ({ error } = await sb.from('utenti').insert(senza));
+  }
   if (error) {
     console.error('Errore creazione casse:', error);
-    // fallback: una per una
     const ok = [];
     for (const u of create) {
-      const { error: e2 } = await sb.from('utenti').insert(u);
+      let row = u;
+      let { error: e2 } = await sb.from('utenti').insert(row);
+      if (e2 && String(e2.message || '').toLowerCase().includes('id_ristorante')) {
+        const { id_ristorante, ...rest } = u;
+        ({ error: e2 } = await sb.from('utenti').insert(rest));
+      }
       if (!e2) ok.push(u.email);
       else console.error('Cassa non creata', u.email, e2);
     }
@@ -3745,6 +3839,19 @@ function assertQrSessionOrBlock() {
       await enterAsRistoratore({ id: r.id, email: s.email, nome: r.nome });
       if (s.page && s.page !== 'rist-dashboard')
         document.querySelector('#app-ristoratore .nav-item[data-page="' + s.page + '"]')?.click();
+      return;
+    }
+    if (s.role === 'cassa') {
+      const { data: u } = sb
+        ? await sb.from('utenti').select('*').eq('email', s.email).eq('ruolo', 'cassa').maybeSingle()
+        : { data: null };
+      if (!u) throw new Error('Cassa non trovata');
+      // allinea id_ristorante dalla sessione se manca sull'utente
+      if (!u.id_ristorante && s.ristoranteId) u.id_ristorante = s.ristoranteId;
+      await enterAsCassa(u);
+      if (s.page && CASSA_PAGES.has(s.page)) {
+        document.querySelector('#app-ristoratore .nav-item[data-page="' + s.page + '"]')?.click();
+      }
       return;
     }
   } catch (e) {
