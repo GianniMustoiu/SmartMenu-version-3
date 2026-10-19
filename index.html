@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -988,11 +988,130 @@
     </div>
   </div>
 
+
+  <!-- Modal pagamento in cassa (contanti + resto + scontrino) -->
+  <div id="modal-incassa" class="modal hidden">
+    <div class="modal-content" style="max-width:440px">
+      <div class="modal-header">
+        <h3><i class="fas fa-cash-register" style="color:var(--primary);margin-right:8px"></i> Pagamento in cassa</h3>
+        <button type="button" class="close-modal" data-modal="modal-incassa" id="btn-incassa-x">&times;</button>
+      </div>
+      <div class="incassa-body">
+        <input type="hidden" id="incassa-ordine-id" />
+        <div class="incassa-totale-box">
+          <span class="k">Totale da pagare</span>
+          <span class="v" id="incassa-totale">€0,00</span>
+        </div>
+        <p class="incassa-meta" id="incassa-meta"></p>
+        <div class="form-group" style="margin-bottom:10px">
+          <label for="incassa-ricevuto">Contanti ricevuti (€)</label>
+          <input type="number" id="incassa-ricevuto" min="0" step="0.01" inputmode="decimal" placeholder="0,00" />
+        </div>
+        <div class="incassa-quick" id="incassa-quick"></div>
+        <div class="incassa-resto-box" id="incassa-resto-box">
+          <span class="k">Resto</span>
+          <span class="v" id="incassa-resto">€0,00</span>
+        </div>
+        <p class="incassa-warn hidden" id="incassa-warn">Importo insufficiente</p>
+        <label class="check-label" style="margin-top:12px">
+          <input type="checkbox" id="incassa-stampa" checked />
+          <span>Stampa scontrino dopo l'incasso</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-incassa-annulla">Annulla</button>
+        <button type="button" class="btn btn-primary" id="btn-incassa-ok">
+          <i class="fas fa-check"></i> Conferma incasso
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal fattura -->
+  <div id="modal-fattura" class="modal hidden">
+    <div class="modal-content" style="max-width:520px">
+      <div class="modal-header">
+        <h3><i class="fas fa-file-invoice" style="color:var(--primary);margin-right:8px"></i> Emetti fattura</h3>
+        <button type="button" class="close-modal" data-modal="modal-fattura" id="btn-fattura-x">&times;</button>
+      </div>
+      <div class="fattura-body">
+        <input type="hidden" id="fattura-ordine-id" />
+        <p class="fattura-meta" id="fattura-meta"></p>
+        <div class="fattura-tipo-tabs">
+          <button type="button" class="fattura-tipo-btn active" data-tipo="pf">Persona fisica</button>
+          <button type="button" class="fattura-tipo-btn" data-tipo="pg">Persona giuridica</button>
+        </div>
+
+        <div id="fattura-pf" class="fattura-fields">
+          <div class="form-row" style="padding:0">
+            <div class="form-group">
+              <label>Nome *</label>
+              <input type="text" id="fat-nome" maxlength="80" autocomplete="given-name" />
+            </div>
+            <div class="form-group">
+              <label>Cognome *</label>
+              <input type="text" id="fat-cognome" maxlength="80" autocomplete="family-name" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Data di nascita *</label>
+            <input type="date" id="fat-nascita" />
+          </div>
+          <div class="form-group">
+            <label>Indirizzo di fatturazione *</label>
+            <input type="text" id="fat-indirizzo-pf" maxlength="200" placeholder="Via, n., CAP, Città" />
+          </div>
+          <div class="form-group">
+            <label>Codice fiscale *</label>
+            <input type="text" id="fat-cf" maxlength="16" placeholder="16 caratteri" style="text-transform:uppercase" />
+          </div>
+        </div>
+
+        <div id="fattura-pg" class="fattura-fields hidden">
+          <div class="form-group">
+            <label>Ragione sociale *</label>
+            <input type="text" id="fat-ragione" maxlength="120" placeholder="Nome azienda" />
+          </div>
+          <div class="form-group">
+            <label>Indirizzo di fatturazione *</label>
+            <input type="text" id="fat-indirizzo-pg" maxlength="200" placeholder="Via, n., CAP, Città" />
+          </div>
+          <div class="form-group">
+            <label>Partita IVA *</label>
+            <input type="text" id="fat-piva" maxlength="11" inputmode="numeric" placeholder="11 cifre" />
+          </div>
+          <div class="form-row" style="padding:0">
+            <div class="form-group">
+              <label>PEC</label>
+              <input type="email" id="fat-pec" maxlength="120" placeholder="es. azienda@pec.it" />
+            </div>
+            <div class="form-group">
+              <label>Codice destinatario (SDI)</label>
+              <input type="text" id="fat-sdi" maxlength="7" placeholder="7 caratteri" style="text-transform:uppercase" />
+            </div>
+          </div>
+          <p class="fattura-hint">Serve almeno uno tra PEC e codice destinatario (puoi inserirli entrambi).</p>
+        </div>
+
+        <label class="check-label" style="margin-top:8px">
+          <input type="checkbox" id="fattura-stampa" checked />
+          <span>Stampa documento dopo il salvataggio</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-fattura-annulla">Annulla</button>
+        <button type="button" class="btn btn-primary" id="btn-fattura-ok">
+          <i class="fas fa-file-invoice"></i> Emetti fattura
+        </button>
+      </div>
+    </div>
+  </div>
+
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=6"></script>
-  <script src="script.js?v=6"></script>
+  <script src="config.js?v=7"></script>
+  <script src="script.js?v=7"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
