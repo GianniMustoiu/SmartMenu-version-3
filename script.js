@@ -821,8 +821,20 @@ window.editRistorante = async function(id) {
 };
 
 window.deleteRistorante = async function(id) {
+  if (!confirm('Eliminare il ristorante e il suo utente? L\'operazione non si può annullare.')) return;
+
+  // leggi l'email PRIMA di cancellare, serve per eliminare l'utente collegato
+  const { data: rist } = await sb.from('ristoranti').select('email').eq('id', id).maybeSingle();
+
   const { error } = await sb.from('ristoranti').delete().eq('id', id);
-  if (error) { toast('Errore eliminazione'); return; }
+  if (error) { toast('Errore eliminazione: ' + error.message); console.error(error); return; }
+
+  if (rist && rist.email) {
+    const { error: errU } = await sb.from('utenti').delete()
+      .eq('email', String(rist.email).trim().toLowerCase())
+      .eq('ruolo', 'ristoratore');          // mai toccare gli admin
+    if (errU) { console.error('Errore eliminazione utente:', errU); toast('Ristorante eliminato, ma utente no: ' + errU.message); }
+  }
   await renderAdminTable($('#search-ristoranti')?.value || '');
   await renderAdminDashboard();
   await renderAbbonamenti();
@@ -1095,6 +1107,7 @@ $('#btn-reset')?.addEventListener('click', async () => {
   await sb.from('categorie').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await sb.from('tavoli').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await sb.from('ristoranti').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await sb.from('utenti').delete().eq('ruolo', 'ristoratore');
   await renderAdminTable();
   await renderAdminDashboard();
   await renderAbbonamenti();
