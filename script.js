@@ -166,7 +166,18 @@ async function loadRistoranti() {
 
 
 async function loadRistoranteFull(id) {
-  const { data: r, error } = await sb.from('ristoranti').select('*').eq('id', id).single();
+  async function loadRistoranteFull(id) {
+
+  if (!navigator.onLine) {
+    return loadOfflineRestaurant(id);
+  }
+
+  const { data: r, error } =
+    await sb
+      .from('ristoranti')
+      .select('*')
+      .eq('id', id)
+      .single();
   if (error || !r) return null;
 
   const [tavoli, piatti, categorie, ordini, pagamenti] = await Promise.all([
