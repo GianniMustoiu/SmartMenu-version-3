@@ -616,3 +616,16 @@ body.cliente-night { background: #0a0f1c; }
 .rist-switcher { padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .rist-switcher label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
 .rist-switcher select { padding: 8px 10px; font-weight: 600; }
+
+.conferma-stato-body {
+  padding: 20px 24px 8px;
+}
+.conferma-stato-body p {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.conferma-stato-hint {
+  color: var(--muted);
+  font-size: 13px !important;
+}
