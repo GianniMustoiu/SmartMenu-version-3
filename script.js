@@ -1716,6 +1716,52 @@ async function renderOrdiniKanban() {
   setupKanbanDragDrop();
 }
 
+
+/** Dialog di conferma nello stile MenuPro (sostituisce window.confirm). */
+function chiediConfermaStato(msgHtml, hintText) {
+  return new Promise((resolve) => {
+    const modal = $('#modal-conferma-stato');
+    if (!modal) {
+      resolve(window.confirm(msgHtml.replace(/<[^>]+>/g, '')));
+      return;
+    }
+    const msgEl = $('#conferma-stato-msg');
+    const hintEl = document.querySelector('.conferma-stato-hint');
+    if (msgEl) msgEl.innerHTML = msgHtml;
+    if (hintEl && hintText) hintEl.textContent = hintText;
+
+    const btnSi = $('#btn-conferma-stato-si');
+    const btnNo = $('#btn-conferma-stato-no');
+    const btnX = $('#btn-conferma-stato-x');
+
+    const cleanup = (val) => {
+      modal.classList.add('hidden');
+      btnSi?.removeEventListener('click', onSi);
+      btnNo?.removeEventListener('click', onNo);
+      btnX?.removeEventListener('click', onNo);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    };
+    const onSi = () => cleanup(true);
+    const onNo = () => cleanup(false);
+    const onBackdrop = (e) => { if (e.target === modal) cleanup(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') cleanup(false);
+      if (e.key === 'Enter') cleanup(true);
+    };
+
+    btnSi?.addEventListener('click', onSi);
+    btnNo?.addEventListener('click', onNo);
+    btnX?.addEventListener('click', onNo);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+
+    modal.classList.remove('hidden');
+    setTimeout(() => btnSi?.focus(), 30);
+  });
+}
+
 // =====================================================
 // DRAG & DROP KANBAN ORDINI
 // Conferma solo per salto "grande": da nuovo → pronto
@@ -1783,9 +1829,12 @@ function setupKanbanDragDrop() {
 
     if (!toStato || toStato === fromStato) return;
 
-    // Salto "grande": da Nuovo direttamente a Pronto → chiedi conferma
+    // Salto "grande": da Nuovo direttamente a Pronto → dialog carino
     if (fromStato === 'nuovo' && toStato === 'pronto') {
-      const ok = confirm('Vuoi segnare questo ordine come PRONTO saltando la preparazione?');
+      const ok = await chiediConfermaStato(
+        'Vuoi segnare questo ordine come <strong>Pronto</strong> saltando la preparazione?',
+        'L\'ordine passerà direttamente da Nuovo a Pronto, senza la fase di preparazione.'
+      );
       if (!ok) return;
     }
 
