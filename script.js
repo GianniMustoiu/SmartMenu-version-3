@@ -1,3 +1,4 @@
+
 // =====================================================
 // MenuPro – Versione collegata a Supabase
 // =====================================================
@@ -2785,6 +2786,64 @@ window.chiudiConto = async function(ordineId) {
   await renderTavoli();
   toast('Conto chiuso e segnato come pagato');
 };
+
+/**
+ * Chiude solo le comande già consegnate e pagate → stato "chiuso".
+ * Non tocca ordini nuovi, in preparazione, pronti o non pagati.
+ */
+window.chiudiContiConsegnati = async function() {
+  if (!sb || !currentRistorante) {
+    toast('Nessun ristorante selezionato');
+    return;
+  }
+  currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
+  const daChiudere = (currentRistorante.ordini || []).filter(o => {
+    const pag = o.stato_pagamento || defaultPagStato(o.pagamento);
+    return o.stato === 'consegnato' && pag === 'pagato';
+  });
+  if (!daChiudere.length) {
+    toast('Nessuna comanda consegnata e pagata da chiudere');
+    return;
+  }
+  if (!confirm(`Chiudere ${daChiudere.length} conti consegnati e pagati?\nPasseranno allo stato "chiuso".`)) {
+    return;
+  }
+
+  const ids = daChiudere.map(o => o.id);
+  const { error } = await sb.from('ordini')
+    .update({ stato: 'chiuso' })
+    .in('id', ids);
+  if (error) {
+    toast('Errore chiusura: ' + error.message);
+    console.error(error);
+    return;
+  }
+
+  // libera un tavolo solo se non restano altri ordini aperti su di esso
+  const tavoliNum = [...new Set(daChiudere.map(o => o.tavolo).filter(t => t != null))];
+  const ancoraAperti = (currentRistorante.ordini || []).filter(o =>
+    !ids.includes(o.id) && o.stato !== 'chiuso' && o.stato !== 'consegnato'
+  );
+  for (const num of tavoliNum) {
+    const ancoraSuTavolo = ancoraAperti.some(o => o.tavolo === num);
+    if (ancoraSuTavolo) continue;
+    try {
+      await sb.from('tavoli').update({ occupato: false })
+        .eq('id_ristorante', currentRistorante.id)
+        .eq('numero', num);
+    } catch (e) { console.warn('libero tavolo', num, e); }
+  }
+
+  $('#modal-ordine')?.classList.add('hidden');
+  await renderOrdiniKanban();
+  try { await renderRistDashboard(); } catch (e) {}
+  try { await renderTavoli(); } catch (e) {}
+  toast(`${daChiudere.length} conti chiusi`);
+};
+
+document.getElementById('btn-chiudi-tutto')?.addEventListener('click', () => {
+  window.chiudiContiConsegnati();
+});
 
 window.togglePagamento = async function(ordineId) {
   const o = currentRistorante.ordini.find(x => x.id === ordineId);
