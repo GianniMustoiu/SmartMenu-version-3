@@ -593,3 +593,6 @@ body.cliente-night { background: #0a0f1c; }
   pointer-events: none;
 }
 #network-status:empty { display: none; }
+
+/* metodo di pagamento non ammesso dal ristorante (batte il display:flex !important di .payment-opt) */
+.payment-opt.hidden { display: none !important; }
