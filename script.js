@@ -2397,9 +2397,27 @@ if (!navigator.onLine) {
     $('#ricevuta-pag-stato').textContent = labelPagamentoStato(stato_pagamento);
     $('#ricevuta-pag-stato').className = 'badge-pag ' + stato_pagamento;
   }
-  $('#ricevuta-items').innerHTML = cart.map(i => `
+  const itemsHtml = cart.map(i => `
     <div class="r-item"><span>${i.qty}× ${i.nome}</span><span>${formatPrice(i.prezzo * i.qty)}</span></div>
   `).join('');
+  $('#ricevuta-items').innerHTML = itemsHtml;
+
+  // Salva dati ricevuta per download (solo pagamento carta online)
+  window._ultimaRicevuta = {
+    codice,
+    ristorante: currentRistorante.nome,
+    tavolo: currentUser.tavolo,
+    ora: formatTime(inserted.created_at),
+    pagamento,
+    totale,
+    items: cart.map(i => ({ qty: i.qty, nome: i.nome, prezzo: i.prezzo })),
+    note
+  };
+  const btnScarica = $('#btn-scarica-ricevuta');
+  if (btnScarica) {
+    if (pagamento === 'carta') btnScarica.classList.remove('hidden');
+    else btnScarica.classList.add('hidden');
+  }
 
   cart = [];
   updateCartCount();
@@ -2458,6 +2476,23 @@ async function loadClienteOrdineById(ordineId) {
   $('#ricevuta-items').innerHTML = items.length
     ? items.map(i => `<div class="r-item"><span>${i.qty}× ${i.nome}</span><span>${formatPrice((i.prezzo || 0) * (i.qty || 1))}</span></div>`).join('')
     : '<p style="color:var(--muted)">Dettaglio piatti non disponibile</p>';
+
+  window._ultimaRicevuta = {
+    codice: o.codice,
+    ristorante: (currentRistorante && currentRistorante.nome) || '',
+    tavolo: o.tavolo,
+    ora: formatTime(o.created_at || o.createdAt),
+    pagamento: o.pagamento,
+    totale: o.totale || 0,
+    items: items.map(i => ({ qty: i.qty || 1, nome: i.nome, prezzo: i.prezzo || 0 })),
+    note: o.note || ''
+  };
+  const btnScarica = $('#btn-scarica-ricevuta');
+  if (btnScarica) {
+    if (o.pagamento === 'carta') btnScarica.classList.remove('hidden');
+    else btnScarica.classList.add('hidden');
+  }
+
   showClienteView('ricevuta');
   startOrdineStatusPolling();
 }
@@ -2762,3 +2797,136 @@ window.addEventListener('online', updateNetworkStatus);
 window.addEventListener('offline', updateNetworkStatus);
 
 updateNetworkStatus();
+
+// =====================================================
+// SCARICA RICEVUTA (cliente – solo pagamento carta)
+// =====================================================
+function buildRicevutaHtml(r) {
+  if (!r) return '';
+  const rows = (r.items || []).map(i =>
+    `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #ddd">
+      <span>${i.qty}× ${i.nome}</span><span>${formatPrice(i.prezzo * i.qty)}</span>
+    </div>`
+  ).join('');
+  return `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>Ricevuta ${r.codice}</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;max-width:420px;margin:24px auto;padding:16px;color:#111}
+  h1{font-size:20px;margin:0 0 4px} .ok{color:#16a34a;font-size:28px;text-align:center}
+  .meta{color:#555;font-size:14px;margin:12px 0;padding:12px 0;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc}
+  .tot{display:flex;justify-content:space-between;font-size:18px;font-weight:700;margin-top:12px}
+  .foot{margin-top:20px;font-size:12px;color:#888;text-align:center}
+</style></head><body>
+  <div class="ok">✓</div>
+  <h1 style="text-align:center">Ricevuta ordine</h1>
+  <p style="text-align:center;margin:0"><strong>${r.codice}</strong></p>
+  <div class="meta">
+    <div><strong>${r.ristorante || ''}</strong></div>
+    <div>Tavolo ${r.tavolo} · ${r.ora || ''}</div>
+    <div>Pagamento: Carta (online)</div>
+    ${r.note ? '<div>Note: ' + r.note + '</div>' : ''}
+  </div>
+  ${rows}
+  <div class="tot"><span>Totale</span><span>${formatPrice(r.totale)}</span></div>
+  <p class="foot">Pagamento effettuato con carta · MenuPro</p>
+</body></html>`;
+}
+
+function scaricaRicevuta() {
+  const r = window._ultimaRicevuta;
+  if (!r || r.pagamento !== 'carta') {
+    toast('Ricevuta disponibile solo per pagamenti con carta');
+    return;
+  }
+  const html = buildRicevutaHtml(r);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ricevuta-' + (r.codice || 'ordine') + '.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Ricevuta scaricata');
+}
+
+$('#btn-scarica-ricevuta')?.addEventListener('click', scaricaRicevuta);
+
+// =====================================================
+// STAMPA COMANDE (ristoratore – tutte le comande attive)
+// =====================================================
+function buildComandaTicket(o) {
+  const items = (o.items || []).map(i =>
+    `<li><strong>${i.qty || 1}×</strong> ${i.nome || i.piatto || 'Piatto'}</li>`
+  ).join('') || '<li>—</li>';
+  const pag = o.pagamento === 'cassa' ? 'CASSA' : (o.pagamento === 'carta' ? 'CARTA' : (o.pagamento || '—'));
+  const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+  return `
+    <div class="comanda-ticket">
+      <h3>COMANDA · Tavolo ${o.tavolo} · #${o.codice || ''}</h3>
+      <div class="meta">
+        ${formatTime(o.createdAt || o.created_at)} · Stato: ${labelStato(o.stato)} · Pag: ${pag} (${labelPagamentoStato(ps)})
+      </div>
+      <ul>${items}</ul>
+      ${o.note ? '<div class="note">Note: ' + o.note + '</div>' : ''}
+      <div class="tot">Totale ${formatPrice(o.totale || 0)}</div>
+    </div>`;
+}
+
+async function stampaComande() {
+  if (!currentRistorante) { toast('Nessun ristorante selezionato'); return; }
+  // ricarica dati freschi
+  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  const ordini = (currentRistorante.ordini || []).filter(o =>
+    o.stato === 'nuovo' || o.stato === 'in_preparazione' || o.stato === 'pronto'
+  );
+  if (!ordini.length) {
+    toast('Nessuna comanda da stampare');
+    return;
+  }
+
+  // assicura items se mancanti
+  for (const o of ordini) {
+    if (!(o.items && o.items.length) && sb) {
+      try {
+        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
+        if (righe && righe.length) {
+          o.items = righe.map(row => ({
+            nome: row.piatto || row.nome || 'Piatto',
+            qty: row.qty_piatti || row.qty || 1,
+            prezzo: 0
+          }));
+        }
+      } catch (e) {}
+    }
+  }
+
+  let area = document.getElementById('print-area');
+  if (!area) {
+    area = document.createElement('div');
+    area.id = 'print-area';
+    document.body.appendChild(area);
+  }
+  area.innerHTML = `
+    <div style="margin-bottom:12px;font-family:system-ui;font-size:14px">
+      <strong>${currentRistorante.nome || 'Ristorante'}</strong> — Comande · ${new Date().toLocaleString('it-IT')}
+    </div>
+    ${ordini.map(buildComandaTicket).join('')}
+  `;
+  area.classList.add('printing');
+  const cleanup = () => {
+    area.classList.remove('printing');
+    area.innerHTML = '';
+  };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(() => {
+    window.print();
+    // fallback se afterprint non arriva
+    setTimeout(cleanup, 1500);
+  }, 100);
+}
+
+document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
+  stampaComande();
+});
