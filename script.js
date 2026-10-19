@@ -1,4 +1,3 @@
-
 // =====================================================
 // MenuPro – Versione collegata a Supabase
 // =====================================================
@@ -2566,25 +2565,52 @@ async function renderOrdiniKanban() {
 }
 
 
-/** Dialog di conferma nello stile MenuPro (sostituisce window.confirm). */
-function chiediConfermaStato(msgHtml, hintText) {
+/** Dialog di conferma nello stile MenuPro (sostituisce window.confirm).
+ *  opts: { title, hint, confirmLabel, confirmIcon, danger }
+ */
+function chiediConfermaStato(msgHtml, hintText, opts) {
+  opts = opts || {};
   return new Promise((resolve) => {
     const modal = $('#modal-conferma-stato');
     if (!modal) {
-      resolve(window.confirm(msgHtml.replace(/<[^>]+>/g, '')));
+      resolve(window.confirm(String(msgHtml).replace(/<[^>]+>/g, '')));
       return;
     }
+    const titleEl = modal.querySelector('.modal-header h3');
     const msgEl = $('#conferma-stato-msg');
     const hintEl = document.querySelector('.conferma-stato-hint');
-    if (msgEl) msgEl.innerHTML = msgHtml;
-    if (hintEl && hintText) hintEl.textContent = hintText;
-
     const btnSi = $('#btn-conferma-stato-si');
     const btnNo = $('#btn-conferma-stato-no');
     const btnX = $('#btn-conferma-stato-x');
 
+    const prevTitle = titleEl ? titleEl.innerHTML : '';
+    const prevSi = btnSi ? btnSi.innerHTML : '';
+    const prevSiClass = btnSi ? btnSi.className : '';
+
+    if (titleEl) {
+      const icon = opts.danger
+        ? '<i class="fas fa-lock" style="color:var(--danger);margin-right:8px"></i>'
+        : '<i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-right:8px"></i>';
+      titleEl.innerHTML = icon + (opts.title || 'Conferma');
+    }
+    if (msgEl) msgEl.innerHTML = msgHtml;
+    if (hintEl) {
+      hintEl.textContent = hintText || '';
+      hintEl.classList.toggle('hidden', !hintText);
+    }
+    if (btnSi) {
+      const ic = opts.confirmIcon || 'fas fa-check';
+      btnSi.innerHTML = '<i class="' + ic + '"></i> ' + (opts.confirmLabel || 'Conferma');
+      btnSi.className = opts.danger ? 'btn btn-danger' : 'btn btn-primary';
+    }
+
     const cleanup = (val) => {
       modal.classList.add('hidden');
+      if (titleEl) titleEl.innerHTML = prevTitle;
+      if (btnSi) {
+        btnSi.innerHTML = prevSi;
+        btnSi.className = prevSiClass;
+      }
       btnSi?.removeEventListener('click', onSi);
       btnNo?.removeEventListener('click', onNo);
       btnX?.removeEventListener('click', onNo);
@@ -2805,9 +2831,21 @@ window.chiudiContiConsegnati = async function() {
     toast('Nessuna comanda consegnata e pagata da chiudere');
     return;
   }
-  if (!confirm(`Chiudere ${daChiudere.length} conti consegnati e pagati?\nPasseranno allo stato "chiuso".`)) {
-    return;
-  }
+  const n = daChiudere.length;
+  const tavoliUnici = [...new Set(daChiudere.map(o => o.tavolo).filter(t => t != null))];
+  const ok = await chiediConfermaStato(
+    `Chiudere <strong>${n}</strong> ${n === 1 ? 'conto' : 'conti'} già <strong>consegnati e pagati</strong>?`,
+    (tavoliUnici.length
+      ? `Coinvolti ${tavoliUnici.length === 1 ? 'il tavolo' : 'i tavoli'} ${tavoliUnici.sort((a,b)=>a-b).join(', ')}. `
+      : '') + 'Passeranno allo stato «chiuso» e i tavoli liberi verranno sbloccati. L\'operazione non si può annullare.',
+    {
+      title: 'Chiudi tutto',
+      confirmLabel: n === 1 ? 'Sì, chiudi il conto' : `Sì, chiudi ${n} conti`,
+      confirmIcon: 'fas fa-lock',
+      danger: true
+    }
+  );
+  if (!ok) return;
 
   const ids = daChiudere.map(o => o.id);
   const { error } = await sb.from('ordini')
@@ -4049,19 +4087,31 @@ $('#btn-scarica-ricevuta')?.addEventListener('click', scaricaRicevuta);
 // =====================================================
 function buildComandaTicket(o) {
   const items = (o.items || []).map(i =>
-    `<li><strong>${i.qty || 1}×</strong> ${i.nome || i.piatto || 'Piatto'}</li>`
+    `<li><span class="cqty">${i.qty || 1}×</span> <span class="cname">${i.nome || i.piatto || 'Piatto'}</span></li>`
   ).join('') || '<li>—</li>';
   const pag = o.pagamento === 'cassa' ? 'CASSA' : (o.pagamento === 'carta' ? 'CARTA' : (o.pagamento || '—'));
   const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
+  const nomeRist = (currentRistorante && currentRistorante.nome) ? currentRistorante.nome : '';
   return `
     <div class="comanda-ticket">
-      <h3>COMANDA · Tavolo ${o.tavolo} · #${o.codice || ''}</h3>
-      <div class="meta">
-        ${formatTime(o.createdAt || o.created_at)} · Stato: ${labelStato(o.stato)} · Pag: ${pag} (${labelPagamentoStato(ps)})
+      <div class="comanda-cut">✂ — — — taglia qui — — —</div>
+      <div class="comanda-body">
+        <div class="comanda-brand">${nomeRist}</div>
+        <div class="comanda-title">COMANDA</div>
+        <div class="comanda-head">
+          <span class="comanda-tavolo">Tavolo ${o.tavolo}</span>
+          <span class="comanda-codice">#${o.codice || ''}</span>
+        </div>
+        <div class="meta">
+          ${formatTime(o.createdAt || o.created_at)} · ${labelStato(o.stato)}
+        </div>
+        <div class="meta meta-pag">Pag: ${pag} (${labelPagamentoStato(ps)})</div>
+        <div class="comanda-sep">························</div>
+        <ul>${items}</ul>
+        ${o.note ? '<div class="note">Note: ' + o.note + '</div>' : ''}
+        <div class="comanda-sep">························</div>
+        <div class="tot">TOTALE ${formatPrice(o.totale || 0)}</div>
       </div>
-      <ul>${items}</ul>
-      ${o.note ? '<div class="note">Note: ' + o.note + '</div>' : ''}
-      <div class="tot">Totale ${formatPrice(o.totale || 0)}</div>
     </div>`;
 }
 
@@ -4099,12 +4149,8 @@ async function stampaComande() {
     area.id = 'print-area';
     document.body.appendChild(area);
   }
-  area.innerHTML = `
-    <div style="margin-bottom:12px;font-family:system-ui;font-size:14px">
-      <strong>${currentRistorante.nome || 'Ristorante'}</strong> — Comande · ${new Date().toLocaleString('it-IT')}
-    </div>
-    ${ordini.map(buildComandaTicket).join('')}
-  `;
+  // Una comanda = uno scontrino separato (tagliabile / page-break)
+  area.innerHTML = ordini.map(buildComandaTicket).join('');
   area.classList.add('printing');
   const cleanup = () => {
     area.classList.remove('printing');
