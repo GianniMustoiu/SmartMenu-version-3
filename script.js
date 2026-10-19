@@ -71,6 +71,31 @@ function formatTime(iso) {
   return new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 // =====================================================
+// METODI DI PAGAMENTO ACCETTATI (scelti dall'admin per ristorante)
+// valori colonna: 'online' | 'banco' | 'entrambi'   ->   radio: 'carta' | 'cassa'
+// =====================================================
+function metodiAccettati(r) {
+  const v = (r && r.pagamenti_accettati) || 'entrambi';
+  return { carta: v === 'online' || v === 'entrambi', cassa: v === 'banco' || v === 'entrambi' };
+}
+
+function applyPaymentOptions() {
+  const m = metodiAccettati(currentRistorante);
+  let checkedHidden = false;
+  $$('input[name="pagamento"]').forEach(inp => {
+    const ok = !!m[inp.value];
+    const label = inp.closest('label');
+    if (label) label.style.display = ok ? '' : 'none';
+    if (!ok && inp.checked) checkedHidden = true;
+  });
+  // se il metodo selezionato non è più ammesso, seleziona il primo disponibile
+  if (checkedHidden || !document.querySelector('input[name="pagamento"]:checked')) {
+    const first = [...$$('input[name="pagamento"]')].find(i => m[i.value]);
+    if (first) first.checked = true;
+  }
+}
+
+// =====================================================
 // PERSISTENZA SESSIONE
 // =====================================================
 const SESSION_KEY = 'menupro_session';
@@ -125,17 +150,22 @@ function offlineNotice() {
 
 async function loadRistoranti() {
   try {
-    if (!sb) throw new Error('sb null');
-    const { data, error } = await sb.from('ristoranti').select('*').order('creato', { ascending: false });
+    if (!sb) throw new Error('Supabase non configurato (controlla config.js)');
+    let { data, error } = await sb.from('ristoranti').select('*').order('creato', { ascending: false });
+    if (error) {
+      // es. colonna "creato" assente: riprova senza ordinamento
+      console.warn('Query con ordinamento fallita, riprovo:', error);
+      ({ data, error } = await sb.from('ristoranti').select('*'));
+    }
     if (error) throw error;
     const list = data || [];
     cacheSet('ristoranti', list.map(stripSecrets));
     return list;
   } catch (e) {
-    console.warn('loadRistoranti offline:', e.message || e);
+    console.error('loadRistoranti errore:', e);
     const cached = cacheGet('ristoranti');
     if (cached) { offlineNotice(); return cached; }
-    toast('Errore caricamento ristoranti');
+    toast('Errore caricamento ristoranti: ' + (e.message || e.details || 'sconosciuto'));
     return [];
   }
 }
@@ -612,6 +642,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#scadenza').value = d.toISOString().slice(0, 10);
   $('#sale').value = 'Sala principale';
   $('#n_tavoli').value = 8;
+  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
   $('#modal-ristorante').classList.remove('hidden');
 });
 
@@ -686,6 +717,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     email,
     password: password || undefined,
     id_piano: $('#id_piano').value,
+    pagamenti_accettati: $('#metodi_pagamento')?.value || 'entrambi',
     scadenza: $('#scadenza').value || null,
     sale
   };
@@ -775,6 +807,7 @@ window.editRistorante = async function(id) {
   $('#password').required = false;
   $('#toggle-pass i').className = 'fas fa-eye';
   $('#id_piano').value = r.id_piano;
+  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = r.pagamenti_accettati || 'entrambi';
   $('#scadenza').value = r.scadenza || '';
   $('#sale').value = (r.sale || []).join(', ');
   const { count } = await sb.from('tavoli').select('*', { count: 'exact', head: true }).eq('id_ristorante', id);
@@ -1852,6 +1885,7 @@ $('#btn-torna-menu')?.addEventListener('click', () => {
 });
 
 function renderCarrello() {
+  applyPaymentOptions();
   const el = $('#carrello-items');
   if (!cart.length) {
     el.innerHTML = '<p style="color:var(--muted);text-align:center">Il carrello è vuoto.</p>';
@@ -1888,6 +1922,11 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
   const totale = cart.reduce((s, c) => s + c.prezzo * c.qty, 0);
   const codice = 'ORD-' + Math.random().toString(36).slice(2, 8).toUpperCase();
   const pagamento = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
+  if (!metodiAccettati(currentRistorante)[pagamento]) {
+    toast('Questo ristorante non accetta il pagamento selezionato');
+    applyPaymentOptions();
+    return;
+  }
   const stato_pagamento = defaultPagStato(pagamento);
   const note = ($('#ordine-note')?.value || '').trim();
   const tavoloNum = currentUser.tavolo;
