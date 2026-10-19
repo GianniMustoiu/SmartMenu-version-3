@@ -237,6 +237,7 @@
         <a href="#" class="nav-item" data-page="rist-menu"><i class="fas fa-book-open"></i> <span>Menu</span></a>
         <a href="#" class="nav-item" data-page="rist-ordini"><i class="fas fa-clipboard-list"></i> <span>Ordini</span> <span id="badge-ordini" class="nav-badge hidden">0</span></a>
         <a href="#" class="nav-item" data-page="rist-tavoli"><i class="fas fa-qrcode"></i> <span>Tavoli &amp; QR</span></a>
+        <a href="#" class="nav-item" data-page="rist-chiusura"><i class="fas fa-cash-register"></i> <span>Chiusura fiscale</span></a>
       </nav>
       <div class="sidebar-footer">
         <button class="btn-icon theme-toggle" title="Tema chiaro/scuro"><i class="fas fa-sun"></i></button>
@@ -354,6 +355,81 @@
         <div id="piantina" class="piantina"></div>
         <div id="tavoli-grid" class="tavoli-grid" style="margin-top:24px"></div>
       </section>
+    
+      <section id="page-rist-chiusura" class="page hidden">
+        <div class="toolbar" style="margin-bottom:18px">
+          <div class="form-group" style="margin:0;min-width:200px">
+            <label>Giornata</label>
+            <input type="date" id="chiusura-data" />
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <button type="button" id="btn-chiusura-refresh" class="btn btn-secondary">
+              <i class="fas fa-sync"></i> Aggiorna
+            </button>
+            <button type="button" id="btn-chiusura-stampa" class="btn btn-secondary">
+              <i class="fas fa-print"></i> Stampa riepilogo
+            </button>
+            <button type="button" id="btn-chiusura-esegui" class="btn btn-primary">
+              <i class="fas fa-lock"></i> Esegui chiusura
+            </button>
+          </div>
+        </div>
+
+        <div id="chiusura-alert" class="chiusura-alert hidden"></div>
+
+        <div class="cards" id="chiusura-cards">
+          <div class="card">
+            <div class="card-icon green"><i class="fas fa-euro-sign"></i></div>
+            <div><h3 id="ch-tot-incasso">€0</h3><p>Incasso giornata</p></div>
+          </div>
+          <div class="card">
+            <div class="card-icon blue"><i class="fas fa-receipt"></i></div>
+            <div><h3 id="ch-n-ordini">0</h3><p>Ordini</p></div>
+          </div>
+          <div class="card">
+            <div class="card-icon purple"><i class="fas fa-credit-card"></i></div>
+            <div><h3 id="ch-tot-carta">€0</h3><p>Pagati carta</p></div>
+          </div>
+          <div class="card">
+            <div class="card-icon orange"><i class="fas fa-cash-register"></i></div>
+            <div><h3 id="ch-tot-cassa">€0</h3><p>Pagati / da saldare in cassa</p></div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-box">
+            <h3>Per metodo di pagamento</h3>
+            <div id="chiusura-metodi" class="chiusura-breakdown"></div>
+          </div>
+          <div class="chart-box">
+            <h3>Per circuito carta</h3>
+            <div id="chiusura-circuiti" class="chiusura-breakdown"></div>
+          </div>
+        </div>
+
+        <div class="recent-box" style="margin-bottom:18px">
+          <h3>Dettaglio stati</h3>
+          <div id="chiusura-stati" class="chiusura-breakdown"></div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Ora</th><th>Codice</th><th>Tavolo</th><th>Stato</th>
+                <th>Pagamento</th><th>Circuito</th><th>Totale</th>
+              </tr>
+            </thead>
+            <tbody id="chiusura-ordini-body"></tbody>
+          </table>
+        </div>
+
+        <div class="recent-box" style="margin-top:22px">
+          <h3>Ultime chiusure registrate</h3>
+          <div id="chiusura-storico" class="recent-list"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 
