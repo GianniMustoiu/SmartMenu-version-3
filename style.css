@@ -1169,3 +1169,56 @@ html.qr-entry #network-status {
   background: rgba(239, 68, 68, 0.2);
   color: #f87171;
 }
+
+/* ========== LOYALTY ========== */
+.cliente-auth-gate {
+  position: fixed; inset: 0; z-index: 40;
+  background: var(--bg); display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.cliente-auth-gate.hidden { display: none !important; }
+.cliente-auth-card {
+  width: 100%; max-width: 400px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.cliente-auth-logo {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: rgba(59,130,246,.15); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin: 0 auto 14px;
+}
+.cliente-auth-card h2 { text-align: center; margin: 0 0 4px; font-size: 22px; }
+.cliente-auth-sub { text-align: center; color: var(--muted); margin: 0 0 8px; }
+.cliente-auth-hint { font-size: 12px; color: var(--muted); text-align: center; margin: 16px 0 0; line-height: 1.45; }
+.cliente-loyalty-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.cliente-loyalty-bar.hidden { display: none !important; }
+.loy-bar-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.loy-bar-info i { color: var(--primary); }
+.loy-bar-actions { display: flex; gap: 6px; }
+.loy-wallet-card {
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: #fff; border-radius: 14px; padding: 20px; text-align: left;
+  margin-bottom: 8px;
+}
+.loy-wc-brand { font-size: 11px; opacity: .85; letter-spacing: .06em; text-transform: uppercase; }
+.loy-wc-nome { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
+.loy-wc-code { font-family: ui-monospace, monospace; font-size: 14px; opacity: .95; }
+.loy-wc-punti { margin-top: 12px; font-size: 15px; font-weight: 600; }
+.loyalty-premi-list { display: flex; flex-direction: column; gap: 8px; }
+.loyalty-premio-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-2);
+}
+.loyalty-premio-item.inactive { opacity: .55; }
+.loy-cassa-results { max-height: 200px; overflow-y: auto; margin-top: 8px; }
+.loy-cassa-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
+}
