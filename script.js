@@ -3554,11 +3554,60 @@ window.deleteTavolo = async function(id) {
 // =====================================================
 function showClienteView(view) {
   if (view === 'carrello') applyPaymentOptions();
-  ['cliente-menu-view', 'cliente-carrello-view', 'cliente-pagamento-view', 'cliente-ricevuta-view', 'cliente-stato-view'].forEach(id => {
+  ['cliente-menu-view', 'cliente-premi-view', 'cliente-carrello-view', 'cliente-pagamento-view', 'cliente-ricevuta-view', 'cliente-stato-view'].forEach(id => {
     $(`#${id}`)?.classList.add('hidden');
   });
   $(`#cliente-${view}-view`)?.classList.remove('hidden');
+
+  // tabs Menu / Premi solo nelle viste menu|premi
+  const tabs = document.getElementById('cliente-main-tabs');
+  if (tabs) {
+    const showTabs = (view === 'menu' || view === 'premi');
+    tabs.classList.toggle('hidden', !showTabs);
+    tabs.querySelectorAll('.cliente-main-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+  }
+  if (view === 'premi') renderClientePremi();
 }
+
+async function renderClientePremi() {
+  const list = document.getElementById('cliente-premi-list');
+  const intro = document.getElementById('cliente-premi-intro');
+  if (!list || !currentRistorante) return;
+  const premi = (await loadPremi(currentRistorante.id)).filter(p => p.attivo !== false);
+  const punti = currentLoyalty ? (Number(currentLoyalty.punti) || 0) : null;
+  if (intro) {
+    intro.textContent = currentLoyalty
+      ? ('Hai ' + punti + ' punti. Ecco i premi disponibili.')
+      : 'Premi loyalty del ristorante. Accedi o registrati per accumulare punti a ogni ordine (anche in cassa).';
+  }
+  if (!premi.length) {
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px">Nessun premio al momento.</p>';
+    return;
+  }
+  list.innerHTML = premi.map(pr => {
+    const need = Number(pr.punti_richiesti) || 0;
+    const ok = punti != null && punti >= need;
+    return `
+      <div class="loyalty-premio-item">
+        <div>
+          <strong>${pr.nome || 'Premio'}</strong>
+          ${pr.descrizione ? `<div style="font-size:12px;color:var(--muted)">${pr.descrizione}</div>` : ''}
+          ${punti != null ? `<div style="font-size:12px;margin-top:4px;color:${ok ? 'var(--success,#22c55e)' : 'var(--muted)'}">${ok ? 'Hai abbastanza punti' : 'Ti servono ' + Math.max(0, need - punti) + ' pt'}</div>` : ''}
+        </div>
+        <span class="badge badge-pro">${need} pt</span>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('tab-cliente-menu')?.addEventListener('click', () => {
+  showClienteView('menu');
+  renderClienteMenu();
+});
+document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
+  showClienteView('premi');
+});
 
 function renderClienteMenu() {
   if (!currentRistorante) return;
@@ -3987,10 +4036,10 @@ if (!navigator.onLine) {
 
   // Loyalty: punti se pagamento online e cliente registrato
   try {
-    if (typeof currentLoyalty !== 'undefined' && currentLoyalty && pagamento === 'carta') {
+    if (typeof currentLoyalty !== 'undefined' && currentLoyalty) {
       const pts = await accreditaPuntiLoyalty(currentLoyalty, totale);
       if (pts > 0) toast('+' + pts + ' punti loyalty (totale ' + currentLoyalty.punti + ' pt)');
-      simulaEmailRicevuta(currentLoyalty, { codice, totale });
+      if (pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
     }
   } catch (e) { console.warn('loyalty punti', e); }
 
