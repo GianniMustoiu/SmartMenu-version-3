@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=16" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1323,7 +1323,7 @@
   <div id="modal-loy-wallet" class="modal hidden">
     <div class="modal-content" style="max-width:400px">
       <div class="modal-header">
-        <h3>Aggiungi a Wallet</h3>
+        <h3>La tua loyalty card</h3>
         <button class="close-modal" data-modal="modal-loy-wallet">&times;</button>
       </div>
       <div style="padding:20px 24px;text-align:center">
@@ -1333,18 +1333,17 @@
           <div class="loy-wc-code" id="loy-wc-code">—</div>
           <div class="loy-wc-punti" id="loy-wc-punti">0 punti</div>
         </div>
-        <p style="font-size:13px;color:var(--muted);margin:14px 0">
-          Salva la card o aggiungi il codice al wallet del telefono. Su iPhone puoi usare “Aggiungi a Wallet” dalle foto/file; su Android da Google Wallet.
+        <div id="loy-wc-qr" style="margin:12px 0;display:flex;justify-content:center"></div>
+        <p style="font-size:13px;color:var(--muted);margin:10px 0 14px;line-height:1.45">
+          <strong>Apple Wallet / Google Wallet ufficiali</strong> richiedono certificati Apple/Google sul server (non attivabili solo dal browser).
+          Puoi <strong>salvare la card come immagine</strong> in Foto/File e mostrare il QR in cassa.
         </p>
         <button type="button" id="btn-loy-download-card" class="btn btn-primary btn-block">
-          <i class="fas fa-download"></i> Scarica card (immagine)
+          <i class="fas fa-download"></i> Scarica card PNG
         </button>
-        <a id="btn-loy-apple-wallet" class="btn btn-secondary btn-block" style="margin-top:8px" href="#" target="_blank" rel="noopener">
-          <i class="fab fa-apple"></i> Apple Wallet (guida)
-        </a>
-        <a id="btn-loy-google-wallet" class="btn btn-secondary btn-block" style="margin-top:8px" href="https://pay.google.com/gp/v/save" target="_blank" rel="noopener">
-          <i class="fab fa-google"></i> Google Wallet
-        </a>
+        <button type="button" id="btn-loy-copy-code" class="btn btn-secondary btn-block" style="margin-top:8px">
+          <i class="fas fa-copy"></i> Copia codice carta
+        </button>
       </div>
     </div>
   </div>
@@ -1353,7 +1352,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=8"></script>
-  <script src="script.js?v=15"></script>
+  <script src="script.js?v=16"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
