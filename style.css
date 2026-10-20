@@ -1107,3 +1107,28 @@ html.qr-entry #network-status {
     box-shadow: none;
   }
 }
+
+
+/* Multi-menu + traduzioni + lingua cliente */
+.traduzioni-box {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px;
+}
+.trad-row {
+  display: grid; grid-template-columns: 36px 1fr 1fr; gap: 8px; align-items: center;
+}
+.trad-lang {
+  font-size: 11px; font-weight: 700; color: var(--muted); text-align: center;
+}
+.trad-row input {
+  padding: 8px 10px; font-size: 13px;
+}
+.cliente-lang-select {
+  width: auto; min-width: 64px; padding: 8px 10px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.badge-standard { background: rgba(100,116,139,.22); color: #94a3b8; }
+.badge-pro { background: rgba(59,130,246,.2); color: #60a5fa; }
