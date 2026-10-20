@@ -841,7 +841,7 @@ async function enterAsRistoratore(r) {
 }
 
 /** Pagine permesse agli account cassa */
-const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura']);
+const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura', 'rist-loyalty']);
 
 function applyCassaNavRestrictions(isCassa) {
   $$('#app-ristoratore .nav-item').forEach(item => {
@@ -6293,6 +6293,12 @@ async function renderLoyaltyAdmin() {
   if (!isFidelityEnabled(currentRistorante)) {
     toast('Questo ristorante non aderisce al programma fidelity. Attivalo in modifica ristorante (admin).');
   }
+  const isCassa = currentUser && currentUser.role === 'cassa';
+  // Cassa: vede premi e tesserati, non modifica proporzione/premi
+  document.getElementById('btn-salva-loy-config')?.classList.toggle('hidden', isCassa);
+  document.getElementById('btn-nuovo-premio')?.classList.toggle('hidden', isCassa);
+  document.getElementById('loy-euro')?.toggleAttribute('disabled', !!isCassa);
+  document.getElementById('loy-punti')?.toggleAttribute('disabled', !!isCassa);
   const cfg = getLoyaltyConfig(currentRistorante);
   const euroEl = document.getElementById('loy-euro');
   const puntiEl = document.getElementById('loy-punti');
@@ -6344,7 +6350,7 @@ async function renderLoyaltyAdmin() {
         <td><code>${m.codice || '—'}</code></td>
         <td><strong>${m.punti || 0}</strong></td>
         <td class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="aggiungiPuntiManuali('${m.id}')" title="Aggiungi punti">+ pt</button>
+          ${isCassa ? '—' : `<button class="btn btn-secondary btn-sm" onclick="aggiungiPuntiManuali('${m.id}')" title="Aggiungi punti">+ pt</button>`}
         </td>
       </tr>
     `).join('');
