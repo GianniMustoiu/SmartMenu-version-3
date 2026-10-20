@@ -1224,8 +1224,12 @@ html.qr-entry #network-status {
 }
 
 .cliente-main-tabs {
-  display: flex; gap: 8px; padding: 10px 14px 0;
+  display: flex; gap: 8px;
+  padding: 10px 14px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
+.cliente-main-tabs.hidden { display: none !important; }
 .cliente-main-tab {
   flex: 1; border: 1px solid var(--border); background: var(--surface-2);
   color: var(--muted); padding: 10px; border-radius: 10px;
@@ -1233,4 +1237,9 @@ html.qr-entry #network-status {
 }
 .cliente-main-tab.active {
   background: var(--primary); color: #fff; border-color: var(--primary);
+}
+.cliente-main-tab.hidden { display: none !important; }
+#cliente-menu-view .cliente-categorie {
+  margin-top: 12px;
+  padding-top: 4px;
 }
