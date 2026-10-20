@@ -1132,3 +1132,40 @@ html.qr-entry #network-status {
 }
 .badge-standard { background: rgba(100,116,139,.22); color: #94a3b8; }
 .badge-pro { background: rgba(59,130,246,.2); color: #60a5fa; }
+
+.sidebar-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sidebar-title-wrap #rist-nome-sidebar {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rist-piano-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+.rist-piano-badge.piano-standard {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+.rist-piano-badge.piano-pro {
+  background: rgba(59, 130, 246, 0.22);
+  color: #60a5fa;
+}
+.rist-piano-badge.piano-scaduto {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
