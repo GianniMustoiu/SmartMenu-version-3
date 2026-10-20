@@ -1825,12 +1825,17 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
   if (!immagine && previewSrc && previewSrc.startsWith('data:')) immagine = previewSrc;
   else if (!immagine && previewSrc && !$('#piatto-preview-wrap')?.classList.contains('hidden')) immagine = previewSrc;
 
+  const ivaRaw = ($('#piatto-iva')?.value ?? '10').toString().trim();
+  const ivaNum = parseInt(ivaRaw, 10);
+  const iva = [0, 4, 5, 10, 22].includes(ivaNum) ? ivaNum : 10;
+
   const data = {
     id_ristorante: currentRistorante.id,
     nome: $('#piatto-nome').value.trim(),
     descrizione: $('#piatto-desc').value.trim(),
     categoria: $('#piatto-categoria').value,
     prezzo: parseFloat($('#piatto-prezzo').value) || 0,
+    iva,
     disponibile: $('#piatto-disponibile').checked,
     allergeni,
     immagine
@@ -1841,13 +1846,20 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     return sb.from('piatti').insert(payload);
   }
   let { error } = await savePiatto(data);
-  if (error && /iva/i.test(error.message || '')) {
-    // colonna iva assente: salva senza e avvisa una volta
+  if (error && /iva|column/i.test(String(error.message || '') + String(error.details || '') + String(error.hint || ''))) {
+    // colonna iva assente nel DB: salva senza e avvisa
     const { iva: _omit, ...senzaIva } = data;
     ({ error } = await savePiatto(senzaIva));
-    if (!error) console.warn('Colonna piatti.iva assente: esegui ALTER TABLE piatti ADD COLUMN iva integer DEFAULT 10;');
+    if (!error) {
+      console.warn('Colonna piatti.iva assente: esegui ALTER TABLE piatti ADD COLUMN iva integer DEFAULT 10;');
+      toast('Piatto salvato, ma IVA non memorizzata: aggiungi la colonna iva in Supabase');
+    }
   }
   if (error) { toast('Errore: ' + (error.message || 'salvataggio')); console.error(error); return; }
+  // aggiorna anche in memoria locale così il menu mostra subito l'IVA corretta
+  if (currentRistorante) {
+    currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
+  }
   toast(id ? 'Piatto aggiornato' : 'Piatto aggiunto');
   $('#modal-piatto').classList.add('hidden');
   await renderMenuTable($('#search-menu')?.value || '');
