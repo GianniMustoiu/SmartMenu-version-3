@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -219,7 +219,10 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <i class="fas fa-store"></i>
-        <span id="rist-nome-sidebar">Ristorante</span>
+        <div class="sidebar-title-wrap">
+          <span id="rist-nome-sidebar">Ristorante</span>
+          <span id="rist-piano-sidebar" class="rist-piano-badge hidden"></span>
+        </div>
       </div>
       <div id="rist-switcher-wrap" class="rist-switcher hidden">
         <label for="rist-switcher">I tuoi locali</label>
@@ -1139,7 +1142,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=8"></script>
-  <script src="script.js?v=13"></script>
+  <script src="script.js?v=14"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
