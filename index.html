@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="stylesheet" href="style.css?v=11" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -134,35 +134,28 @@
       <section id="page-abbonamenti" class="page hidden">
         <div class="plans-grid">
           <div class="plan-card">
-            <h3>Base</h3>
-            <div class="plan-price">€29<span>/mese</span></div>
+            <h3>Standard</h3>
+            <div class="plan-price">€159<span>/anno</span></div>
             <ul>
-              <li><i class="fas fa-check"></i> Menu digitale</li>
-              <li><i class="fas fa-check"></i> QR code</li>
-              <li><i class="fas fa-check"></i> Ordini base</li>
+              <li><i class="fas fa-check"></i> Tutte le funzionalità</li>
+              <li><i class="fas fa-check"></i> Menu multipli personalizzabili</li>
+              <li><i class="fas fa-check"></i> QR code e ordini</li>
+              <li><i class="fas fa-check"></i> Traduzioni menu (IT/EN/ES/DE/FR/ZH)</li>
+              <li><i class="fas fa-check"></i> Max 1 cassa</li>
               <li><i class="fas fa-check"></i> Supporto email</li>
             </ul>
           </div>
           <div class="plan-card featured">
-            <div class="plan-badge">Popolare</div>
+            <div class="plan-badge">Consigliato</div>
             <h3>Pro</h3>
-            <div class="plan-price">€59<span>/mese</span></div>
+            <div class="plan-price">€189<span>/anno</span></div>
             <ul>
-              <li><i class="fas fa-check"></i> Menu + allergeni</li>
-              <li><i class="fas fa-check"></i> Sale multiple</li>
-              <li><i class="fas fa-check"></i> Report avanzati</li>
+              <li><i class="fas fa-check"></i> Tutte le funzionalità</li>
+              <li><i class="fas fa-check"></i> Menu multipli personalizzabili</li>
+              <li><i class="fas fa-check"></i> QR code e ordini</li>
+              <li><i class="fas fa-check"></i> Traduzioni menu (IT/EN/ES/DE/FR/ZH)</li>
+              <li><i class="fas fa-check"></i> Casse illimitate</li>
               <li><i class="fas fa-check"></i> Supporto prioritario</li>
-            </ul>
-          </div>
-          <div class="plan-card">
-            <h3>Enterprise</h3>
-            <div class="plan-price">€129<span>/mese</span></div>
-            <ul>
-              <li><i class="fas fa-check"></i> Funzionalità avanzate</li>
-              <li><i class="fas fa-check"></i> Multi-sede</li>
-              <li><i class="fas fa-check"></i> API e integrazioni</li>
-              <li><i class="fas fa-check"></i> Account manager</li>
-              <li><i class="fas fa-check"></i> Personalizzazioni</li>
             </ul>
           </div>
         </div>
@@ -297,12 +290,18 @@
       </section>
 
       <section id="page-rist-menu" class="page hidden">
-        <div class="toolbar">
+        <div class="toolbar" style="align-items:flex-end">
+          <div class="form-group" style="margin:0;min-width:200px">
+            <label for="menu-switcher">Menu attivo</label>
+            <select id="menu-switcher"></select>
+          </div>
           <div class="search-box">
             <i class="fas fa-search"></i>
             <input type="text" id="search-menu" placeholder="Cerca piatto..." />
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button type="button" id="btn-nuovo-menu" class="btn btn-secondary"><i class="fas fa-book"></i> Nuovo menu</button>
+            <button type="button" id="btn-rinomina-menu" class="btn btn-secondary"><i class="fas fa-pen"></i> Rinomina</button>
             <button id="btn-nuova-categoria" class="btn btn-secondary"><i class="fas fa-folder-plus"></i> Nuova categoria</button>
             <button id="btn-nuovo-piatto" class="btn btn-primary"><i class="fas fa-plus"></i> Nuovo piatto</button>
           </div>
@@ -448,6 +447,14 @@
         <p>Tavolo <strong id="cliente-tavolo-num">1</strong></p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
+        <select id="cliente-lang" class="cliente-lang-select" title="Language">
+          <option value="it">IT</option>
+          <option value="en">EN</option>
+          <option value="es">ES</option>
+          <option value="de">DE</option>
+          <option value="fr">FR</option>
+          <option value="zh">中文</option>
+        </select>
         <button id="cliente-stato-btn" class="btn btn-secondary btn-sm" style="display:none">
           <i class="fas fa-info-circle"></i> Stato ordine
         </button>
@@ -657,9 +664,8 @@
           <div class="form-group">
             <label>Piano</label>
             <select id="id_piano">
-              <option value="base">Base – €29/mese</option>
-              <option value="pro">Pro – €59/mese</option>
-              <option value="enterprise">Enterprise – €129/mese</option>
+              <option value="standard">Standard – €159/anno (max 1 cassa)</option>
+              <option value="pro">Pro – €189/anno (casse illimitate)</option>
             </select>
           </div>
         </div>
@@ -690,7 +696,7 @@
         <div class="form-group" style="padding:0 24px;margin-top:8px">
           <label>Numero casse</label>
           <input type="number" id="n_casse" min="0" max="20" value="1" />
-          <small style="color:var(--muted)">Verranno create automaticamente le email cassa (es. nomristorante@cassa1.it). Password predefinita: cassa123</small>
+          <small style="color:var(--muted)">Limite in base al piano: Standard max 1, Pro illimitate. Email: nomristorante@cassa1.it — password: cassa123</small>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary close-modal" data-modal="modal-ristorante">Annulla</button>
@@ -713,8 +719,19 @@
           <input type="text" id="piatto-nome" required maxlength="80" />
         </div>
         <div class="form-group" style="padding:0 24px">
-          <label>Descrizione</label>
+          <label>Descrizione (italiano)</label>
           <textarea id="piatto-desc" rows="2" maxlength="200" class="auto-resize"></textarea>
+        </div>
+        <div class="form-group" style="padding:0 24px">
+          <label>Traduzioni nome e descrizione</label>
+          <div class="traduzioni-box" id="piatto-traduzioni">
+            <div class="trad-row" data-lang="en"><span class="trad-lang">EN</span><input type="text" id="piatto-nome-en" placeholder="Name" /><input type="text" id="piatto-desc-en" placeholder="Description" /></div>
+            <div class="trad-row" data-lang="es"><span class="trad-lang">ES</span><input type="text" id="piatto-nome-es" placeholder="Nombre" /><input type="text" id="piatto-desc-es" placeholder="Descripción" /></div>
+            <div class="trad-row" data-lang="de"><span class="trad-lang">DE</span><input type="text" id="piatto-nome-de" placeholder="Name" /><input type="text" id="piatto-desc-de" placeholder="Beschreibung" /></div>
+            <div class="trad-row" data-lang="fr"><span class="trad-lang">FR</span><input type="text" id="piatto-nome-fr" placeholder="Nom" /><input type="text" id="piatto-desc-fr" placeholder="Description" /></div>
+            <div class="trad-row" data-lang="zh"><span class="trad-lang">ZH</span><input type="text" id="piatto-nome-zh" placeholder="名称" /><input type="text" id="piatto-desc-zh" placeholder="描述" /></div>
+          </div>
+          <small style="color:var(--muted)">Opzionale: se vuoto, al cliente resta l’italiano</small>
         </div>
         <div class="form-group" style="padding:0 24px">
           <label>Immagine del piatto</label>
@@ -1093,11 +1110,31 @@
     </div>
   </div>
 
+
+  <div id="modal-menu-nome" class="modal hidden">
+    <div class="modal-content" style="max-width:400px">
+      <div class="modal-header">
+        <h3 id="modal-menu-nome-title">Nuovo menu</h3>
+        <button class="close-modal" data-modal="modal-menu-nome">&times;</button>
+      </div>
+      <form id="form-menu-nome">
+        <input type="hidden" id="menu-nome-mode" value="new" />
+        <div class="form-group" style="padding:16px 24px">
+          <label>Nome menu *</label>
+          <input type="text" id="menu-nome-input" required maxlength="60" placeholder="es. Pranzo, Cena, Estivo..." />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal" data-modal="modal-menu-nome">Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=8"></script>
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=11"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
