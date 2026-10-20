@@ -951,75 +951,159 @@ html.qr-entry #network-status {
   font-size: 12px; color: var(--muted); margin: 0 0 8px; line-height: 1.45;
 }
 
-/* Documento fattura (stampa) – struttura tipo fac-simile italiano */
+/* Documento fattura – A4 centrato */
 .fattura-doc {
-  max-width: 720px; margin: 0 auto; padding: 24px 28px;
-  font-family: 'Segoe UI', system-ui, sans-serif; color: #111; background: #fff;
-  font-size: 12.5px; line-height: 1.4;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 18mm 16mm;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #111;
+  background: #fff;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 .fattura-doc .fd-top {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 16px; border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  border-bottom: 2px solid #111;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
 }
 .fattura-doc .fd-doc-title {
-  font-size: 22px; font-weight: 700; letter-spacing: .04em; margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  margin: 0;
+  text-align: left;
 }
 .fattura-doc .fd-doc-num {
-  text-align: right; font-size: 13px;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.55;
 }
-.fattura-doc .fd-doc-num strong { font-size: 15px; }
+.fattura-doc .fd-doc-num strong { font-size: 16px; }
 .fattura-doc .fd-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 .fattura-doc .fd-box {
-  border: 1px solid #bbb; border-radius: 6px; padding: 12px 14px; min-height: 110px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  padding: 12px 14px;
+  min-height: 120px;
 }
 .fattura-doc .fd-box h3 {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-  color: #555; margin: 0 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #555;
+  margin: 0 0 8px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 4px;
 }
 .fattura-doc table.fd-lines {
-  width: 100%; border-collapse: collapse; margin: 0 0 14px;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 16px;
 }
 .fattura-doc table.fd-lines th {
-  background: #f3f3f3; border: 1px solid #ccc; padding: 7px 8px;
-  font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #333;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #333;
   text-align: left;
 }
 .fattura-doc table.fd-lines td {
-  border: 1px solid #ddd; padding: 7px 8px; vertical-align: top;
+  border: 1px solid #ddd;
+  padding: 8px;
+  vertical-align: top;
 }
 .fattura-doc table.fd-lines .num { text-align: right; white-space: nowrap; }
 .fattura-doc table.fd-lines .ctr { text-align: center; }
-.fattura-doc .fd-riepilogo {
-  display: flex; justify-content: flex-end; margin-bottom: 12px;
+.fattura-doc .fd-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 8px;
 }
+.fattura-doc .fd-riepilogo { flex: 1; }
 .fattura-doc table.fd-iva {
-  width: 320px; border-collapse: collapse;
+  width: 100%;
+  max-width: 340px;
+  border-collapse: collapse;
 }
 .fattura-doc table.fd-iva th,
 .fattura-doc table.fd-iva td {
-  border: 1px solid #ccc; padding: 6px 8px; font-size: 12px;
+  border: 1px solid #ccc;
+  padding: 7px 8px;
+  font-size: 12px;
 }
 .fattura-doc table.fd-iva th {
-  background: #f3f3f3; font-size: 10px; text-transform: uppercase; text-align: left;
+  background: #f0f0f0;
+  font-size: 10px;
+  text-transform: uppercase;
+  text-align: left;
 }
 .fattura-doc table.fd-iva .num { text-align: right; }
 .fattura-doc .fd-totali {
-  margin-left: auto; width: 280px;
-  border: 1px solid #111; border-radius: 6px; padding: 10px 14px;
+  width: 260px;
+  border: 1px solid #111;
+  border-radius: 6px;
+  padding: 12px 14px;
+  flex-shrink: 0;
 }
 .fattura-doc .fd-totali .row {
-  display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
 }
 .fattura-doc .fd-totali .row.grand {
-  font-size: 16px; font-weight: 700; border-top: 1px solid #111;
-  margin-top: 6px; padding-top: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  border-top: 1px solid #111;
+  margin-top: 8px;
+  padding-top: 10px;
 }
 .fattura-doc .fd-note {
-  font-size: 10px; color: #666; margin-top: 20px; line-height: 1.45;
-  border-top: 1px dashed #ccc; padding-top: 10px;
+  font-size: 10px;
+  color: #666;
+  margin-top: 28px;
+  line-height: 1.5;
+  border-top: 1px dashed #ccc;
+  padding-top: 12px;
+  text-align: center;
 }
+
 @media print {
-  .fattura-doc { max-width: none; padding: 0; }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  #print-area {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+  .fattura-doc {
+    width: 186mm;
+    min-height: auto;
+    margin: 0 auto;
+    padding: 8mm 6mm;
+    box-shadow: none;
+  }
 }
