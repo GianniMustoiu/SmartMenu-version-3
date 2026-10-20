@@ -45,10 +45,105 @@ let chartIncassiRist = null;
 let chartStatiRist = null;
 
 const PIANI = {
-  base: { nome: 'Base', prezzo: 29 },
-  pro: { nome: 'Pro', prezzo: 59 },
-  enterprise: { nome: 'Enterprise', prezzo: 129 }
+  standard: { nome: 'Standard', prezzo: 159, periodo: 'anno', maxCasse: 1 },
+  pro: { nome: 'Pro', prezzo: 189, periodo: 'anno', maxCasse: Infinity },
+  // alias legacy (vecchi record in DB)
+  base: { nome: 'Standard', prezzo: 159, periodo: 'anno', maxCasse: 1 },
+  enterprise: { nome: 'Pro', prezzo: 189, periodo: 'anno', maxCasse: Infinity }
 };
+
+function normalizzaPiano(id) {
+  if (id === 'base' || id === 'standard') return 'standard';
+  if (id === 'enterprise' || id === 'pro') return 'pro';
+  return id === 'pro' ? 'pro' : 'standard';
+}
+
+function maxCassePerPiano(id) {
+  const p = PIANI[normalizzaPiano(id)] || PIANI.standard;
+  return p.maxCasse;
+}
+
+const LANGS = ['it', 'en', 'es', 'de', 'fr', 'zh'];
+let clienteLang = 'it';
+let currentMenuId = null;
+
+const UI_I18N = {
+  it: {
+    cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste',
+    paga: 'Metodo di pagamento', invia: 'Invia ordine', menu: 'Menu', aggiungi: 'Aggiungi',
+    scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo'
+  },
+  en: {
+    cart: 'Cart', stato: 'Order status', totale: 'Total', note: 'Notes / requests',
+    paga: 'Payment method', invia: 'Place order', menu: 'Menu', aggiungi: 'Add',
+    scelto: 'Your selection', vuoto: 'Your cart is empty.', tavolo: 'Table'
+  },
+  es: {
+    cart: 'Carrito', stato: 'Estado del pedido', totale: 'Total', note: 'Notas / peticiones',
+    paga: 'Método de pago', invia: 'Enviar pedido', menu: 'Menú', aggiungi: 'Añadir',
+    scelto: 'Tu selección', vuoto: 'El carrito está vacío.', tavolo: 'Mesa'
+  },
+  de: {
+    cart: 'Warenkorb', stato: 'Bestellstatus', totale: 'Gesamt', note: 'Hinweise / Wünsche',
+    paga: 'Zahlungsart', invia: 'Bestellung senden', menu: 'Menü', aggiungi: 'Hinzufügen',
+    scelto: 'Ihre Auswahl', vuoto: 'Der Warenkorb ist leer.', tavolo: 'Tisch'
+  },
+  fr: {
+    cart: 'Panier', stato: 'État de la commande', totale: 'Total', note: 'Notes / demandes',
+    paga: 'Mode de paiement', invia: 'Envoyer la commande', menu: 'Menu', aggiungi: 'Ajouter',
+    scelto: 'Votre sélection', vuoto: 'Le panier est vide.', tavolo: 'Table'
+  },
+  zh: {
+    cart: '购物车', stato: '订单状态', totale: '合计', note: '备注 / 要求',
+    paga: '支付方式', invia: '提交订单', menu: '菜单', aggiungi: '添加',
+    scelto: '已选菜品', vuoto: '购物车是空的。', tavolo: '桌号'
+  }
+};
+
+function tUI(key) {
+  const pack = UI_I18N[clienteLang] || UI_I18N.it;
+  return pack[key] || UI_I18N.it[key] || key;
+}
+
+function piattoLabel(p, field) {
+  // field: 'nome' | 'descrizione'
+  if (!p) return '';
+  if (clienteLang === 'it') return p[field] || '';
+  const tr = p.traduzioni || {};
+  const lang = tr[clienteLang] || {};
+  return lang[field] || p[field] || '';
+}
+
+function ensureMenus(r) {
+  if (!r) return [];
+  if (Array.isArray(r.menus) && r.menus.length) return r.menus;
+  // default un menu
+  const def = [{ id: 'default', nome: 'Menu principale' }];
+  r.menus = def;
+  return def;
+}
+
+function getCurrentMenuId(r) {
+  const menus = ensureMenus(r);
+  if (currentMenuId && menus.some(m => m.id === currentMenuId)) return currentMenuId;
+  currentMenuId = menus[0].id;
+  return currentMenuId;
+}
+
+function piattiDelMenu(r, menuId) {
+  const menu = (r && r.menu) || [];
+  const mid = menuId || getCurrentMenuId(r);
+  // piatti senza id_menu appartengono al menu default
+  return menu.filter(p => {
+    const pid = p.id_menu || 'default';
+    return pid === mid || (mid === 'default' && !p.id_menu);
+  });
+}
+
+function uidMenu() {
+  return 'm_' + (crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36));
+}
+
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -348,8 +443,13 @@ async function _fetchRistoranteFull(id) {
   r.tavoli = tavoli.data || [];
   r.menu = (piatti.data || []).map(p => ({
     ...p,
-    allergeni: p.allergeni || []
+    allergeni: p.allergeni || [],
+    traduzioni: p.traduzioni || {},
+    id_menu: p.id_menu || 'default'
   }));
+  r.menus = Array.isArray(r.menus) && r.menus.length
+    ? r.menus
+    : [{ id: 'default', nome: 'Menu principale' }];
   r.categorie = (categorie.data || []).map(c => c.nome);
   if (!r.categorie.length) r.categorie = ['Antipasti', 'Primi', 'Secondi', 'Dolci', 'Bevande'];
   r.ordini = (ordini.data || []).map(o => ({
@@ -922,7 +1022,7 @@ async function renderAdminTable(filter = '') {
       <td>${r.titolare || '—'}</td>
       <td>${r.citta || '—'}</td>
       <td>${(r.sale || []).length}</td>
-      <td><span class="badge badge-${r.id_piano}">${r.id_piano}</span></td>
+      <td><span class="badge badge-${normalizzaPiano(r.id_piano)}">${(PIANI[normalizzaPiano(r.id_piano)]||{}).nome || r.id_piano}</span></td>
       <td>${r.scadenza || '—'}</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="editRistorante('${r.id}')" title="Modifica"><i class="fas fa-edit"></i></button>
@@ -946,7 +1046,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   if ($('#email-hint')) $('#email-hint').textContent = '';
   $('#toggle-pass i').className = 'fas fa-eye';
   const d = new Date();
-  d.setMonth(d.getMonth() + 1);
+  d.setFullYear(d.getFullYear() + 1);
   $('#scadenza').value = d.toISOString().slice(0, 10);
   $('#sale').value = 'Sala principale';
   $('#n_tavoli').value = 8;
@@ -1025,8 +1125,10 @@ function slugifyNome(nome) {
  * Password predefinita: cassa123
  * Ruolo: 'cassa' + id_ristorante
  */
-async function createCasse(ristoranteId, nomeRist, nCasse, passwordDefault = 'cassa123') {
-  const n = Math.max(0, Math.min(20, parseInt(nCasse) || 0));
+async function createCasse(ristoranteId, nomeRist, nCasse, passwordDefault = 'cassa123', pianoId) {
+  let n = Math.max(0, Math.min(50, parseInt(nCasse) || 0));
+  const maxC = maxCassePerPiano(pianoId || currentRistorante?.id_piano);
+  if (Number.isFinite(maxC) && n > maxC) n = maxC;
   if (n === 0 || !sb || !ristoranteId) return [];
 
   const slug = slugifyNome(nomeRist);
@@ -1100,7 +1202,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     citta: $('#citta').value.trim(),
     email,
     password: password || undefined,
-    id_piano: $('#id_piano').value,
+    id_piano: normalizzaPiano($('#id_piano').value),
     pagamenti_accettati: $('#metodi_pagamento')?.value || 'entrambi',
     scadenza: $('#scadenza').value || null,
     sale,
@@ -1137,9 +1239,14 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
       if (errU) console.error('Errore create utente:', errU);
     }
     // opzionale: crea altre casse se indicato (non cancella quelle già esistenti)
-    const nCasseEdit = parseInt($('#n_casse')?.value) || 0;
+    let nCasseEdit = parseInt($('#n_casse')?.value) || 0;
+    const maxCEdit = maxCassePerPiano(data.id_piano);
+    if (Number.isFinite(maxCEdit) && nCasseEdit > maxCEdit) {
+      toast(`Piano Standard: massimo ${maxCEdit} cassa.`);
+      nCasseEdit = maxCEdit;
+    }
     if (nCasseEdit > 0) {
-      const emailsCasse = await createCasse(id, nomeRist, nCasseEdit);
+      const emailsCasse = await createCasse(id, nomeRist, nCasseEdit, 'cassa123', data.id_piano);
       if (emailsCasse.length) {
         toast(`Ristorante aggiornato + ${emailsCasse.length} casse: ${emailsCasse.join(', ')} (pwd: cassa123)`);
       } else {
@@ -1201,9 +1308,14 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     await createDefaultTavoli(inserted.id, nTavoli);
     await createDefaultCategorie(inserted.id);
 
-    const nCasse = parseInt($('#n_casse')?.value) || 0;
+    let nCasse = parseInt($('#n_casse')?.value) || 0;
+    const maxC = maxCassePerPiano(data.id_piano);
+    if (Number.isFinite(maxC) && nCasse > maxC) {
+      toast(`Piano Standard: massimo ${maxC} cassa. Verrà creata solo 1 cassa.`);
+      nCasse = maxC;
+    }
     if (nCasse > 0) {
-      const emailsCasse = await createCasse(inserted.id, nomeRist, nCasse);
+      const emailsCasse = await createCasse(inserted.id, nomeRist, nCasse, 'cassa123', data.id_piano);
       if (emailsCasse.length) {
         toast(`Casse create (${emailsCasse.length}): ${emailsCasse.join(', ')} — password: cassa123`);
       }
@@ -1232,7 +1344,7 @@ window.editRistorante = async function(id) {
   $('#password').type = 'password';
   $('#password').required = false;
   $('#toggle-pass i').className = 'fas fa-eye';
-  $('#id_piano').value = r.id_piano;
+  $('#id_piano').value = normalizzaPiano(r.id_piano);
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = r.pagamenti_accettati || 'entrambi';
   $('#scadenza').value = r.scadenza || '';
   $('#sale').value = (r.sale || []).join(', ');
@@ -1364,12 +1476,12 @@ async function renderAbbonamenti() {
     return `
       <tr>
         <td><strong>${r.nome}</strong></td>
-        <td><span class="badge badge-${r.id_piano}">${r.id_piano}</span></td>
+        <td><span class="badge badge-${normalizzaPiano(r.id_piano)}">${(PIANI[normalizzaPiano(r.id_piano)]||{}).nome || r.id_piano}</span></td>
         <td class="${scadClass}">${scadText}</td>
         <td><span class="badge ${statoClass}">${statoLabel}</span></td>
         <td>
           <button class="btn btn-primary btn-sm" onclick="estendiAbbonamento('${r.id}')">
-            <i class="fas fa-plus"></i> +1 mese
+            <i class="fas fa-plus"></i> +1 anno
           </button>
         </td>
       </tr>
@@ -1382,7 +1494,7 @@ window.estendiAbbonamento = async function(id) {
   if (!r) return;
   let d = r.scadenza ? new Date(r.scadenza) : new Date();
   if (d < new Date()) d = new Date();
-  d.setMonth(d.getMonth() + 1);
+  d.setFullYear(d.getFullYear() + 1);
   const nuovaScad = d.toISOString().slice(0, 10);
   await sb.from('ristoranti').update({ scadenza: nuovaScad }).eq('id', id);
   const prezzo = PIANI[r.id_piano]?.prezzo || 0;
@@ -1803,6 +1915,12 @@ $('#btn-nuovo-piatto')?.addEventListener('click', () => {
   $('#piatto-edit-id').value = '';
   $('#piatto-disponibile').checked = true;
   if ($('#piatto-iva')) $('#piatto-iva').value = '10';
+  ['en','es','de','fr','zh'].forEach(lang => {
+    const n = $('#piatto-nome-' + lang);
+    const d = $('#piatto-desc-' + lang);
+    if (n) n.value = '';
+    if (d) d.value = '';
+  });
   resetPiattoImage();
   const sel = $('#piatto-categoria');
   sel.innerHTML = (currentRistorante.categorie || []).map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1845,6 +1963,13 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
   const ivaNum = parseInt(ivaRaw, 10);
   const iva = [0, 4, 5, 10, 22].includes(ivaNum) ? ivaNum : 10;
 
+  const traduzioni = {};
+  ['en','es','de','fr','zh'].forEach(lang => {
+    const nome = ($('#piatto-nome-' + lang)?.value || '').trim();
+    const descrizione = ($('#piatto-desc-' + lang)?.value || '').trim();
+    if (nome || descrizione) traduzioni[lang] = { nome, descrizione };
+  });
+
   const data = {
     id_ristorante: currentRistorante.id,
     nome: $('#piatto-nome').value.trim(),
@@ -1854,7 +1979,9 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     iva,
     disponibile: $('#piatto-disponibile').checked,
     allergeni,
-    immagine
+    immagine,
+    traduzioni,
+    id_menu: getCurrentMenuId(currentRistorante)
   };
 
   async function savePiatto(payload) {
@@ -1862,13 +1989,20 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     return sb.from('piatti').insert(payload);
   }
   let { error } = await savePiatto(data);
-  if (error && /iva|column/i.test(String(error.message || '') + String(error.details || '') + String(error.hint || ''))) {
-    // colonna iva assente nel DB: salva senza e avvisa
-    const { iva: _omit, ...senzaIva } = data;
-    ({ error } = await savePiatto(senzaIva));
-    if (!error) {
-      console.warn('Colonna piatti.iva assente: esegui ALTER TABLE piatti ADD COLUMN iva integer DEFAULT 10;');
-      toast('Piatto salvato, ma IVA non memorizzata: aggiungi la colonna iva in Supabase');
+  if (error) {
+    // rimuovi campi opzionali se colonne assenti
+    const optional = ['iva', 'traduzioni', 'id_menu'];
+    let payload = { ...data };
+    for (const key of optional) {
+      if (!error) break;
+      if (!new RegExp(key + '|column', 'i').test(String(error.message || '') + String(error.details || ''))) continue;
+      const { [key]: _drop, ...rest } = payload;
+      payload = rest;
+      ({ error } = await savePiatto(payload));
+      if (!error) console.warn('Colonna piatti.' + key + ' assente — aggiungila in Supabase');
+    }
+    if (!error && optional.some(k => !(k in payload))) {
+      toast('Piatto salvato; alcune colonne (iva/traduzioni/menu) mancano nel DB');
     }
   }
   if (error) { toast('Errore: ' + (error.message || 'salvataggio')); console.error(error); return; }
@@ -1898,6 +2032,13 @@ window.editPiatto = async function(id) {
     const iv = (p.iva != null && p.iva !== '') ? String(p.iva) : '10';
     $('#piatto-iva').value = ['0','4','5','10','22'].includes(iv) ? iv : '10';
   }
+  ['en','es','de','fr','zh'].forEach(lang => {
+    const tr = (p.traduzioni && p.traduzioni[lang]) || {};
+    const n = $('#piatto-nome-' + lang);
+    const d = $('#piatto-desc-' + lang);
+    if (n) n.value = tr.nome || '';
+    if (d) d.value = tr.descrizione || '';
+  });
   $('#piatto-disponibile').checked = p.disponibile !== false;
   if ($('#piatto-immagine')) $('#piatto-immagine').value = (p.immagine && !p.immagine.startsWith('data:')) ? p.immagine : '';
   if (p.immagine) showPiattoPreview(p.immagine);
@@ -3222,12 +3363,14 @@ function renderClienteMenu() {
     const inCart = cart.find(c => c.id === p.id);
     const qty = inCart ? inCart.qty : 0;
     const all = (p.allergeni || []).length ? `<div class="allergeni-tags">⚠ ${(p.allergeni).join(', ')}</div>` : '';
+    const nome = piattoLabel(p, 'nome') || p.nome;
+    const desc = piattoLabel(p, 'descrizione');
     return `
       <div class="menu-item-card">
         ${p.immagine ? `<img src="${p.immagine}" class="piatto-img" alt="" onerror="this.style.display='none'"/>` : ''}
         <div class="menu-item-info" style="flex:1">
-          <h4>${p.nome}</h4>
-          ${p.descrizione ? `<p>${p.descrizione}</p>` : ''}
+          <h4>${nome}</h4>
+          ${desc ? `<p>${desc}</p>` : ''}
           <span class="prezzo">${formatPrice(p.prezzo)}</span>
           ${all}
         </div>
@@ -3237,12 +3380,40 @@ function renderClienteMenu() {
             <span class="qty-num">${qty}</span>
             <button class="qty-btn" onclick="changeQty('${p.id}',1)">+</button>
           ` : `
-            <button class="btn btn-primary btn-sm" onclick="changeQty('${p.id}',1)"><i class="fas fa-plus"></i> Aggiungi</button>
+            <button class="btn btn-primary btn-sm" onclick="changeQty('${p.id}',1)"><i class="fas fa-plus"></i> ${tUI('aggiungi')}</button>
           `}
         </div>
       </div>
     `;
     }).join('');
+  applyClienteChromeI18n();
+}
+
+function applyClienteChromeI18n() {
+  const cartBtn = $('#cliente-carrello-btn');
+  // keep icon + count; title attribute
+  if (cartBtn) cartBtn.title = tUI('cart');
+  const statoBtn = $('#cliente-stato-btn');
+  if (statoBtn) {
+    const countSpan = statoBtn.querySelector('span') || null;
+    statoBtn.innerHTML = `<i class="fas fa-info-circle"></i> ${tUI('stato')}`;
+  }
+  const h2 = document.querySelector('#cliente-carrello-view h2');
+  if (h2) h2.textContent = tUI('scelto');
+  const totLabel = document.querySelector('#cliente-carrello-view .carrello-totale span');
+  if (totLabel) totLabel.textContent = tUI('totale');
+  const noteLab = document.querySelector('label[for="ordine-note"]') ||
+    [...document.querySelectorAll('#cliente-carrello-view label')].find(l => (l.textContent || '').includes('Messaggio') || (l.textContent || '').includes('Notes'));
+  // labels by structure
+  const labels = document.querySelectorAll('#cliente-carrello-view .form-group > label');
+  if (labels[0]) labels[0].textContent = tUI('note');
+  if (labels[1]) labels[1].textContent = tUI('paga');
+  const invia = $('#btn-invia-ordine');
+  if (invia) invia.innerHTML = `<i class="fas fa-paper-plane"></i> ${tUI('invia')}`;
+  const tavoloP = document.querySelector('.cliente-header p');
+  if (tavoloP && $('#cliente-tavolo-num')) {
+    tavoloP.innerHTML = `${tUI('tavolo')} <strong id="cliente-tavolo-num">${$('#cliente-tavolo-num').textContent}</strong>`;
+  }
 }
 
 function updateCartCount() {
@@ -4692,3 +4863,93 @@ $('#fat-sdi')?.addEventListener('input', (e) => {
   e.target.value = e.target.value.toUpperCase();
   try { e.target.setSelectionRange(pos, pos); } catch (err) {}
 });
+
+
+// =====================================================
+// MULTI-MENU + LINGUA CLIENTE
+// =====================================================
+function populateMenuSwitcher() {
+  const sel = $('#menu-switcher');
+  if (!sel || !currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  const mid = getCurrentMenuId(currentRistorante);
+  sel.innerHTML = menus.map(m =>
+    `<option value="${m.id}" ${m.id === mid ? 'selected' : ''}>${m.nome}</option>`
+  ).join('');
+}
+
+async function salvaMenusSuDb() {
+  if (!sb || !currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  let { error } = await sb.from('ristoranti').update({ menus }).eq('id', currentRistorante.id);
+  if (error) {
+    console.warn('Colonna ristoranti.menus assente o errore:', error.message);
+    // resta in memoria + cache locale
+    try {
+      cacheSet('rist_' + currentRistorante.id, stripSecrets(currentRistorante));
+    } catch (e) {}
+  }
+}
+
+$('#menu-switcher')?.addEventListener('change', (e) => {
+  currentMenuId = e.target.value;
+  menuFilterCat = 'tutti';
+  renderMenuTable($('#search-menu')?.value || '');
+});
+
+$('#btn-nuovo-menu')?.addEventListener('click', () => {
+  $('#modal-menu-nome-title').textContent = 'Nuovo menu';
+  $('#menu-nome-mode').value = 'new';
+  $('#menu-nome-input').value = '';
+  $('#modal-menu-nome')?.classList.remove('hidden');
+  setTimeout(() => $('#menu-nome-input')?.focus(), 40);
+});
+
+$('#btn-rinomina-menu')?.addEventListener('click', () => {
+  if (!currentRistorante) return;
+  const mid = getCurrentMenuId(currentRistorante);
+  const m = ensureMenus(currentRistorante).find(x => x.id === mid);
+  $('#modal-menu-nome-title').textContent = 'Rinomina menu';
+  $('#menu-nome-mode').value = 'rename';
+  $('#menu-nome-input').value = m ? m.nome : '';
+  $('#modal-menu-nome')?.classList.remove('hidden');
+  setTimeout(() => $('#menu-nome-input')?.focus(), 40);
+});
+
+$('#form-menu-nome')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentRistorante) return;
+  const nome = ($('#menu-nome-input')?.value || '').trim();
+  if (!nome) return;
+  const mode = $('#menu-nome-mode')?.value || 'new';
+  ensureMenus(currentRistorante);
+  if (mode === 'rename') {
+    const mid = getCurrentMenuId(currentRistorante);
+    const m = currentRistorante.menus.find(x => x.id === mid);
+    if (m) m.nome = nome;
+  } else {
+    const id = uidMenu();
+    currentRistorante.menus.push({ id, nome });
+    currentMenuId = id;
+  }
+  await salvaMenusSuDb();
+  $('#modal-menu-nome')?.classList.add('hidden');
+  await renderMenuTable();
+  toast(mode === 'rename' ? 'Menu rinominato' : 'Menu creato');
+});
+
+$('#cliente-lang')?.addEventListener('change', (e) => {
+  clienteLang = e.target.value || 'it';
+  try { localStorage.setItem('menupro_cliente_lang', clienteLang); } catch (err) {}
+  renderClienteMenu();
+  if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
+});
+
+// ripristina lingua cliente
+try {
+  const savedLang = localStorage.getItem('menupro_cliente_lang');
+  if (savedLang && LANGS.includes(savedLang)) {
+    clienteLang = savedLang;
+    if ($('#cliente-lang')) $('#cliente-lang').value = savedLang;
+  }
+} catch (e) {}
