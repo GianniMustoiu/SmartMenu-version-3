@@ -217,6 +217,40 @@ function getCurrentMenuId(r) {
   return currentMenuId;
 }
 
+function menuPubblicoStorageKey(rid) {
+  return 'menupro_menu_pubblico_' + rid;
+}
+
+/** Menu che vedono i clienti dopo il QR */
+function getMenuPubblicoId(r) {
+  if (!r) return 'default';
+  const menus = ensureMenus(r);
+  let id = r.menu_pubblico_id;
+  if (!id && r.id) {
+    try { id = localStorage.getItem(menuPubblicoStorageKey(r.id)); } catch (e) {}
+  }
+  if (id && menus.some(m => String(m.id) === String(id))) return String(id);
+  // fallback: primo menu
+  return String(menus[0].id);
+}
+
+async function setMenuPubblicoId(r, menuId, { silent } = {}) {
+  if (!r || !menuId) return;
+  const menus = ensureMenus(r);
+  if (!menus.some(m => String(m.id) === String(menuId))) return;
+  r.menu_pubblico_id = String(menuId);
+  try { localStorage.setItem(menuPubblicoStorageKey(r.id), String(menuId)); } catch (e) {}
+  try { cacheSet('rist_' + r.id, stripSecrets(r)); } catch (e) {}
+  if (sb) {
+    const { error } = await sb.from('ristoranti').update({ menu_pubblico_id: String(menuId) }).eq('id', r.id);
+    if (error) console.warn('menu_pubblico_id non salvato su DB:', error.message || error);
+  }
+  const nome = (menus.find(m => String(m.id) === String(menuId)) || {}).nome || menuId;
+  if (!silent) toast('Clienti QR: menu «' + nome + '»');
+  // sincronizza eventuali select UI
+  populateMenuPubblicoSelects();
+}
+
 function piattiDelMenu(r, menuId) {
   const all = (r && r.menu) || [];
   const mid = String(menuId || getCurrentMenuId(r));
@@ -535,7 +569,14 @@ async function _fetchRistoranteFull(id) {
   }));
   r.menus = Array.isArray(r.menus) && r.menus.length
     ? r.menus
-    : [{ id: 'default', nome: 'Menu principale' }];
+    : (loadMenusLocal(r.id) || [{ id: 'default', nome: 'Menu principale' }]);
+  if (!r.menu_pubblico_id) {
+    try {
+      const mp = localStorage.getItem(menuPubblicoStorageKey(r.id));
+      if (mp) r.menu_pubblico_id = mp;
+    } catch (e) {}
+  }
+  if (!r.menu_pubblico_id) r.menu_pubblico_id = (r.menus[0] && r.menus[0].id) || 'default';
   r.categorie = (categorie.data || []).map(c => c.nome);
   if (!r.categorie.length) r.categorie = ['Antipasti', 'Primi', 'Secondi', 'Dolci', 'Bevande'];
   r.ordini = (ordini.data || []).map(o => ({
@@ -2839,6 +2880,7 @@ document.getElementById('chiusura-data')?.addEventListener('change', () => rende
 async function renderOrdiniKanban() {
   if (!currentRistorante) return;
   currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  try { populateMenuPubblicoSelects(); } catch (e) {}
   const ordini = currentRistorante.ordini || [];
 
   const nuovi = ordini.filter(o => o.stato === 'nuovo');
@@ -3428,7 +3470,8 @@ function showClienteView(view) {
 
 function renderClienteMenu() {
   if (!currentRistorante) return;
-  const menu = (currentRistorante.menu || []).filter(p => p.disponibile !== false);
+  const pubId = getMenuPubblicoId(currentRistorante);
+  const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
   // Ordine categorie come in gestione menu (posizione DB), non casuale
   const ordered = (currentRistorante.categorie || []).filter(Boolean);
   const fromMenu = [...new Set(menu.map(p => p.categoria).filter(Boolean))];
@@ -4222,10 +4265,26 @@ function updateQrSessionUI() {
 function startQrSessionWatch() {
   if (_qrExpireTimer) clearInterval(_qrExpireTimer);
   updateQrSessionUI();
-  _qrExpireTimer = setInterval(() => {
+  _qrExpireTimer = setInterval(async () => {
     updateQrSessionUI();
     if (currentUser && currentUser.fromQR && !isQrSessionValid()) {
-      // lascia l'overlay visibile; ferma solo se non serve più
+      // lascia l'overlay visibile
+    }
+    // aggiorna menu pubblico (se il ristorante ha cambiato menu pranzo/cena)
+    if (currentUser && currentUser.role === 'cliente' && currentRistorante && sb && navigator.onLine) {
+      try {
+        const prevPub = getMenuPubblicoId(currentRistorante);
+        const fresh = await loadRistoranteFull(currentRistorante.id);
+        if (fresh) {
+          currentRistorante = fresh;
+          const nextPub = getMenuPubblicoId(currentRistorante);
+          if (nextPub !== prevPub) {
+            menuFilterCat = 'tutti';
+            if (!$('#cliente-menu-view')?.classList.contains('hidden')) renderClienteMenu();
+            toast('Menu aggiornato dal ristorante');
+          }
+        }
+      } catch (e) {}
     }
   }, 15000);
 }
@@ -5023,10 +5082,30 @@ function populateMenuSwitcher() {
   const sel = document.getElementById('menu-switcher');
   if (!sel || !currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
+  // allinea menu in modifica al menu pubblico se non ancora scelto
+  if (!currentMenuId) currentMenuId = getMenuPubblicoId(currentRistorante);
   const mid = String(getCurrentMenuId(currentRistorante));
   sel.innerHTML = menus.map(m =>
     `<option value="${m.id}" ${String(m.id) === mid ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
   ).join('');
+  populateMenuPubblicoSelects();
+}
+
+function populateMenuPubblicoSelects() {
+  if (!currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  const pub = String(getMenuPubblicoId(currentRistorante));
+  const selOrd = document.getElementById('menu-pubblico-ordini');
+  if (selOrd) {
+    selOrd.innerHTML = menus.map(m =>
+      `<option value="${m.id}" ${String(m.id) === pub ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
+    ).join('');
+  }
+  const sel = document.getElementById('menu-switcher');
+  if (sel && sel.value !== pub && document.activeElement !== sel) {
+    // non forzare se l'utente sta modificando un altro menu in editor:
+    // solo allinea se currentMenuId === pubblico
+  }
 }
 
 async function salvaMenusSuDb() {
@@ -5046,6 +5125,8 @@ async function salvaMenusSuDb() {
 document.getElementById('menu-switcher')?.addEventListener('change', (e) => {
   currentMenuId = e.target.value;
   menuFilterCat = 'tutti';
+  // il menu scelto dal ristoratore è anche quello pubblicato ai clienti QR
+  if (currentRistorante) setMenuPubblicoId(currentRistorante, currentMenuId, { silent: false });
   // non ricaricare tutto dal DB: filtra subito
   const mid = currentMenuId;
   let list = piattiDelMenu(currentRistorante, mid);
@@ -5137,6 +5218,7 @@ document.getElementById('form-menu-nome')?.addEventListener('submit', async (e) 
     const id = uidMenu();
     currentRistorante.menus.push({ id, nome });
     currentMenuId = id;
+    await setMenuPubblicoId(currentRistorante, id, { silent: true });
   }
   await salvaMenusSuDb();
   document.getElementById('modal-menu-nome')?.classList.add('hidden');
