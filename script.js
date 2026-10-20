@@ -586,17 +586,19 @@ async function _fetchRistoranteFull(id) {
   if (error && error.code === 'PGRST116') return null;   // non esiste davvero
   if (error || !r) throw error || new Error('nessuna risposta');
 
-  const [tavoli, piatti, categorie, ordini, pagamenti] = await Promise.all([
+  // 4 query in parallelo (niente pagamenti_abbonamento a ogni load: pesante e raro)
+  // ordini: ultimi 80 (abbastanza per kanban/cassa, evita scaricare mesi di storia)
+  const [tavoli, piatti, categorie, ordini] = await Promise.all([
     sb.from('tavoli').select('*').eq('id_ristorante', id).order('numero'),
     sb.from('piatti').select('*').eq('id_ristorante', id).order('nome'),
     sb.from('categorie').select('*').eq('id_ristorante', id).order('posizione'),
-    sb.from('ordini').select('*').eq('id_ristorante', id).order('created_at', { ascending: false }),
-    sb.from('pagamenti_abbonamento').select('*').eq('id_ristorante', id).order('data', { ascending: false })
+    sb.from('ordini').select('*').eq('id_ristorante', id).order('created_at', { ascending: false }).limit(80)
   ]);
-  const failed = [tavoli, piatti, categorie, ordini, pagamenti].find(x => x.error);
+  const failed = [tavoli, piatti, categorie, ordini].find(x => x.error);
   if (failed) throw failed.error;
 
   r.tavoli = tavoli.data || [];
+  r.pagamenti = r.pagamenti || [];
   r.menu = (piatti.data || []).map(p => ({
     ...p,
     allergeni: p.allergeni || [],
@@ -621,7 +623,10 @@ async function _fetchRistoranteFull(id) {
     createdAt: o.created_at
   }));
   // se items vuoti, prova ordine_riga in batch leggero
-  const needRows = r.ordini.filter(o => !(o.items && o.items.length));
+  const needRows = r.ordini.filter(o =>
+    !(o.items && o.items.length) &&
+    (o.stato === 'nuovo' || o.stato === 'in_preparazione' || o.stato === 'pronto')
+  ).slice(0, 25);
   if (needRows.length && sb) {
     try {
       const ids = needRows.map(o => o.id);
@@ -646,15 +651,37 @@ async function _fetchRistoranteFull(id) {
   return r;
 }
 
-async function loadRistoranteFull(id) {
+/** Cache in RAM: evita di rifare 5 query Supabase a ogni click. */
+const _ristMem = new Map(); // id -> { data, at }
+const RIST_TTL_MS = 5000;
+
+function invalidateRistCache(id) {
+  if (id == null) _ristMem.clear();
+  else _ristMem.delete(String(id));
+}
+
+async function loadRistoranteFull(id, force = false) {
+  if (!id) return null;
+  const key = String(id);
+  if (!force) {
+    const hit = _ristMem.get(key);
+    if (hit && (Date.now() - hit.at) < RIST_TTL_MS) return hit.data;
+  }
   try {
     if (!sb) throw new Error('sb null');
     const r = await _fetchRistoranteFull(id);
-    if (r) cacheSet('rist_' + id, stripSecrets(r));
-    else cacheDel('rist_' + id);          // cancellato davvero dal database
+    if (r) {
+      cacheSet('rist_' + id, stripSecrets(r));
+      _ristMem.set(key, { data: r, at: Date.now() });
+    } else {
+      cacheDel('rist_' + id);
+      _ristMem.delete(key);
+    }
     return r;
   } catch (e) {
     console.warn('loadRistoranteFull offline:', e.message || e);
+    const hit = _ristMem.get(key);
+    if (hit && hit.data) return hit.data;
     const cached = cacheGet('rist_' + id);
     if (cached) { offlineNotice(); return cached; }
     return null;
@@ -662,7 +689,7 @@ async function loadRistoranteFull(id) {
 }
 
 async function getRistorante(id) {
-  return loadRistoranteFull(id);
+  return loadRistoranteFull(id, false);
 }
 
 // =====================================================
@@ -1988,13 +2015,13 @@ function renderRistCharts() {
 // =====================================================
 // MENU
 // =====================================================
-async function renderMenuTable(filter = '') {
+async function renderMenuTable(filter = '', opts = {}) {
   if (!currentRistorante) return;
   const prevMenus = currentRistorante.menus;
   const prevMenuId = currentMenuId;
-  const loaded = await loadRistoranteFull(currentRistorante.id);
+  // ricarica dal DB solo se forzato o cache scaduta
+  const loaded = await loadRistoranteFull(currentRistorante.id, !!opts.force);
   if (loaded) {
-    // non perdere i menu locali se il DB non ha ancora la colonna
     if (!(Array.isArray(loaded.menus) && loaded.menus.length) && Array.isArray(prevMenus) && prevMenus.length) {
       loaded.menus = prevMenus;
     }
@@ -2062,7 +2089,12 @@ async function renderMenuTable(filter = '') {
   `).join('');
 }
 
-$('#search-menu')?.addEventListener('input', e => renderMenuTable(e.target.value));
+let _searchMenuTimer = null;
+$('#search-menu')?.addEventListener('input', e => {
+  const v = e.target.value;
+  clearTimeout(_searchMenuTimer);
+  _searchMenuTimer = setTimeout(() => renderMenuTable(v, { force: false }), 200);
+});
 
 function resetPiattoImage() {
   const prev = $('#piatto-preview');
@@ -2207,9 +2239,9 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     }
   }
   if (error) { toast('Errore: ' + (error.message || 'salvataggio')); console.error(error); return; }
-  // aggiorna anche in memoria locale così il menu mostra subito l'IVA corretta
   if (currentRistorante) {
-    currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
+    invalidateRistCache(currentRistorante.id);
+    currentRistorante = await loadRistoranteFull(currentRistorante.id, true) || currentRistorante;
   }
   toast(id ? 'Piatto aggiornato' : 'Piatto aggiunto');
   $('#modal-piatto').classList.add('hidden');
@@ -2262,7 +2294,7 @@ window.deletePiatto = async function(id) {
 // Realtime Supabase (istantaneo) + controllo ogni 5 s come rete di sicurezza.
 // Il controllo è leggero: scarica solo id/stato e ridisegna la schermata solo se qualcosa è cambiato.
 // =====================================================
-const ORDINI_POLL_MS = 5000;
+const ORDINI_POLL_MS = 8000;
 let _ordiniPoll = null;
 let _ordiniChannel = null;
 let _ordiniSig = null;
@@ -2322,7 +2354,9 @@ async function checkOrdiniUpdate() {
       const rid = currentRistorante.id;
       const { data, error } = await sb.from('ordini')
         .select('id,stato,stato_pagamento')
-        .eq('id_ristorante', rid);
+        .eq('id_ristorante', rid)
+        .order('created_at', { ascending: false })
+        .limit(100);
       if (error) throw error;
       if (!currentRistorante || currentRistorante.id !== rid) return;
 
@@ -2362,6 +2396,7 @@ async function checkOrdiniUpdate() {
 }
 
 async function refreshSchermataOrdini() {
+  invalidateRistCache(currentRistorante && currentRistorante.id);
   const visible = (id) => { const el = $(id); return el && !el.classList.contains('hidden'); };
   try {
     if (visible('#page-rist-ordini')) await renderOrdiniKanban();
@@ -2938,11 +2973,12 @@ document.getElementById('chiusura-data')?.addEventListener('change', () => rende
 // =====================================================
 // ORDINI KANBAN
 // =====================================================
-async function renderOrdiniKanban() {
+async function renderOrdiniKanban(opts = {}) {
   if (!currentRistorante) return;
-  currentRistorante = await loadRistoranteFull(currentRistorante.id);
+  const loaded = await loadRistoranteFull(currentRistorante.id, !!opts.force);
+  if (loaded) currentRistorante = loaded;
   try { populateMenuPubblicoSelects(); } catch (e) {}
-  const ordini = currentRistorante.ordini || [];
+  const ordini = (currentRistorante && currentRistorante.ordini) || [];
 
   const nuovi = ordini.filter(o => o.stato === 'nuovo');
   const prep = ordini.filter(o => o.stato === 'in_preparazione');
@@ -3241,6 +3277,7 @@ window.apriDettaglioOrdine = async function(ordineId) {
 };
 
 window.cambiaStato = async function(ordineId, nuovoStato) {
+  if (currentRistorante) invalidateRistCache(currentRistorante.id);
   await sb.from('ordini').update({ stato: nuovoStato }).eq('id', ordineId);
   // aggiorna occupato tavolo
   const o = (currentRistorante.ordini || []).find(x => String(x.id) === String(ordineId));
@@ -4389,7 +4426,7 @@ function startOrdineStatusPolling() {
     } catch (e) { console.warn('poll stato', e); }
   };
   tick();
-  _statusPoll = setInterval(tick, 4000);
+  _statusPoll = setInterval(tick, 6000);
 }
 
 // Bottone aggiorna tenuto come opzionale ma non necessario
@@ -4578,23 +4615,23 @@ function startQrSessionWatch() {
     if (currentUser && currentUser.fromQR && !isQrSessionValid()) {
       // lascia l'overlay visibile
     }
-    // aggiorna menu pubblico (se il ristorante ha cambiato menu pranzo/cena)
+    // check leggero: solo menu_pubblico_id (non ricarica tutto il ristorante)
     if (currentUser && currentUser.role === 'cliente' && currentRistorante && sb && navigator.onLine) {
       try {
         const prevPub = getMenuPubblicoId(currentRistorante);
-        const fresh = await loadRistoranteFull(currentRistorante.id);
-        if (fresh) {
-          currentRistorante = fresh;
-          const nextPub = getMenuPubblicoId(currentRistorante);
-          if (nextPub !== prevPub) {
-            menuFilterCat = 'tutti';
-            if (!$('#cliente-menu-view')?.classList.contains('hidden')) renderClienteMenu();
-            toast('Menu aggiornato dal ristorante');
-          }
+        const { data } = await sb.from('ristoranti')
+          .select('menu_pubblico_id')
+          .eq('id', currentRistorante.id)
+          .maybeSingle();
+        if (data && data.menu_pubblico_id && String(data.menu_pubblico_id) !== String(prevPub)) {
+          currentRistorante.menu_pubblico_id = data.menu_pubblico_id;
+          menuFilterCat = 'tutti';
+          if (!$('#cliente-menu-view')?.classList.contains('hidden')) renderClienteMenu();
+          toast('Menu aggiornato dal ristorante');
         }
       } catch (e) {}
     }
-  }, 15000);
+  }, 20000);
 }
 
 function assertQrSessionOrBlock() {
