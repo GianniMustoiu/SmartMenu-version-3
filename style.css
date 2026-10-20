@@ -1222,3 +1222,15 @@ html.qr-entry #network-status {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
 }
+
+.cliente-main-tabs {
+  display: flex; gap: 8px; padding: 10px 14px 0;
+}
+.cliente-main-tab {
+  flex: 1; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--muted); padding: 10px; border-radius: 10px;
+  font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.cliente-main-tab.active {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
