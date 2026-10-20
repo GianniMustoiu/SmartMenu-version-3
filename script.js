@@ -5551,47 +5551,116 @@ function calcolaPuntiDaEuro(euro, cfg) {
   return Math.floor((e / x) * z);
 }
 
-async function loadPremi(ristId) {
-  let list = [];
+function premiLocalKey(ristId) {
+  return 'menupro_premi_' + String(ristId || '');
+}
+
+function loadPremiLocal(ristId) {
   try {
-    list = JSON.parse(localStorage.getItem('menupro_premi_' + ristId) || '[]') || [];
-  } catch (e) {}
+    const v = JSON.parse(localStorage.getItem(premiLocalKey(ristId)) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+
+function savePremiLocal(ristId, list) {
+  try { localStorage.setItem(premiLocalKey(ristId), JSON.stringify(list || [])); } catch (e) {}
+}
+
+function mergePremiLists(localList, dbList) {
+  const byKey = new Map();
+  (localList || []).forEach(p => {
+    const k = p.id != null ? 'id:' + p.id : 'n:' + String(p.nome || '').toLowerCase();
+    byKey.set(k, { ...p });
+  });
+  (dbList || []).forEach(p => {
+    const k = p.id != null ? 'id:' + p.id : 'n:' + String(p.nome || '').toLowerCase();
+    const prev = byKey.get(k);
+    if (!prev) byKey.set(k, { ...p });
+    else {
+      byKey.set(k, {
+        ...prev,
+        ...p,
+        id: (p.id && !String(p.id).startsWith('p_')) ? p.id : (prev.id || p.id),
+        nome: p.nome || prev.nome,
+        descrizione: p.descrizione != null ? p.descrizione : prev.descrizione,
+        punti_richiesti: p.punti_richiesti != null ? p.punti_richiesti : prev.punti_richiesti,
+        attivo: p.attivo != null ? p.attivo : prev.attivo
+      });
+    }
+  });
+  return Array.from(byKey.values()).sort((a, b) => (a.punti_richiesti || 0) - (b.punti_richiesti || 0));
+}
+
+async function loadPremi(ristId) {
+  if (!ristId) return [];
+  const local = loadPremiLocal(ristId);
+  let dbList = null;
   if (sb) {
     try {
-      const { data, error } = await sb.from('premi_fedelta').select('*').eq('id_ristorante', ristId).order('punti_richiesti');
-      if (!error && data) {
-        list = data;
-        localStorage.setItem('menupro_premi_' + ristId, JSON.stringify(list));
-      }
-    } catch (e) {}
+      const { data, error } = await sb.from('premi_fedelta').select('*').eq('id_ristorante', ristId);
+      if (error) console.warn('premi_fedelta select:', error.message || error);
+      else if (Array.isArray(data)) dbList = data;
+    } catch (e) { console.warn('premi_fedelta', e); }
   }
-  return list;
+  const merged = dbList ? mergePremiLists(local, dbList) : local.slice();
+  savePremiLocal(ristId, merged);
+  return merged;
 }
 
 async function savePremio(premio) {
+  if (!currentRistorante || !currentRistorante.id) {
+    toast('Nessun ristorante');
+    return premio;
+  }
   const ristId = currentRistorante.id;
-  let list = await loadPremi(ristId);
+  premio = {
+    ...premio,
+    id_ristorante: ristId,
+    nome: String(premio.nome || '').trim(),
+    descrizione: String(premio.descrizione || '').trim(),
+    punti_richiesti: parseInt(premio.punti_richiesti, 10) || 1,
+    attivo: premio.attivo !== false
+  };
+  if (!premio.nome) {
+    toast('Nome premio obbligatorio');
+    return premio;
+  }
+
+  // 1) sempre locale
+  let list = loadPremiLocal(ristId);
   if (premio.id) {
-    list = list.map(p => String(p.id) === String(premio.id) ? premio : p);
+    const i = list.findIndex(p => String(p.id) === String(premio.id));
+    if (i >= 0) list[i] = { ...list[i], ...premio };
+    else list.push(premio);
   } else {
     premio.id = 'p_' + Date.now();
     list.push(premio);
   }
-  localStorage.setItem('menupro_premi_' + ristId, JSON.stringify(list));
+  savePremiLocal(ristId, list);
+
+  // 2) prova DB
   if (sb) {
+    const row = {
+      id_ristorante: ristId,
+      nome: premio.nome,
+      descrizione: premio.descrizione || '',
+      punti_richiesti: premio.punti_richiesti,
+      attivo: premio.attivo !== false
+    };
     try {
-      const row = {
-        id_ristorante: ristId,
-        nome: premio.nome,
-        descrizione: premio.descrizione || '',
-        punti_richiesti: premio.punti_richiesti,
-        attivo: premio.attivo !== false
-      };
       if (premio.id && !String(premio.id).startsWith('p_')) {
-        await sb.from('premi_fedelta').update(row).eq('id', premio.id);
+        const { error } = await sb.from('premi_fedelta').update(row).eq('id', premio.id);
+        if (error) console.warn('update premio:', error.message || error);
       } else {
-        const { data } = await sb.from('premi_fedelta').insert(row).select().single();
-        if (data) premio.id = data.id;
+        const { data, error } = await sb.from('premi_fedelta').insert(row).select().single();
+        if (!error && data) {
+          const oldId = premio.id;
+          premio.id = data.id;
+          list = loadPremiLocal(ristId).map(p => String(p.id) === String(oldId) ? { ...p, id: data.id } : p);
+          savePremiLocal(ristId, list);
+        } else if (error) {
+          console.warn('insert premio (resta in localStorage):', error.message || error);
+        }
       }
     } catch (e) { console.warn(e); }
   }
@@ -5812,30 +5881,85 @@ document.getElementById('btn-loy-wallet')?.addEventListener('click', () => openW
 
 function openWalletModal() {
   if (!currentLoyalty) { toast('Accedi alla loyalty card'); return; }
-  document.getElementById('loy-wc-nome').textContent =
-    ((currentLoyalty.nome || '') + ' ' + (currentLoyalty.cognome || '')).trim() || currentLoyalty.email;
+  const nome = ((currentLoyalty.nome || '') + ' ' + (currentLoyalty.cognome || '')).trim() || currentLoyalty.email;
+  document.getElementById('loy-wc-nome').textContent = nome;
   document.getElementById('loy-wc-code').textContent = currentLoyalty.codice || '—';
   document.getElementById('loy-wc-punti').textContent = (currentLoyalty.punti || 0) + ' punti';
+  // QR del codice carta (utile in cassa)
+  const qrWrap = document.getElementById('loy-wc-qr');
+  if (qrWrap) {
+    const code = encodeURIComponent(currentLoyalty.codice || currentLoyalty.email || '');
+    qrWrap.innerHTML = '<img alt="QR carta" style="width:140px;height:140px;border-radius:8px;background:#fff;padding:6px" src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + code + '" />';
+  }
   document.getElementById('modal-loy-wallet')?.classList.remove('hidden');
 }
 
-document.getElementById('btn-loy-download-card')?.addEventListener('click', () => {
+/** Card PNG scaricabile (salvabile in Foto / File e usabile come tessera). */
+function downloadLoyaltyCardPng() {
   if (!currentLoyalty) return;
-  // genera una "card" testuale scaricabile
-  const text = [
-    'MenuPro Loyalty Card',
-    'Nome: ' + (currentLoyalty.nome || '') + ' ' + (currentLoyalty.cognome || ''),
-    'Email: ' + currentLoyalty.email,
-    'Codice: ' + currentLoyalty.codice,
-    'Punti: ' + (currentLoyalty.punti || 0),
-    'Ristorante: ' + (currentRistorante && currentRistorante.nome || '')
-  ].join('\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'loyalty-' + (currentLoyalty.codice || 'card') + '.txt';
-  a.click();
-  toast('Card scaricata — puoi salvarla nel wallet o nei file');
+  const nome = ((currentLoyalty.nome || '') + ' ' + (currentLoyalty.cognome || '')).trim() || currentLoyalty.email;
+  const rist = (currentRistorante && currentRistorante.nome) || 'MenuPro';
+  const codice = currentLoyalty.codice || '—';
+  const punti = String(currentLoyalty.punti || 0) + ' punti';
+
+  const w = 680, h = 400;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  // sfondo
+  const grd = ctx.createLinearGradient(0, 0, w, h);
+  grd.addColorStop(0, '#1e3a8a');
+  grd.addColorStop(1, '#3b82f6');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, h);
+  // testo
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 18px system-ui,sans-serif';
+  ctx.fillText('LOYALTY CARD', 40, 56);
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 32px system-ui,sans-serif';
+  ctx.fillText(rist, 40, 100);
+  ctx.font = '600 26px system-ui,sans-serif';
+  ctx.fillText(nome, 40, 170);
+  ctx.font = '500 20px ui-monospace,monospace';
+  ctx.fillText(codice, 40, 220);
+  ctx.font = '600 22px system-ui,sans-serif';
+  ctx.fillText(punti, 40, 280);
+  ctx.font = '14px system-ui,sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText('Mostra questo codice in cassa · MenuPro', 40, 360);
+
+  // prova a disegnare QR se immagine già nel DOM
+  const qrImg = document.querySelector('#loy-wc-qr img');
+  const finish = () => {
+    canvas.toBlob((blob) => {
+      if (!blob) { toast('Impossibile generare la card'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'loyalty-' + (currentLoyalty.codice || 'card') + '.png';
+      a.click();
+      toast('Card salvata come immagine — aprila da Foto e aggiungila ai file preferiti');
+    }, 'image/png');
+  };
+  if (qrImg && qrImg.complete) {
+    try { ctx.drawImage(qrImg, w - 180, h - 180, 140, 140); } catch (e) {}
+    finish();
+  } else if (qrImg) {
+    qrImg.onload = () => { try { ctx.drawImage(qrImg, w - 180, h - 180, 140, 140); } catch (e) {} finish(); };
+    setTimeout(finish, 800);
+  } else finish();
+}
+
+document.getElementById('btn-loy-download-card')?.addEventListener('click', () => downloadLoyaltyCardPng());
+
+document.getElementById('btn-loy-copy-code')?.addEventListener('click', async () => {
+  if (!currentLoyalty) return;
+  try {
+    await navigator.clipboard.writeText(currentLoyalty.codice || '');
+    toast('Codice copiato: ' + currentLoyalty.codice);
+  } catch (e) {
+    toast('Codice: ' + (currentLoyalty.codice || ''));
+  }
 });
 
 // --- Admin loyalty page ---
@@ -5936,9 +6060,9 @@ window.deletePremio = async function(id) {
   if (currentUser && currentUser.role === 'cassa') return;
   const ok = await chiediConfermaStato('Eliminare questo premio?', 'L\'azione non si può annullare.');
   if (!ok) return;
-  let list = await loadPremi(currentRistorante.id);
+  let list = loadPremiLocal(currentRistorante.id);
   list = list.filter(p => String(p.id) !== String(id));
-  localStorage.setItem('menupro_premi_' + currentRistorante.id, JSON.stringify(list));
+  savePremiLocal(currentRistorante.id, list);
   if (sb) {
     try { await sb.from('premi_fedelta').delete().eq('id', id); } catch (e) {}
   }
@@ -5948,20 +6072,26 @@ window.deletePremio = async function(id) {
 
 document.getElementById('form-premio')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (currentUser && currentUser.role === 'cassa') return;
+  if (currentUser && currentUser.role === 'cassa') {
+    toast('Solo il ristoratore può gestire i premi');
+    return;
+  }
+  if (!currentRistorante) { toast('Nessun ristorante'); return; }
   const id = document.getElementById('premio-edit-id')?.value || '';
+  const nome = (document.getElementById('premio-nome')?.value || '').trim();
+  if (!nome) { toast('Inserisci il nome del premio'); return; }
   const premio = {
     id: id || undefined,
     id_ristorante: currentRistorante.id,
-    nome: document.getElementById('premio-nome').value.trim(),
-    descrizione: document.getElementById('premio-desc').value.trim(),
-    punti_richiesti: parseInt(document.getElementById('premio-punti').value, 10) || 1,
-    attivo: document.getElementById('premio-attivo').checked
+    nome,
+    descrizione: (document.getElementById('premio-desc')?.value || '').trim(),
+    punti_richiesti: parseInt(document.getElementById('premio-punti')?.value, 10) || 1,
+    attivo: document.getElementById('premio-attivo')?.checked !== false
   };
   await savePremio(premio);
   document.getElementById('modal-premio')?.classList.add('hidden');
-  renderLoyaltyAdmin();
-  toast('Premio salvato');
+  await renderLoyaltyAdmin();
+  toast('Premio salvato: ' + nome);
 });
 
 window.aggiungiPuntiManuali = async function(memberId) {
