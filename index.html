@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=8" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -725,9 +725,20 @@
             <select id="piatto-categoria" required></select>
           </div>
           <div class="form-group">
-            <label>Prezzo (€) *</label>
-            <input type="number" id="piatto-prezzo" required min="0" step="0.50" />
+            <label>Prezzo (€) IVA inclusa *</label>
+            <input type="number" id="piatto-prezzo" required min="0" step="0.01" />
           </div>
+        </div>
+        <div class="form-group" style="padding:0 24px">
+          <label>Aliquota IVA *</label>
+          <select id="piatto-iva" required>
+            <option value="10">10% – ristorazione / alimenti</option>
+            <option value="22">22% – ordinaria</option>
+            <option value="5">5% – ridotta</option>
+            <option value="4">4% – super ridotta</option>
+            <option value="0">0% – esente / non imponibile</option>
+          </select>
+          <small style="color:var(--muted)">Il prezzo del menu è IVA inclusa. In fattura l’imposta viene scorporata con questa aliquota.</small>
         </div>
         <div class="form-group" style="padding:0 24px">
           <label>Allergeni</label>
@@ -988,45 +999,6 @@
     </div>
   </div>
 
-
-  <!-- Modal pagamento in cassa (contanti + resto + scontrino) -->
-  <div id="modal-incassa" class="modal hidden">
-    <div class="modal-content" style="max-width:440px">
-      <div class="modal-header">
-        <h3><i class="fas fa-cash-register" style="color:var(--primary);margin-right:8px"></i> Pagamento in cassa</h3>
-        <button type="button" class="close-modal" data-modal="modal-incassa" id="btn-incassa-x">&times;</button>
-      </div>
-      <div class="incassa-body">
-        <input type="hidden" id="incassa-ordine-id" />
-        <div class="incassa-totale-box">
-          <span class="k">Totale da pagare</span>
-          <span class="v" id="incassa-totale">€0,00</span>
-        </div>
-        <p class="incassa-meta" id="incassa-meta"></p>
-        <div class="form-group" style="margin-bottom:10px">
-          <label for="incassa-ricevuto">Contanti ricevuti (€)</label>
-          <input type="number" id="incassa-ricevuto" min="0" step="0.01" inputmode="decimal" placeholder="0,00" />
-        </div>
-        <div class="incassa-quick" id="incassa-quick"></div>
-        <div class="incassa-resto-box" id="incassa-resto-box">
-          <span class="k">Resto</span>
-          <span class="v" id="incassa-resto">€0,00</span>
-        </div>
-        <p class="incassa-warn hidden" id="incassa-warn">Importo insufficiente</p>
-        <label class="check-label" style="margin-top:12px">
-          <input type="checkbox" id="incassa-stampa" checked />
-          <span>Stampa scontrino dopo l'incasso</span>
-        </label>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btn-incassa-annulla">Annulla</button>
-        <button type="button" class="btn btn-primary" id="btn-incassa-ok">
-          <i class="fas fa-check"></i> Conferma incasso
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal fattura -->
   <div id="modal-fattura" class="modal hidden">
     <div class="modal-content" style="max-width:520px">
@@ -1110,8 +1082,8 @@
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=7"></script>
-  <script src="script.js?v=7"></script>
+  <script src="config.js?v=8"></script>
+  <script src="script.js?v=8"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
