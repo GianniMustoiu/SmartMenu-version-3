@@ -3019,10 +3019,9 @@ function setupKanbanDragDrop() {
     const card = e.target.closest('.kanban-card');
     if (card) card.classList.remove('kanban-dragging');
     board.querySelectorAll('.kanban-col.drag-over').forEach(c => c.classList.remove('drag-over'));
-    // evita che il click apra il dettaglio subito dopo un drop
-    if (_kanbanJustDragged) {
-      setTimeout(() => { _kanbanJustDragged = false; }, 50);
-    }
+    // dopo qualsiasi drag, ignora il click "fantasma" per 200ms
+    _kanbanJustDragged = true;
+    setTimeout(() => { _kanbanJustDragged = false; }, 200);
     _kanbanDrag = null;
   });
 
@@ -3069,25 +3068,55 @@ function setupKanbanDragDrop() {
     await cambiaStato(id, toStato);
   });
 
-  // se l'utente ha appena trascinato, non aprire il dettaglio sul click
+  // click su card → dettaglio; dopo un drag non aprire
   board.addEventListener('click', (e) => {
-    if (!_kanbanJustDragged) return;
     const card = e.target.closest('.kanban-card');
-    if (card) {
+    if (!card) return;
+    if (_kanbanJustDragged) {
       e.stopPropagation();
       e.preventDefault();
+      return;
     }
-  }, true);
+    const oid = card.dataset.ordineId;
+    if (oid) {
+      e.stopPropagation();
+      apriDettaglioOrdine(oid);
+    }
+  });
 }
 
 window.apriDettaglioOrdine = async function(ordineId) {
-  let o = currentRistorante.ordini.find(x => x.id === ordineId);
-  if (!o) return;
+  if (!ordineId) return;
+  if (!currentRistorante) {
+    toast('Nessun ristorante selezionato');
+    return;
+  }
+  const idStr = String(ordineId);
+  let o = (currentRistorante.ordini || []).find(x => String(x.id) === idStr);
+  // se non in memoria, ricarica
+  if (!o && sb) {
+    try {
+      const { data } = await sb.from('ordini').select('*').eq('id', ordineId).maybeSingle();
+      if (data) {
+        o = {
+          ...data,
+          items: data.items || [],
+          createdAt: data.created_at || data.createdAt
+        };
+        currentRistorante.ordini = currentRistorante.ordini || [];
+        currentRistorante.ordini.push(o);
+      }
+    } catch (e) { console.warn(e); }
+  }
+  if (!o) {
+    toast('Ordine non trovato');
+    return;
+  }
   // assicura lista piatti (items o ordine_riga)
   let items = o.items || [];
   if ((!items || !items.length) && sb) {
     try {
-      const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', ordineId);
+      const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
       if (righe && righe.length) {
         items = righe.map(r => ({
           nome: r.piatto || r.nome || 'Piatto',
@@ -3098,7 +3127,8 @@ window.apriDettaglioOrdine = async function(ordineId) {
       }
     } catch (e) {}
   }
-  $('#ordine-detail-title').textContent = `Ordine #${o.codice} – Tavolo ${o.tavolo}`;
+  const titleEl = $('#ordine-detail-title');
+  if (titleEl) titleEl.textContent = `Ordine #${o.codice || '—'} – Tavolo ${o.tavolo}`;
   const itemsHtml = (items || []).length
     ? (items || []).map(i =>
         `<div class="r-item prep-line"><span class="prep-qty">${i.qty}×</span> <span class="prep-name">${i.nome}</span></div>`
@@ -3134,15 +3164,25 @@ window.apriDettaglioOrdine = async function(ordineId) {
     actions += `<button class="btn btn-danger" onclick="chiudiConto('${o.id}')"><i class="fas fa-lock"></i> Chiudi conto</button>`;
   }
   actions += `<button class="btn btn-secondary close-modal" data-modal="modal-ordine">Chiudi</button>`;
-  $('#ordine-detail-actions').innerHTML = actions;
-  $('#ordine-detail-actions .close-modal')?.addEventListener('click', () => $('#modal-ordine').classList.add('hidden'));
-  $('#modal-ordine').classList.remove('hidden');
+  const actionsEl = $('#ordine-detail-actions');
+  if (actionsEl) {
+    actionsEl.innerHTML = actions;
+    actionsEl.querySelector('.close-modal')?.addEventListener('click', () => {
+      $('#modal-ordine')?.classList.add('hidden');
+    });
+  }
+  const modal = $('#modal-ordine');
+  if (modal) {
+    modal.classList.remove('hidden');
+  } else {
+    toast('Errore: modal ordine non trovato');
+  }
 };
 
 window.cambiaStato = async function(ordineId, nuovoStato) {
   await sb.from('ordini').update({ stato: nuovoStato }).eq('id', ordineId);
   // aggiorna occupato tavolo
-  const o = currentRistorante.ordini.find(x => x.id === ordineId);
+  const o = (currentRistorante.ordini || []).find(x => String(x.id) === String(ordineId));
   if (o) {
     if (nuovoStato === 'consegnato' || nuovoStato === 'chiuso') {
       await sb.from('tavoli').update({ occupato: false }).eq('id_ristorante', currentRistorante.id).eq('numero', o.tavolo);
@@ -3157,7 +3197,7 @@ window.cambiaStato = async function(ordineId, nuovoStato) {
 };
 
 window.chiudiConto = async function(ordineId) {
-  const o = currentRistorante.ordini.find(x => x.id === ordineId);
+  const o = (currentRistorante.ordini || []).find(x => String(x.id) === String(ordineId));
   await sb.from('ordini').update({ stato: 'chiuso', stato_pagamento: 'pagato' }).eq('id', ordineId);
   if (o) await sb.from('tavoli').update({ occupato: false }).eq('id_ristorante', currentRistorante.id).eq('numero', o.tavolo);
   $('#modal-ordine').classList.add('hidden');
@@ -3238,7 +3278,7 @@ document.getElementById('btn-chiudi-tutto')?.addEventListener('click', () => {
 });
 
 window.togglePagamento = async function(ordineId) {
-  const o = currentRistorante.ordini.find(x => x.id === ordineId);
+  const o = (currentRistorante.ordini || []).find(x => String(x.id) === String(ordineId));
   if (!o) return;
   const cur = o.stato_pagamento || defaultPagStato(o.pagamento);
   const cycle = { in_attesa: 'pagato', pagato: 'non_pagato', non_pagato: 'in_attesa' };
