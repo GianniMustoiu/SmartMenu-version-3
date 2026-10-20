@@ -793,7 +793,13 @@ function applyCassaNavRestrictions(isCassa) {
     } else {
       item.classList.remove('hidden');
     }
+    // nascondi Loyalty se ristorante non aderisce
+    if (page === 'rist-loyalty' && currentRistorante && !isFidelityEnabled(currentRistorante)) {
+      item.classList.add('hidden');
+    }
   });
+  const btnLoy = document.getElementById('btn-loy-cassa');
+  if (btnLoy) btnLoy.classList.toggle('hidden', !(currentRistorante && isFidelityEnabled(currentRistorante)));
   // switcher multi-locale non serve alle casse
   const sw = $('#rist-switcher-wrap');
   if (sw && isCassa) sw.classList.add('hidden');
@@ -1221,6 +1227,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#sale').value = 'Sala principale';
   $('#n_tavoli').value = 8;
   if ($('#n_casse')) $('#n_casse').value = 1;
+  if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = true;
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
   $('#modal-ristorante').classList.remove('hidden');
 });
@@ -1378,7 +1385,8 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     sale,
     indirizzo_fatturazione: ($('#indirizzo_fatturazione')?.value || '').trim() || null,
     piva: ($('#piva_rist')?.value || '').trim().replace(/\s/g, '') || null,
-    pec: ($('#pec_rist')?.value || '').trim() || null
+    pec: ($('#pec_rist')?.value || '').trim() || null,
+    fidelity_enabled: $('#fidelity_enabled')?.checked !== false
   };
 
   if (id) {
@@ -1444,7 +1452,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     }).select().single());
 
     if (error && /column|piva|pec|indirizzo|ultimo_numero/i.test(String(error.message || ''))) {
-      const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, ...base } = data;
+      const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, fidelity_enabled, loyalty_config, menus, menu_pubblico_id, ...base } = data;
       ({ data: inserted, error } = await sb.from('ristoranti').insert({
         ...base,
         password: password || null
@@ -1522,6 +1530,7 @@ window.editRistorante = async function(id) {
   $('#n_tavoli').value = count || 8;
   // in modifica non ricreiamo le casse (già esistenti); campo a 0
   if ($('#n_casse')) $('#n_casse').value = 0;
+  if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = r.fidelity_enabled !== false;
   $('#modal-ristorante').classList.remove('hidden');
 };
 
@@ -3609,7 +3618,11 @@ window.aggiungiPremioAlCarrello = function(premioId) {
   loadPremi(currentRistorante.id).then(premi => {
     const pr = premi.find(p => String(p.id) === String(premioId));
     if (!pr || pr.attivo === false) { toast('Premio non disponibile'); return; }
+    if (premioEsaurito(pr)) { toast('Premio terminato'); return; }
     const need = Number(pr.punti_richiesti) || 0;
+    const rim = premioRimanenti(pr);
+    const inCartQty = (cart.find(c => c.id === 'premio_' + pr.id) || {}).qty || 0;
+    if (rim !== Infinity && inCartQty >= rim) { toast('Premio terminato'); return; }
     if (puntiDisponibiliPerPremi() < need) {
       toast('Punti insufficienti');
       return;
@@ -3660,17 +3673,20 @@ async function renderClientePremi() {
   }
   list.innerHTML = premi.map(pr => {
     const need = Number(pr.punti_richiesti) || 0;
-    const ok = disponibili != null && disponibili >= need;
+    const terminato = premioEsaurito(pr);
+    const ok = !terminato && disponibili != null && disponibili >= need;
     const inCart = cart.find(c => c.id === 'premio_' + pr.id);
+    let statusTxt = '';
+    if (terminato) statusTxt = 'Premio terminato';
+    else if (ok) statusTxt = 'Puoi aggiungerlo al carrello';
+    else statusTxt = 'Ti servono ancora ' + Math.max(0, need - (disponibili || 0)) + ' pt';
+    if (inCart && !terminato) statusTxt += ' · in carrello ×' + inCart.qty;
     return `
-      <div class="loyalty-premio-item">
+      <div class="loyalty-premio-item ${terminato ? 'inactive' : ''}">
         <div style="flex:1;min-width:0">
           <strong>${pr.nome || 'Premio'}</strong>
           ${pr.descrizione ? `<div style="font-size:12px;color:var(--muted)">${pr.descrizione}</div>` : ''}
-          <div style="font-size:12px;margin-top:4px;color:${ok ? 'var(--success,#22c55e)' : 'var(--muted)'}">
-            ${ok ? 'Puoi aggiungerlo al carrello' : ('Ti servono ancora ' + Math.max(0, need - (disponibili || 0)) + ' pt')}
-            ${inCart ? ' · in carrello ×' + inCart.qty : ''}
-          </div>
+          <div style="font-size:12px;margin-top:4px;color:${terminato ? '#f87171' : (ok ? 'var(--success,#22c55e)' : 'var(--muted)')}">${statusTxt}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="badge badge-pro">${need} pt</span>
@@ -3920,6 +3936,15 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
   }
   if (!assertQrSessionOrBlock()) return;
 
+  const totaleEuro = cart.reduce((sum, c) => sum + (c.isPremio ? 0 : Number(c.prezzo) * c.qty), 0);
+
+  // Solo premi / totale 0 → niente pagamento
+  if (totaleEuro <= 0) {
+    toast('Saldo €0 — non devi pagare. Invio ordine…');
+    await inviaOrdineFinale({ pagamento: 'cassa', circuito: null, gratis: true });
+    return;
+  }
+
   const pagamento = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
   if (!metodiAccettati(currentRistorante)[pagamento]) {
     toast('Questo ristorante non accetta il pagamento selezionato');
@@ -3927,7 +3952,6 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     return;
   }
 
-  // Carta / wallet → schermata pagamento (salva solo il circuito, non i dati carta)
   if (pagamento === 'carta') {
     const circ = document.querySelector('input[name="circuito"]:checked')?.value || selectedCircuito || 'visa';
     selectedCircuito = circ;
@@ -3935,14 +3959,18 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
     return;
   }
 
-  // Cassa → invio diretto
   await inviaOrdineFinale({ pagamento: 'cassa', circuito: null });
 });
 
 function openPagamentoUI(circuitoId) {
   const c = circuitiCatalog.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT[0];
   selectedCircuito = c.id;
-  const totale = cart.reduce((s, x) => s + x.prezzo * x.qty, 0);
+  const totale = cart.reduce((s, x) => s + (x.isPremio ? 0 : Number(x.prezzo) * x.qty), 0);
+  if (totale <= 0) {
+    toast('Saldo €0 — non devi pagare. Invio ordine…');
+    inviaOrdineFinale({ pagamento: 'carta', circuito: circuitoId || null, gratis: true });
+    return;
+  }
   const iconEl = $('#pay-circuito-icon');
   if (iconEl) iconEl.className = c.icona || 'fas fa-credit-card';
   if ($('#pay-circuito-nome')) $('#pay-circuito-nome').textContent = 'Paga con ' + c.nome;
@@ -4053,7 +4081,8 @@ async function inviaOrdineFinale({ pagamento, circuito }) {
     applyPaymentOptions();
     return;
   }
-  const stato_pagamento = defaultPagStato(pagamento);
+  const gratis = !!(arguments[0] && arguments[0].gratis) || (cart.reduce((s,c)=>s+(c.isPremio?0:Number(c.prezzo)*c.qty),0) <= 0);
+  const stato_pagamento = gratis ? 'pagato' : defaultPagStato(pagamento);
   const note = ($('#ordine-note')?.value || '').trim();
   const tavoloNum = currentUser.tavolo;
   const circuitoPagamento = (pagamento === 'carta' && circuito) ? circuito : null;
@@ -4164,6 +4193,8 @@ if (!navigator.onLine) {
           toast('Premi riscattati: −' + scaled + ' pt');
         }
       }
+      // aggiorna quantità usata premi (solo staff vede il residuale)
+      try { await incrementaPremiUsatiDaCarrello(); } catch (e) { console.warn(e); }
       const pts = await accreditaPuntiLoyalty(currentLoyalty, totale);
       if (pts > 0) toast('+' + pts + ' punti loyalty (saldo ' + currentLoyalty.punti + ' pt)');
       if (pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
@@ -4634,12 +4665,20 @@ function assertQrSessionOrBlock() {
     if ($('#cliente-auth-rist-nome')) $('#cliente-auth-rist-nome').textContent = r.nome || 'Benvenuto';
     if ($('#cliente-auth-tavolo')) $('#cliente-auth-tavolo').textContent = t;
 
-    await restoreLoyaltySession();
+    if (isFidelityEnabled(r)) {
+      await restoreLoyaltySession();
+    } else {
+      clearLoyaltySession();
+    }
 
     // Mostra ricevuta solo se c'è ancora un ordine APERTO a questo tavolo
     if (!cart.length && lastOrdineId) {
       showClienteAuthGate(false);
       await loadClienteOrdineById(lastOrdineId);
+    } else if (!isFidelityEnabled(r)) {
+      showClienteAuthGate(false);
+      showClienteView('menu');
+      renderClienteMenu();
     } else if (currentLoyalty) {
       showClienteAuthGate(false);
       showClienteView('menu');
@@ -5548,6 +5587,26 @@ function defaultLoyaltyConfig() {
   return { euro: 1, punti: 10 };
 }
 
+function isFidelityEnabled(r) {
+  const rist = r || currentRistorante;
+  if (!rist) return false;
+  // default true se campo assente (retrocompatibilità)
+  if (rist.fidelity_enabled === false || rist.fidelity_enabled === 'false' || rist.fidelity_enabled === 0) return false;
+  return true;
+}
+
+function premioRimanenti(pr) {
+  const max = Number(pr.quantita_max);
+  if (!max || max <= 0) return Infinity; // illimitato
+  const usati = Number(pr.quantita_usati) || 0;
+  return Math.max(0, max - usati);
+}
+
+function premioEsaurito(pr) {
+  return premioRimanenti(pr) <= 0;
+}
+
+
 function getLoyaltyConfig(r) {
   const cfg = (r && r.loyalty_config) || null;
   if (cfg && cfg.euro > 0) return { euro: Number(cfg.euro) || 1, punti: Number(cfg.punti) || 0 };
@@ -5795,6 +5854,8 @@ async function savePremio(premio) {
     nome: String(premio.nome || '').trim(),
     descrizione: String(premio.descrizione || '').trim(),
     punti_richiesti: parseInt(premio.punti_richiesti, 10) || 1,
+    quantita_max: Math.max(0, parseInt(premio.quantita_max, 10) || 0),
+    quantita_usati: Math.max(0, parseInt(premio.quantita_usati, 10) || 0),
     attivo: premio.attivo !== false
   };
   if (!premio.nome) {
@@ -5821,6 +5882,8 @@ async function savePremio(premio) {
       nome: premio.nome,
       descrizione: premio.descrizione || '',
       punti_richiesti: premio.punti_richiesti,
+      quantita_max: premio.quantita_max || 0,
+      quantita_usati: premio.quantita_usati || 0,
       attivo: premio.attivo !== false
     };
     try {
@@ -5985,6 +6048,23 @@ async function loginLoyaltyCliente(email, password) {
   return { member: m };
 }
 
+async function incrementaPremiUsatiDaCarrello() {
+  if (!currentRistorante) return;
+  const premi = await loadPremi(currentRistorante.id);
+  let changed = false;
+  for (const c of cart) {
+    if (!c.isPremio || !c.premioId) continue;
+    const pr = premi.find(p => String(p.id) === String(c.premioId));
+    if (!pr) continue;
+    const max = Number(pr.quantita_max) || 0;
+    pr.quantita_usati = (Number(pr.quantita_usati) || 0) + (c.qty || 1);
+    if (max > 0 && pr.quantita_usati > max) pr.quantita_usati = max;
+    await savePremio(pr);
+    changed = true;
+  }
+  return changed;
+}
+
 async function scalaPuntiLoyalty(member, puntiDaScalare) {
   if (!member || !puntiDaScalare || puntiDaScalare <= 0) return 0;
   const have = Number(member.punti) || 0;
@@ -6053,7 +6133,6 @@ document.getElementById('form-cliente-auth')?.addEventListener('submit', async (
     showClienteView('menu');
     renderClienteMenu();
     toast('Loyalty card attivata · codice ' + res.member.codice);
-    setTimeout(() => openWalletModal(), 400);
   } else {
     const res = await loginLoyaltyCliente(email, password);
     if (res.error) { toast(res.error); return; }
@@ -6160,6 +6239,9 @@ document.getElementById('btn-loy-copy-code')?.addEventListener('click', async ()
 async function renderLoyaltyAdmin() {
   if (!currentRistorante) return;
   currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
+  if (!isFidelityEnabled(currentRistorante)) {
+    toast('Questo ristorante non aderisce al programma fidelity. Attivalo in modifica ristorante (admin).');
+  }
   const cfg = getLoyaltyConfig(currentRistorante);
   const euroEl = document.getElementById('loy-euro');
   const puntiEl = document.getElementById('loy-punti');
@@ -6173,19 +6255,24 @@ async function renderLoyaltyAdmin() {
   const listEl = document.getElementById('loyalty-premi-list');
   if (listEl) {
     if (!premi.length) listEl.innerHTML = '<p style="color:var(--muted)">Nessun premio. Creane uno.</p>';
-    else listEl.innerHTML = premi.map(pr => `
-      <div class="loyalty-premio-item ${pr.attivo === false ? 'inactive' : ''}">
+    else listEl.innerHTML = premi.map(pr => {
+      const max = Number(pr.quantita_max) || 0;
+      const usati = Number(pr.quantita_usati) || 0;
+      const stock = max > 0 ? (usati + '/' + max + ' usati' + (premioEsaurito(pr) ? ' · TERMINATO' : '')) : 'illimitato';
+      return `
+      <div class="loyalty-premio-item ${pr.attivo === false || premioEsaurito(pr) ? 'inactive' : ''}">
         <div>
           <strong>${pr.nome}</strong>
           ${pr.descrizione ? `<div style="font-size:12px;color:var(--muted)">${pr.descrizione}</div>` : ''}
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Scorte: ${stock}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-pro">${pr.punti_richiesti} pt</span>
           ${isRist ? `<button class="btn btn-secondary btn-sm" onclick="editPremio('${pr.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-danger btn-sm" onclick="deletePremio('${pr.id}')"><i class="fas fa-trash"></i></button>` : ''}
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   const members = await fetchLoyaltyMembers(currentRistorante.id);
@@ -6232,6 +6319,8 @@ document.getElementById('btn-nuovo-premio')?.addEventListener('click', () => {
   document.getElementById('premio-nome').value = '';
   document.getElementById('premio-desc').value = '';
   document.getElementById('premio-punti').value = '100';
+  if (document.getElementById('premio-qty-max')) document.getElementById('premio-qty-max').value = '0';
+  if (document.getElementById('premio-qty-usati')) document.getElementById('premio-qty-usati').value = '0';
   document.getElementById('premio-attivo').checked = true;
   document.getElementById('modal-premio')?.classList.remove('hidden');
 });
@@ -6246,6 +6335,8 @@ window.editPremio = async function(id) {
   document.getElementById('premio-nome').value = pr.nome || '';
   document.getElementById('premio-desc').value = pr.descrizione || '';
   document.getElementById('premio-punti').value = pr.punti_richiesti || 100;
+  if (document.getElementById('premio-qty-max')) document.getElementById('premio-qty-max').value = pr.quantita_max || 0;
+  if (document.getElementById('premio-qty-usati')) document.getElementById('premio-qty-usati').value = pr.quantita_usati || 0;
   document.getElementById('premio-attivo').checked = pr.attivo !== false;
   document.getElementById('modal-premio')?.classList.remove('hidden');
 };
@@ -6280,6 +6371,8 @@ document.getElementById('form-premio')?.addEventListener('submit', async (e) => 
     nome,
     descrizione: (document.getElementById('premio-desc')?.value || '').trim(),
     punti_richiesti: parseInt(document.getElementById('premio-punti')?.value, 10) || 1,
+    quantita_max: parseInt(document.getElementById('premio-qty-max')?.value, 10) || 0,
+    quantita_usati: parseInt(document.getElementById('premio-qty-usati')?.value, 10) || 0,
     attivo: document.getElementById('premio-attivo')?.checked !== false
   };
   await savePremio(premio);
