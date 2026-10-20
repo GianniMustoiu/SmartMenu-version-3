@@ -2297,14 +2297,12 @@ function chiediConfermaChiusura(ymd, stats) {
       btnNo?.removeEventListener('click', onNo);
       btnX?.removeEventListener('click', onNo);
       btnPdf?.removeEventListener('click', onPdf);
-      modal.removeEventListener('click', onBackdrop);
       document.removeEventListener('keydown', onKey);
       resolve(val);
     };
     const onOk = () => cleanup(true);
     const onNo = () => cleanup(false);
     const onPdf = async () => { await scaricaPdfChiusura(ymd, stats); };
-    const onBackdrop = (e) => { if (e.target === modal) cleanup(false); };
     const onKey = (e) => {
       if (e.key === 'Escape') cleanup(false);
       if (e.key === 'Enter') cleanup(true);
@@ -2314,7 +2312,6 @@ function chiediConfermaChiusura(ymd, stats) {
     btnNo?.addEventListener('click', onNo);
     btnX?.addEventListener('click', onNo);
     btnPdf?.addEventListener('click', onPdf);
-    modal.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKey);
     modal.classList.remove('hidden');
     setTimeout(() => btnOk?.focus(), 40);
@@ -2663,13 +2660,11 @@ function chiediConfermaStato(msgHtml, hintText, opts) {
       btnSi?.removeEventListener('click', onSi);
       btnNo?.removeEventListener('click', onNo);
       btnX?.removeEventListener('click', onNo);
-      modal.removeEventListener('click', onBackdrop);
       document.removeEventListener('keydown', onKey);
       resolve(val);
     };
     const onSi = () => cleanup(true);
     const onNo = () => cleanup(false);
-    const onBackdrop = (e) => { if (e.target === modal) cleanup(false); };
     const onKey = (e) => {
       if (e.key === 'Escape') cleanup(false);
       if (e.key === 'Enter') cleanup(true);
@@ -2678,7 +2673,6 @@ function chiediConfermaStato(msgHtml, hintText, opts) {
     btnSi?.addEventListener('click', onSi);
     btnNo?.addEventListener('click', onNo);
     btnX?.addEventListener('click', onNo);
-    modal.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKey);
 
     modal.classList.remove('hidden');
@@ -4300,9 +4294,7 @@ function chiudiModalFattura() {
 }
 $('#btn-fattura-annulla')?.addEventListener('click', chiudiModalFattura);
 $('#btn-fattura-x')?.addEventListener('click', chiudiModalFattura);
-$('#modal-fattura')?.addEventListener('click', (e) => {
-  if (e.target === $('#modal-fattura')) chiudiModalFattura();
-});
+// non chiudere al click sullo sfondo: solo X / Annulla
 
 function raccogliDatiFattura() {
   if (_fatturaTipo === 'pf') {
