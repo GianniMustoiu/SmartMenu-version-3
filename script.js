@@ -1722,7 +1722,7 @@ async function renderMenuTable(filter = '') {
         </div>
       </td>
       <td>${p.categoria || '—'}</td>
-      <td>${formatPrice(p.prezzo)}</td>
+      <td>${formatPrice(p.prezzo)}<br><span style="font-size:11px;color:var(--muted)">IVA ${p.iva != null ? p.iva : 10}%</span></td>
       <td style="font-size:12px">${(p.allergeni || []).join(', ') || '—'}</td>
       <td><span class="badge ${p.disponibile ? 'badge-pro' : 'badge-base'}">${p.disponibile ? 'Sì' : 'No'}</span></td>
       <td class="actions">
@@ -1786,6 +1786,7 @@ $('#btn-nuovo-piatto')?.addEventListener('click', () => {
   $('#form-piatto').reset();
   $('#piatto-edit-id').value = '';
   $('#piatto-disponibile').checked = true;
+  if ($('#piatto-iva')) $('#piatto-iva').value = '10';
   resetPiattoImage();
   const sel = $('#piatto-categoria');
   sel.innerHTML = (currentRistorante.categorie || []).map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1835,15 +1836,19 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     immagine
   };
 
-  if (id) {
-    const { error } = await sb.from('piatti').update(data).eq('id', id);
-    if (error) { toast('Errore'); console.error(error); return; }
-    toast('Piatto aggiornato');
-  } else {
-    const { error } = await sb.from('piatti').insert(data);
-    if (error) { toast('Errore'); console.error(error); return; }
-    toast('Piatto aggiunto');
+  async function savePiatto(payload) {
+    if (id) return sb.from('piatti').update(payload).eq('id', id);
+    return sb.from('piatti').insert(payload);
   }
+  let { error } = await savePiatto(data);
+  if (error && /iva/i.test(error.message || '')) {
+    // colonna iva assente: salva senza e avvisa una volta
+    const { iva: _omit, ...senzaIva } = data;
+    ({ error } = await savePiatto(senzaIva));
+    if (!error) console.warn('Colonna piatti.iva assente: esegui ALTER TABLE piatti ADD COLUMN iva integer DEFAULT 10;');
+  }
+  if (error) { toast('Errore: ' + (error.message || 'salvataggio')); console.error(error); return; }
+  toast(id ? 'Piatto aggiornato' : 'Piatto aggiunto');
   $('#modal-piatto').classList.add('hidden');
   await renderMenuTable($('#search-menu')?.value || '');
   await renderRistDashboard();
@@ -1861,6 +1866,10 @@ window.editPiatto = async function(id) {
     `<option value="${c}" ${c === p.categoria ? 'selected' : ''}>${c}</option>`
   ).join('');
   $('#piatto-prezzo').value = p.prezzo;
+  if ($('#piatto-iva')) {
+    const iv = (p.iva != null && p.iva !== '') ? String(p.iva) : '10';
+    $('#piatto-iva').value = ['0','4','5','10','22'].includes(iv) ? iv : '10';
+  }
   $('#piatto-disponibile').checked = p.disponibile !== false;
   if ($('#piatto-immagine')) $('#piatto-immagine').value = (p.immagine && !p.immagine.startsWith('data:')) ? p.immagine : '';
   if (p.immagine) showPiattoPreview(p.immagine);
@@ -2813,17 +2822,10 @@ window.apriDettaglioOrdine = async function(ordineId) {
   } else if (o.stato === 'pronto') {
     actions = `<button class="btn btn-primary" onclick="cambiaStato('${o.id}','consegnato')"><i class="fas fa-hand-holding"></i> Consegnato</button>`;
   }
-  // Incasso contanti (importo + resto + scontrino)
-  if (ps !== 'pagato') {
-    actions += `<button class="btn btn-primary" onclick="apriIncassa('${o.id}')"><i class="fas fa-cash-register"></i> Incassa</button>`;
-  } else {
-    actions += `<button class="btn btn-secondary" onclick="apriIncassa('${o.id}')"><i class="fas fa-receipt"></i> Ristampa scontrino</button>`;
-  }
   actions += `<button class="btn btn-secondary" onclick="apriFattura('${o.id}')"><i class="fas fa-file-invoice"></i> Fattura</button>`;
-  // ciclo manuale stato pagamento (fallback)
   const nextPag = { in_attesa: 'pagato', pagato: 'non_pagato', non_pagato: 'in_attesa' }[ps] || 'pagato';
   const pagBtnLabel = { pagato: 'Segna pagato', non_pagato: 'Segna non pagato', in_attesa: 'Segna in attesa' }[nextPag];
-  actions += `<button class="btn btn-secondary btn-sm" onclick="togglePagamento('${o.id}')"><i class="fas fa-exchange-alt"></i> ${pagBtnLabel}</button>`;
+  actions += `<button class="btn btn-secondary" onclick="togglePagamento('${o.id}')"><i class="fas fa-money-bill-wave"></i> ${pagBtnLabel}</button>`;
   if (o.stato !== 'chiuso') {
     actions += `<button class="btn btn-danger" onclick="chiudiConto('${o.id}')"><i class="fas fa-lock"></i> Chiudi conto</button>`;
   }
@@ -3231,7 +3233,7 @@ window.changeQty = function(id, delta) {
   if (!p) return;
   let item = cart.find(c => c.id === id);
   if (!item && delta > 0) {
-    cart.push({ id: p.id, nome: p.nome, prezzo: p.prezzo, qty: 1 });
+    cart.push({ id: p.id, nome: p.nome, prezzo: p.prezzo, iva: (p.iva != null ? p.iva : 10), qty: 1 });
   } else if (item) {
     item.qty += delta;
     if (item.qty <= 0) cart = cart.filter(c => c.id !== id);
@@ -3426,7 +3428,7 @@ if (!navigator.onLine) {
 
   saveOfflineOrder({
     ...ordineBase,
-    items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
+    items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty, iva: c.iva != null ? c.iva : 10 }))
   });
 
   toast(
@@ -3444,7 +3446,7 @@ if (!navigator.onLine) {
   // prova con items (schema vecchio)
   ({ data: inserted, error } = await sb.from('ordini').insert({
     ...ordineBase,
-    items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
+    items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty, iva: c.iva != null ? c.iva : 10 }))
   }).select().single());
 
   // se fallisce per colonna items o circuito_pagamento, riprova senza
@@ -3455,7 +3457,7 @@ if (!navigator.onLine) {
     const { circuito_pagamento, ...senzaCirc } = ordineBase;
     ({ data: inserted, error } = await sb.from('ordini').insert({
       ...senzaCirc,
-      items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty }))
+      items: cart.map(c => ({ id: c.id, nome: c.nome, prezzo: c.prezzo, qty: c.qty, iva: c.iva != null ? c.iva : 10 }))
     }).select().single());
     if (error && String(error.message || '').toLowerCase().includes('items')) {
       ({ data: inserted, error } = await sb.from('ordini').insert(senzaCirc).select().single());
@@ -3532,7 +3534,7 @@ if (!navigator.onLine) {
     pagamento,
     circuito: circuitoPagamento,
     totale,
-    items: cart.map(i => ({ qty: i.qty, nome: i.nome, prezzo: i.prezzo })),
+    items: cart.map(i => ({ qty: i.qty, nome: i.nome, prezzo: i.prezzo, iva: i.iva != null ? i.iva : 10 })),
     note
   };
   const btnScarica = $('#btn-scarica-ricevuta');
@@ -4216,132 +4218,11 @@ document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
   stampaComande();
 });
 
-
 // =====================================================
-// PAGAMENTO IN CASSA (contanti + resto + scontrino)
+// FATTURA (persona fisica / giuridica) – con scorporo IVA
 // =====================================================
-let _incassaOrdineId = null;
-let _incassaTotale = 0;
-
-function parseEuroInput(val) {
-  if (val == null || val === '') return NaN;
-  const n = Number(String(val).replace(',', '.').replace(/[^\d.]/g, ''));
-  return Number.isFinite(n) ? n : NaN;
-}
-
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
-}
-
-function aggiornaRestoIncassa() {
-  const ricevuto = parseEuroInput($('#incassa-ricevuto')?.value);
-  const box = $('#incassa-resto-box');
-  const restoEl = $('#incassa-resto');
-  const warn = $('#incassa-warn');
-  const btn = $('#btn-incassa-ok');
-  if (!Number.isFinite(ricevuto)) {
-    if (restoEl) restoEl.textContent = '—';
-    box?.classList.remove('ok', 'bad');
-    warn?.classList.add('hidden');
-    if (btn) btn.disabled = true;
-    return;
-  }
-  const resto = round2(ricevuto - _incassaTotale);
-  if (restoEl) restoEl.textContent = formatPrice(Math.max(0, resto));
-  if (resto < -0.001) {
-    box?.classList.add('bad');
-    box?.classList.remove('ok');
-    warn?.classList.remove('hidden');
-    if (btn) btn.disabled = true;
-  } else {
-    box?.classList.add('ok');
-    box?.classList.remove('bad');
-    warn?.classList.add('hidden');
-    if (btn) btn.disabled = false;
-  }
-}
-
-function buildIncassaQuick(totale) {
-  const wrap = $('#incassa-quick');
-  if (!wrap) return;
-  const exact = round2(totale);
-  // tagli comuni >= totale + esatto
-  const cuts = [exact, 5, 10, 20, 50, 100, 200]
-    .map(round2)
-    .filter((v, i, a) => v >= exact - 0.001 && a.indexOf(v) === i)
-    .sort((a, b) => a - b)
-    .slice(0, 6);
-  wrap.innerHTML = cuts.map(v =>
-    `<button type="button" data-amt="${v}">${formatPrice(v)}</button>`
-  ).join('') + `<button type="button" data-amt="exact">Esatto</button>`;
-  wrap.querySelectorAll('button').forEach(b => {
-    b.addEventListener('click', () => {
-      const v = b.dataset.amt === 'exact' ? exact : Number(b.dataset.amt);
-      if ($('#incassa-ricevuto')) $('#incassa-ricevuto').value = v.toFixed(2);
-      aggiornaRestoIncassa();
-    });
-  });
-}
-
-window.apriIncassa = function(ordineId) {
-  const o = (currentRistorante?.ordini || []).find(x => x.id === ordineId);
-  if (!o) { toast('Ordine non trovato'); return; }
-  _incassaOrdineId = ordineId;
-  _incassaTotale = round2(o.totale || 0);
-  $('#incassa-ordine-id').value = ordineId;
-  $('#incassa-totale').textContent = formatPrice(_incassaTotale);
-  $('#incassa-meta').textContent = `Tavolo ${o.tavolo} · #${o.codice || ''} · ${formatTime(o.createdAt || o.created_at)}`;
-  const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
-  // se già pagato, precompila con il totale (ristampa)
-  const pre = ps === 'pagato' ? _incassaTotale : _incassaTotale;
-  if ($('#incassa-ricevuto')) $('#incassa-ricevuto').value = pre.toFixed(2);
-  if ($('#incassa-stampa')) $('#incassa-stampa').checked = true;
-  buildIncassaQuick(_incassaTotale);
-  aggiornaRestoIncassa();
-  $('#modal-ordine')?.classList.add('hidden');
-  $('#modal-incassa')?.classList.remove('hidden');
-  setTimeout(() => {
-    const inp = $('#incassa-ricevuto');
-    if (inp) { inp.focus(); inp.select(); }
-  }, 50);
-};
-
-$('#incassa-ricevuto')?.addEventListener('input', aggiornaRestoIncassa);
-$('#incassa-ricevuto')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('#btn-incassa-ok')?.click(); }
-});
-
-function chiudiModalIncassa() {
-  $('#modal-incassa')?.classList.add('hidden');
-  _incassaOrdineId = null;
-}
-
-$('#btn-incassa-annulla')?.addEventListener('click', chiudiModalIncassa);
-$('#btn-incassa-x')?.addEventListener('click', chiudiModalIncassa);
-$('#modal-incassa')?.addEventListener('click', (e) => {
-  if (e.target === $('#modal-incassa')) chiudiModalIncassa();
-});
-
-function buildScontrinoCassaHtml(o, ricevuto, resto) {
-  const nome = (currentRistorante && currentRistorante.nome) || 'Ristorante';
-  const items = (o.items || []).map(i =>
-    `<div class="sc-row"><span>${i.qty || 1}× ${i.nome || i.piatto || 'Piatto'}</span><span>${formatPrice((Number(i.prezzo)||0) * (i.qty||1))}</span></div>`
-  ).join('') || '<div class="sc-row"><span>—</span><span></span></div>';
-  return `
-    <div class="scontrino-cassa">
-      <div class="sc-brand">${nome}</div>
-      <div class="sc-title">SCONTRINO</div>
-      <div class="sc-row"><span>Tavolo ${o.tavolo}</span><span>#${o.codice || ''}</span></div>
-      <div class="sc-row"><span>${formatTime(o.createdAt || o.created_at)}</span><span>CONTANTI</span></div>
-      <div class="sc-sep">························</div>
-      ${items}
-      <div class="sc-sep">························</div>
-      <div class="sc-row sc-tot"><span>TOTALE</span><span>${formatPrice(o.totale || 0)}</span></div>
-      <div class="sc-row"><span>Ricevuto</span><span>${formatPrice(ricevuto)}</span></div>
-      <div class="sc-row sc-tot"><span>RESTO</span><span>${formatPrice(resto)}</span></div>
-      <div class="sc-foot">Grazie · Pagamento in cassa<br>Documento gestionale MenuPro</div>
-    </div>`;
-}
+let _fatturaOrdineId = null;
+let _fatturaTipo = 'pf'; // pf | pg
 
 function stampaAreaHtml(html) {
   let area = document.getElementById('print-area');
@@ -4362,76 +4243,6 @@ function stampaAreaHtml(html) {
     setTimeout(cleanup, 1500);
   }, 80);
 }
-
-async function confermaIncassa() {
-  if (!_incassaOrdineId || !currentRistorante) return;
-  const ricevuto = parseEuroInput($('#incassa-ricevuto')?.value);
-  if (!Number.isFinite(ricevuto) || ricevuto + 0.001 < _incassaTotale) {
-    toast('Importo insufficiente');
-    return;
-  }
-  const resto = round2(ricevuto - _incassaTotale);
-  const o = (currentRistorante.ordini || []).find(x => x.id === _incassaOrdineId);
-  if (!o) { toast('Ordine non trovato'); return; }
-
-  if (sb) {
-    // prova a salvare anche contanti/resto se le colonne esistono
-    let { error } = await sb.from('ordini').update({
-      stato_pagamento: 'pagato',
-      pagamento: 'cassa',
-      contanti_ricevuti: ricevuto,
-      resto: resto
-    }).eq('id', _incassaOrdineId);
-    if (error) {
-      ({ error } = await sb.from('ordini').update({
-        stato_pagamento: 'pagato',
-        pagamento: 'cassa'
-      }).eq('id', _incassaOrdineId));
-    }
-    if (error) {
-      toast('Errore salvataggio: ' + error.message);
-      return;
-    }
-  }
-  // aggiorna in memoria
-  o.stato_pagamento = 'pagato';
-  o.pagamento = 'cassa';
-  o.contanti_ricevuti = ricevuto;
-  o.resto = resto;
-
-  const doPrint = $('#incassa-stampa')?.checked !== false;
-  chiudiModalIncassa();
-  await renderOrdiniKanban();
-  try { await renderRistDashboard(); } catch (e) {}
-
-  if (doPrint) {
-    // assicura items
-    if (!(o.items && o.items.length) && sb) {
-      try {
-        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
-        if (righe && righe.length) {
-          o.items = righe.map(r => ({
-            nome: r.piatto || r.nome || 'Piatto',
-            qty: r.qty_piatti || r.qty || 1,
-            prezzo: r.prezzo_pagato != null ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1)) : 0
-          }));
-        }
-      } catch (e) {}
-    }
-    stampaAreaHtml(buildScontrinoCassaHtml(o, ricevuto, resto));
-  }
-  toast(resto > 0.001
-    ? `Incassato ${formatPrice(ricevuto)} · Resto ${formatPrice(resto)}`
-    : `Incassato esatto ${formatPrice(ricevuto)}`);
-}
-
-$('#btn-incassa-ok')?.addEventListener('click', () => { confermaIncassa(); });
-
-// =====================================================
-// FATTURA (persona fisica / giuridica)
-// =====================================================
-let _fatturaOrdineId = null;
-let _fatturaTipo = 'pf'; // pf | pg
 
 function setFatturaTipo(tipo) {
   _fatturaTipo = tipo === 'pg' ? 'pg' : 'pf';
@@ -4462,7 +4273,6 @@ window.apriFattura = function(ordineId) {
   $('#fattura-meta').textContent =
     `Ordine #${o.codice || ''} · Tavolo ${o.tavolo} · Totale ${formatPrice(o.totale || 0)}`;
   resetFatturaForm();
-  // se già c'erano dati in memoria
   if (o.fattura && typeof o.fattura === 'object') {
     const f = o.fattura;
     setFatturaTipo(f.tipo === 'pg' ? 'pg' : 'pf');
@@ -4535,56 +4345,184 @@ function raccogliDatiFattura() {
   };
 }
 
+/** Prezzo menu = IVA inclusa. Scorporto: imponibile = lordo/(1+aliq/100) */
+function scorporaIva(lordo, aliquota) {
+  const L = Math.round((Number(lordo) || 0) * 100) / 100;
+  const a = Number(aliquota) || 0;
+  if (a <= 0) return { imponibile: L, iva: 0, lordo: L, aliquota: 0 };
+  const imponibile = Math.round((L / (1 + a / 100)) * 100) / 100;
+  const iva = Math.round((L - imponibile) * 100) / 100;
+  return { imponibile, iva, lordo: L, aliquota: a };
+}
+
+function aliquotaPiatto(item) {
+  if (item && item.iva != null && item.iva !== '') return Number(item.iva);
+  const menu = (currentRistorante && currentRistorante.menu) || [];
+  if (item && item.id) {
+    const p = menu.find(x => x.id === item.id);
+    if (p && p.iva != null) return Number(p.iva);
+  }
+  if (item && item.nome) {
+    const p = menu.find(x => (x.nome || '').toLowerCase() === String(item.nome).toLowerCase());
+    if (p && p.iva != null) return Number(p.iva);
+  }
+  // default ristorazione
+  return 10;
+}
+
+function calcolaFatturaRighe(o) {
+  const items = o.items || [];
+  const righe = items.map(i => {
+    const qty = Number(i.qty) || 1;
+    const unitLordo = Number(i.prezzo) || 0;
+    const totLordo = Math.round(unitLordo * qty * 100) / 100;
+    const aliq = aliquotaPiatto(i);
+    const sc = scorporaIva(totLordo, aliq);
+    return {
+      nome: i.nome || i.piatto || 'Piatto',
+      qty,
+      unitLordo,
+      totLordo,
+      aliquota: sc.aliquota,
+      imponibile: sc.imponibile,
+      iva: sc.iva
+    };
+  });
+  // se nessun prezzo riga, usa totale ordine come unica riga generica
+  if (!righe.length || righe.every(r => r.totLordo === 0)) {
+    const tot = Number(o.totale) || 0;
+    if (tot > 0) {
+      const sc = scorporaIva(tot, 10);
+      return [{
+        nome: 'Consumazione / ordine #' + (o.codice || ''),
+        qty: 1,
+        unitLordo: tot,
+        totLordo: tot,
+        aliquota: 10,
+        imponibile: sc.imponibile,
+        iva: sc.iva
+      }];
+    }
+  }
+  return righe;
+}
+
+function riepilogoIva(righe) {
+  const map = {};
+  righe.forEach(r => {
+    const k = String(r.aliquota);
+    if (!map[k]) map[k] = { aliquota: r.aliquota, imponibile: 0, iva: 0 };
+    map[k].imponibile = Math.round((map[k].imponibile + r.imponibile) * 100) / 100;
+    map[k].iva = Math.round((map[k].iva + r.iva) * 100) / 100;
+  });
+  return Object.values(map).sort((a, b) => a.aliquota - b.aliquota);
+}
+
 function buildFatturaHtml(o, fat) {
   const nomeRist = (currentRistorante && currentRistorante.nome) || 'Ristorante';
   const citta = (currentRistorante && currentRistorante.citta) || '';
-  const rows = (o.items || []).map(i => {
-    const qty = i.qty || 1;
-    const pre = Number(i.prezzo) || 0;
-    return `<tr><td>${qty}× ${i.nome || i.piatto || 'Piatto'}</td><td style="text-align:right">${formatPrice(pre * qty)}</td></tr>`;
-  }).join('') || '<tr><td colspan="2">—</td></tr>';
+  const titolare = (currentRistorante && currentRistorante.titolare) || '';
+  const righe = calcolaFatturaRighe(o);
+  const riep = riepilogoIva(righe);
+  const totImponibile = Math.round(riep.reduce((s, r) => s + r.imponibile, 0) * 100) / 100;
+  const totIva = Math.round(riep.reduce((s, r) => s + r.iva, 0) * 100) / 100;
+  const totDoc = Math.round((totImponibile + totIva) * 100) / 100;
+
+  const linesHtml = righe.map(r => `
+    <tr>
+      <td>${r.nome}</td>
+      <td class="ctr">${r.qty}</td>
+      <td class="num">${formatPrice(r.unitLordo)}</td>
+      <td class="ctr">${r.aliquota}%</td>
+      <td class="num">${formatPrice(r.imponibile)}</td>
+      <td class="num">${formatPrice(r.iva)}</td>
+    </tr>`).join('');
+
+  const riepHtml = riep.map(r => `
+    <tr>
+      <td>${r.aliquota}%</td>
+      <td class="num">${formatPrice(r.imponibile)}</td>
+      <td class="num">${formatPrice(r.iva)}</td>
+    </tr>`).join('');
 
   let clienteHtml = '';
   if (fat.tipo === 'pf') {
+    const dn = (fat.data_nascita || '').split('-').reverse().join('/');
     clienteHtml = `
       <div><strong>${fat.nome} ${fat.cognome}</strong></div>
-      <div>CF: ${fat.cf}</div>
-      <div>Nato/a il ${fat.data_nascita.split('-').reverse().join('/')}</div>
+      <div>C.F. ${fat.cf}</div>
+      <div>Data di nascita: ${dn}</div>
       <div>${fat.indirizzo}</div>`;
   } else {
     clienteHtml = `
       <div><strong>${fat.ragione_sociale}</strong></div>
-      <div>P.IVA: ${fat.piva}</div>
+      <div>P.IVA ${fat.piva}</div>
       ${fat.pec ? `<div>PEC: ${fat.pec}</div>` : ''}
-      ${fat.codice_destinatario ? `<div>Cod. SDI: ${fat.codice_destinatario}</div>` : ''}
+      ${fat.codice_destinatario ? `<div>Codice destinatario: ${fat.codice_destinatario}</div>` : ''}
       <div>${fat.indirizzo}</div>`;
   }
 
-  const num = 'FT-' + (o.codice || String(o.id || '').slice(0, 8));
+  const oggi = new Date();
+  const dataStr = oggi.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const num = 'FT/' + oggi.getFullYear() + '/' + (o.codice || String(o.id || '').slice(0, 6)).toString().toUpperCase();
+
   return `
     <div class="fattura-doc">
-      <h1>Fattura</h1>
-      <div class="fd-meta">${num} · ${new Date().toLocaleString('it-IT')} · Ordine #${o.codice || ''}</div>
+      <div class="fd-top">
+        <div>
+          <p class="fd-doc-title">FATTURA</p>
+          <div style="font-size:12px;color:#444;margin-top:4px">Documento gestionale</div>
+        </div>
+        <div class="fd-doc-num">
+          <div>N. <strong>${num}</strong></div>
+          <div>Data emissione: <strong>${dataStr}</strong></div>
+          <div>Rif. ordine: #${o.codice || '—'} · Tavolo ${o.tavolo}</div>
+        </div>
+      </div>
       <div class="fd-grid">
         <div class="fd-box">
           <h3>Cedente / prestatore</h3>
           <div><strong>${nomeRist}</strong></div>
+          ${titolare ? `<div>${titolare}</div>` : ''}
           ${citta ? `<div>${citta}</div>` : ''}
-          <div>Tavolo ${o.tavolo}</div>
         </div>
         <div class="fd-box">
           <h3>Cessionario / committente</h3>
           ${clienteHtml}
         </div>
       </div>
-      <table>
-        <thead><tr><th>Descrizione</th><th style="text-align:right">Importo</th></tr></thead>
-        <tbody>${rows}</tbody>
+      <table class="fd-lines">
+        <thead>
+          <tr>
+            <th>Descrizione</th>
+            <th class="ctr">Qtà</th>
+            <th class="num">Prezzo (IVA incl.)</th>
+            <th class="ctr">Aliq.</th>
+            <th class="num">Imponibile</th>
+            <th class="num">IVA</th>
+          </tr>
+        </thead>
+        <tbody>${linesHtml}</tbody>
       </table>
-      <div class="fd-tot">Totale ${formatPrice(o.totale || 0)}</div>
-      <p class="fd-note">Documento gestionale emesso da MenuPro a scopo informativo.
+      <div class="fd-riepilogo">
+        <table class="fd-iva">
+          <thead>
+            <tr><th>Riepilogo IVA</th><th class="num">Imponibile</th><th class="num">Imposta</th></tr>
+          </thead>
+          <tbody>${riepHtml}</tbody>
+        </table>
+      </div>
+      <div class="fd-totali">
+        <div class="row"><span>Totale imponibile</span><span>${formatPrice(totImponibile)}</span></div>
+        <div class="row"><span>Totale IVA</span><span>${formatPrice(totIva)}</span></div>
+        <div class="row grand"><span>Totale documento</span><span>${formatPrice(totDoc)}</span></div>
+      </div>
+      <p class="fd-note">
+        I prezzi di listino sono da intendersi IVA inclusa; l’imposta è stata scorporata per aliquota.
+        Documento emesso da MenuPro a scopo gestionale/informativo.
         Non sostituisce la fattura elettronica trasmessa al Sistema di Interscambio (SdI)
-        né lo scontrino fiscale del registratore di cassa certificato, ove previsto.</p>
+        né lo scontrino fiscale del registratore di cassa certificato, ove previsto.
+      </p>
     </div>`;
 }
 
@@ -4596,11 +4534,9 @@ async function confermaFattura() {
   const o = (currentRistorante.ordini || []).find(x => x.id === _fatturaOrdineId);
   if (!o) { toast('Ordine non trovato'); return; }
 
-  // salva su ordine se possibile (colonna jsonb fattura)
   if (sb) {
     let { error } = await sb.from('ordini').update({ fattura: dati }).eq('id', o.id);
     if (error) {
-      // fallback: salva intestazione in note senza sovrascrivere note esistenti
       try {
         const notaFat = (o.note ? o.note + ' | ' : '') + 'Fattura: ' + dati.intestazione;
         await sb.from('ordini').update({ note: notaFat }).eq('id', o.id);
@@ -4620,7 +4556,9 @@ async function confermaFattura() {
           o.items = righe.map(r => ({
             nome: r.piatto || r.nome || 'Piatto',
             qty: r.qty_piatti || r.qty || 1,
-            prezzo: r.prezzo_pagato != null ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1)) : 0
+            prezzo: r.prezzo_pagato != null ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1)) : 0,
+            id: r.id_piatto || null,
+            iva: r.iva != null ? r.iva : undefined
           }));
         }
       } catch (e) {}
@@ -4632,7 +4570,6 @@ async function confermaFattura() {
 
 $('#btn-fattura-ok')?.addEventListener('click', () => { confermaFattura(); });
 
-// CF uppercase while typing
 $('#fat-cf')?.addEventListener('input', (e) => {
   const pos = e.target.selectionStart;
   e.target.value = e.target.value.toUpperCase();
