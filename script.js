@@ -3591,16 +3591,68 @@ function updateClienteLoyaltyTabs(view) {
   });
 }
 
+function puntiPremiInCarrello() {
+  return (cart || []).reduce((s, c) => s + (c.isPremio ? (Number(c.punti) || 0) * (c.qty || 1) : 0), 0);
+}
+
+function puntiDisponibiliPerPremi() {
+  if (!currentLoyalty) return 0;
+  return Math.max(0, (Number(currentLoyalty.punti) || 0) - puntiPremiInCarrello());
+}
+
+window.aggiungiPremioAlCarrello = function(premioId) {
+  if (!currentLoyalty) {
+    toast('Accedi alla loyalty card per riscattare i premi');
+    return;
+  }
+  if (!currentRistorante) return;
+  loadPremi(currentRistorante.id).then(premi => {
+    const pr = premi.find(p => String(p.id) === String(premioId));
+    if (!pr || pr.attivo === false) { toast('Premio non disponibile'); return; }
+    const need = Number(pr.punti_richiesti) || 0;
+    if (puntiDisponibiliPerPremi() < need) {
+      toast('Punti insufficienti');
+      return;
+    }
+    const cartId = 'premio_' + pr.id;
+    const existing = cart.find(c => c.id === cartId);
+    if (existing) {
+      if (puntiDisponibiliPerPremi() < need) {
+        toast('Punti insufficienti per un altro premio');
+        return;
+      }
+      existing.qty += 1;
+    } else {
+      cart.push({
+        id: cartId,
+        nome: '🎁 ' + (pr.nome || 'Premio'),
+        prezzo: 0,
+        qty: 1,
+        isPremio: true,
+        premioId: pr.id,
+        punti: need,
+        iva: 0
+      });
+    }
+    updateCartCount();
+    try { saveClientState(); } catch (e) {}
+    toast('Premio in carrello (−' + need + ' pt all\'invio)');
+    renderClientePremi();
+  });
+};
+
 async function renderClientePremi() {
   const list = document.getElementById('cliente-premi-list');
   const intro = document.getElementById('cliente-premi-intro');
   if (!list || !currentRistorante) return;
   const premi = (await loadPremi(currentRistorante.id)).filter(p => p.attivo !== false);
   const punti = currentLoyalty ? (Number(currentLoyalty.punti) || 0) : null;
+  const impegnati = puntiPremiInCarrello();
+  const disponibili = punti != null ? Math.max(0, punti - impegnati) : null;
   if (intro) {
     intro.textContent = currentLoyalty
-      ? ('Hai ' + punti + ' punti. Ecco i premi disponibili.')
-      : 'Premi loyalty del ristorante. Accedi o registrati per accumulare punti a ogni ordine (anche in cassa).';
+      ? ('Hai ' + punti + ' punti' + (impegnati ? (' · ' + impegnati + ' pt nel carrello') : '') + '. Se ti bastano, aggiungi il premio al carrello.')
+      : 'Accedi alla loyalty card per riscattare i premi.';
   }
   if (!premi.length) {
     list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:24px">Nessun premio al momento.</p>';
@@ -3608,15 +3660,22 @@ async function renderClientePremi() {
   }
   list.innerHTML = premi.map(pr => {
     const need = Number(pr.punti_richiesti) || 0;
-    const ok = punti != null && punti >= need;
+    const ok = disponibili != null && disponibili >= need;
+    const inCart = cart.find(c => c.id === 'premio_' + pr.id);
     return `
       <div class="loyalty-premio-item">
-        <div>
+        <div style="flex:1;min-width:0">
           <strong>${pr.nome || 'Premio'}</strong>
           ${pr.descrizione ? `<div style="font-size:12px;color:var(--muted)">${pr.descrizione}</div>` : ''}
-          ${punti != null ? `<div style="font-size:12px;margin-top:4px;color:${ok ? 'var(--success,#22c55e)' : 'var(--muted)'}">${ok ? 'Hai abbastanza punti' : 'Ti servono ' + Math.max(0, need - punti) + ' pt'}</div>` : ''}
+          <div style="font-size:12px;margin-top:4px;color:${ok ? 'var(--success,#22c55e)' : 'var(--muted)'}">
+            ${ok ? 'Puoi aggiungerlo al carrello' : ('Ti servono ancora ' + Math.max(0, need - (disponibili || 0)) + ' pt')}
+            ${inCart ? ' · in carrello ×' + inCart.qty : ''}
+          </div>
         </div>
-        <span class="badge badge-pro">${need} pt</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <span class="badge badge-pro">${need} pt</span>
+          ${ok ? `<button type="button" class="btn btn-primary btn-sm" onclick="aggiungiPremioAlCarrello('${String(pr.id).replace(/'/g, '')}')"><i class="fas fa-plus"></i> Carrello</button>` : ''}
+        </div>
       </div>`;
   }).join('');
 }
@@ -3781,18 +3840,37 @@ function updateCartCount() {
 }
 
 window.changeQty = function(id, delta) {
-  const p = currentRistorante.menu.find(x => x.id === id);
+  let item = cart.find(c => String(c.id) === String(id));
+  if (item && item.isPremio) {
+    if (delta > 0) {
+      const need = Number(item.punti) || 0;
+      if (typeof puntiDisponibiliPerPremi === 'function' && puntiDisponibiliPerPremi() < need) {
+        toast('Punti insufficienti per un altro premio');
+        return;
+      }
+      item.qty += 1;
+    } else {
+      item.qty += delta;
+      if (item.qty <= 0) cart = cart.filter(c => String(c.id) !== String(id));
+    }
+    updateCartCount();
+    try { saveClientState(); } catch (e) {}
+    if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
+    if (!$('#cliente-premi-view')?.classList.contains('hidden')) renderClientePremi();
+    return;
+  }
+  const p = (currentRistorante.menu || []).find(x => String(x.id) === String(id));
   if (!p) return;
-  let item = cart.find(c => c.id === id);
   if (!item && delta > 0) {
     cart.push({ id: p.id, nome: p.nome, prezzo: p.prezzo, iva: (p.iva != null ? p.iva : 10), qty: 1 });
   } else if (item) {
     item.qty += delta;
-    if (item.qty <= 0) cart = cart.filter(c => c.id !== id);
+    if (item.qty <= 0) cart = cart.filter(c => String(c.id) !== String(id));
   }
   updateCartCount();
+  try { saveClientState(); } catch (e) {}
   renderClienteMenu();
-  if (!$('#cliente-carrello-view').classList.contains('hidden')) renderCarrello();
+  if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
 };
 
 $('#cliente-carrello-btn')?.addEventListener('click', () => {
@@ -3812,20 +3890,26 @@ function renderCarrello() {
     $('#carrello-totale').textContent = formatPrice(0);
     return;
   }
-  el.innerHTML = cart.map(c => `
+  el.innerHTML = cart.map(c => {
+    const sub = c.isPremio
+      ? (`Premio · ${Number(c.punti) || 0} pt × ${c.qty} = ${(Number(c.punti)||0)*(c.qty||1)} pt`)
+      : (`${formatPrice(c.prezzo)} × ${c.qty}`);
+    return `
     <div class="carrello-item">
       <div>
         <strong>${c.nome}</strong><br>
-        <small>${formatPrice(c.prezzo)} × ${c.qty}</small>
+        <small>${sub}</small>
       </div>
       <div class="menu-item-actions">
         <button class="qty-btn" onclick="changeQty('${c.id}',-1)">−</button>
         <span class="qty-num">${c.qty}</span>
         <button class="qty-btn" onclick="changeQty('${c.id}',1)">+</button>
       </div>
-    </div>
-  `).join('');
-  $('#carrello-totale').textContent = formatPrice(cart.reduce((s, c) => s + c.prezzo * c.qty, 0));
+    </div>`;
+  }).join('');
+  const totaleEuro = cart.reduce((sum, c) => sum + (c.isPremio ? 0 : Number(c.prezzo) * c.qty), 0);
+  const ptCart = puntiPremiInCarrello();
+  $('#carrello-totale').textContent = formatPrice(totaleEuro) + (ptCart ? (' · −' + ptCart + ' pt') : '');
 }
 
 $('#btn-invia-ordine')?.addEventListener('click', async () => {
@@ -3951,7 +4035,18 @@ async function inviaOrdineFinale({ pagamento, circuito }) {
     return;
   }
 
-  const totale = cart.reduce((s, c) => s + c.prezzo * c.qty, 0);
+  const totale = cart.reduce((s, c) => s + (c.isPremio ? 0 : Number(c.prezzo) * c.qty), 0);
+  const puntiPremio = puntiPremiInCarrello();
+  if (puntiPremio > 0) {
+    if (!currentLoyalty) {
+      toast('Accedi alla loyalty card per i premi nel carrello');
+      return;
+    }
+    if ((Number(currentLoyalty.punti) || 0) < puntiPremio) {
+      toast('Punti insufficienti per i premi nel carrello');
+      return;
+    }
+  }
   const codice = 'ORD-' + Math.random().toString(36).slice(2, 8).toUpperCase();
   if (!metodiAccettati(currentRistorante)[pagamento]) {
     toast('Questo ristorante non accetta il pagamento selezionato');
@@ -4061,8 +4156,16 @@ if (!navigator.onLine) {
   // Loyalty: punti se pagamento online e cliente registrato
   try {
     if (typeof currentLoyalty !== 'undefined' && currentLoyalty) {
+      if (puntiPremio > 0) {
+        const scaled = await scalaPuntiLoyalty(currentLoyalty, puntiPremio);
+        if (scaled < 0) {
+          toast('Punti insufficienti per i premi');
+        } else if (scaled > 0) {
+          toast('Premi riscattati: −' + scaled + ' pt');
+        }
+      }
       const pts = await accreditaPuntiLoyalty(currentLoyalty, totale);
-      if (pts > 0) toast('+' + pts + ' punti loyalty (totale ' + currentLoyalty.punti + ' pt)');
+      if (pts > 0) toast('+' + pts + ' punti loyalty (saldo ' + currentLoyalty.punti + ' pt)');
       if (pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
     }
   } catch (e) { console.warn('loyalty punti', e); }
@@ -5880,6 +5983,19 @@ async function loginLoyaltyCliente(email, password) {
     await upsertLoyaltyMember(m);
   }
   return { member: m };
+}
+
+async function scalaPuntiLoyalty(member, puntiDaScalare) {
+  if (!member || !puntiDaScalare || puntiDaScalare <= 0) return 0;
+  const have = Number(member.punti) || 0;
+  if (have < puntiDaScalare) return -1;
+  member.punti = have - puntiDaScalare;
+  await upsertLoyaltyMember(member);
+  if (currentLoyalty && String(currentLoyalty.id) === String(member.id)) {
+    currentLoyalty.punti = member.punti;
+    applyLoyaltyBar();
+  }
+  return puntiDaScalare;
 }
 
 async function accreditaPuntiLoyalty(member, totaleEuro) {
