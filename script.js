@@ -1103,7 +1103,10 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     id_piano: $('#id_piano').value,
     pagamenti_accettati: $('#metodi_pagamento')?.value || 'entrambi',
     scadenza: $('#scadenza').value || null,
-    sale
+    sale,
+    indirizzo_fatturazione: ($('#indirizzo_fatturazione')?.value || '').trim() || null,
+    piva: ($('#piva_rist')?.value || '').trim().replace(/\s/g, '') || null,
+    pec: ($('#pec_rist')?.value || '').trim() || null
   };
 
   if (id) {
@@ -1157,10 +1160,20 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
       return;
     }
 
-    const { data: inserted, error } = await sb.from('ristoranti').insert({
+    let inserted, error;
+    ({ data: inserted, error } = await sb.from('ristoranti').insert({
       ...data,
       password: password || null
-    }).select().single();
+    }).select().single());
+
+    if (error && /column|piva|pec|indirizzo|ultimo_numero/i.test(String(error.message || ''))) {
+      const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, ...base } = data;
+      ({ data: inserted, error } = await sb.from('ristoranti').insert({
+        ...base,
+        password: password || null
+      }).select().single());
+      if (!error) toast('Ristorante creato (dati fiscali non salvati: aggiungi le colonne in Supabase)');
+    }
 
     if (error) {
       toast('Errore creazione ristorante: ' + error.message);
@@ -1211,6 +1224,9 @@ window.editRistorante = async function(id) {
   $('#nome').value = r.nome;
   $('#titolare').value = r.titolare || '';
   $('#citta').value = r.citta || '';
+  if ($('#indirizzo_fatturazione')) $('#indirizzo_fatturazione').value = r.indirizzo_fatturazione || '';
+  if ($('#piva_rist')) $('#piva_rist').value = r.piva || '';
+  if ($('#pec_rist')) $('#pec_rist').value = r.pec || '';
   $('#email').value = r.email;
   $('#password').value = '';
   $('#password').type = 'password';
@@ -4422,32 +4438,103 @@ function riepilogoIva(righe) {
   return Object.values(map).sort((a, b) => a.aliquota - b.aliquota);
 }
 
+
+/** Prossimo numero fattura progressivo per ristorante (1, 2, 3… senza buchi di sessione). */
+async function allocaNumeroFattura(ristId) {
+  const lsKey = 'menupro_fat_seq_' + ristId;
+  let maxN = 0;
+
+  // 1) contatore su ristorante (se colonna presente)
+  try {
+    if (sb && ristId) {
+      const { data: r } = await sb.from('ristoranti')
+        .select('ultimo_numero_fattura')
+        .eq('id', ristId)
+        .maybeSingle();
+      if (r && r.ultimo_numero_fattura != null) {
+        maxN = Math.max(maxN, parseInt(r.ultimo_numero_fattura, 10) || 0);
+      }
+    }
+  } catch (e) { /* colonna assente */ }
+
+  // 2) massimo già assegnato sulle fatture in memoria / DB
+  try {
+    const ordini = (currentRistorante && currentRistorante.ordini) || [];
+    ordini.forEach(o => {
+      const n = o.fattura && o.fattura.numero;
+      if (n != null) maxN = Math.max(maxN, parseInt(n, 10) || 0);
+    });
+    if (sb && ristId) {
+      const { data: rows } = await sb.from('ordini')
+        .select('fattura')
+        .eq('id_ristorante', ristId)
+        .not('fattura', 'is', null)
+        .limit(500);
+      (rows || []).forEach(row => {
+        const n = row.fattura && row.fattura.numero;
+        if (n != null) maxN = Math.max(maxN, parseInt(n, 10) || 0);
+      });
+    }
+  } catch (e) {}
+
+  // 3) localStorage di sicurezza (offline / colonna assente)
+  try {
+    const ls = parseInt(localStorage.getItem(lsKey) || '0', 10) || 0;
+    maxN = Math.max(maxN, ls);
+  } catch (e) {}
+
+  const next = maxN + 1;
+
+  try { localStorage.setItem(lsKey, String(next)); } catch (e) {}
+  try {
+    if (sb && ristId) {
+      await sb.from('ristoranti').update({ ultimo_numero_fattura: next }).eq('id', ristId);
+    }
+  } catch (e) { /* colonna assente: ok, resta localStorage */ }
+
+  if (currentRistorante && currentRistorante.id === ristId) {
+    currentRistorante.ultimo_numero_fattura = next;
+  }
+  return next;
+}
+
+function formatDataItLong(isoOrDate) {
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate || Date.now());
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function buildFatturaHtml(o, fat) {
-  const nomeRist = (currentRistorante && currentRistorante.nome) || 'Ristorante';
-  const citta = (currentRistorante && currentRistorante.citta) || '';
-  const titolare = (currentRistorante && currentRistorante.titolare) || '';
+  const r = currentRistorante || {};
+  const nomeRist = r.nome || 'Ristorante';
+  const titolare = r.titolare || '';
+  const citta = r.citta || '';
+  const indCed = r.indirizzo_fatturazione || '';
+  const pivaCed = r.piva || '';
+  const pecCed = r.pec || '';
+
   const righe = calcolaFatturaRighe(o);
   const riep = riepilogoIva(righe);
-  const totImponibile = Math.round(riep.reduce((s, r) => s + r.imponibile, 0) * 100) / 100;
-  const totIva = Math.round(riep.reduce((s, r) => s + r.iva, 0) * 100) / 100;
+  const totImponibile = Math.round(riep.reduce((s, x) => s + x.imponibile, 0) * 100) / 100;
+  const totIva = Math.round(riep.reduce((s, x) => s + x.iva, 0) * 100) / 100;
   const totDoc = Math.round((totImponibile + totIva) * 100) / 100;
 
-  const linesHtml = righe.map(r => `
+  const linesHtml = righe.map(row => `
     <tr>
-      <td>${r.nome}</td>
-      <td class="ctr">${r.qty}</td>
-      <td class="num">${formatPrice(r.unitLordo)}</td>
-      <td class="ctr">${r.aliquota}%</td>
-      <td class="num">${formatPrice(r.imponibile)}</td>
-      <td class="num">${formatPrice(r.iva)}</td>
+      <td>${row.nome}</td>
+      <td class="ctr">${row.qty}</td>
+      <td class="num">${formatPrice(row.unitLordo)}</td>
+      <td class="ctr">${row.aliquota}%</td>
+      <td class="num">${formatPrice(row.imponibile)}</td>
+      <td class="num">${formatPrice(row.iva)}</td>
     </tr>`).join('');
 
-  const riepHtml = riep.map(r => `
+  const riepHtml = riep.map(row => `
     <tr>
-      <td>${r.aliquota}%</td>
-      <td class="num">${formatPrice(r.imponibile)}</td>
-      <td class="num">${formatPrice(r.iva)}</td>
-    </tr>`).join('');
+      <td>${row.aliquota}%</td>
+      <td class="num">${formatPrice(row.imponibile)}</td>
+      <td class="num">${formatPrice(row.iva)}</td>
+    </tr>`).join('') || '<tr><td colspan="3">—</td></tr>';
 
   let clienteHtml = '';
   if (fat.tipo === 'pf') {
@@ -4466,20 +4553,21 @@ function buildFatturaHtml(o, fat) {
       <div>${fat.indirizzo}</div>`;
   }
 
-  const oggi = new Date();
-  const dataStr = oggi.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const num = 'FT/' + oggi.getFullYear() + '/' + (o.codice || String(o.id || '').slice(0, 6)).toString().toUpperCase();
+  const num = fat.numero != null ? fat.numero : '—';
+  const dataEm = fat.data_emissione
+    ? formatDataItLong(fat.data_emissione)
+    : formatDataItLong(new Date());
 
   return `
     <div class="fattura-doc">
       <div class="fd-top">
         <div>
           <p class="fd-doc-title">FATTURA</p>
-          <div style="font-size:12px;color:#444;margin-top:4px">Documento gestionale</div>
+          <div style="font-size:12px;color:#555;margin-top:6px">Documento gestionale</div>
         </div>
         <div class="fd-doc-num">
-          <div>N. <strong>${num}</strong></div>
-          <div>Data emissione: <strong>${dataStr}</strong></div>
+          <div>N. progressivo <strong>${num}</strong></div>
+          <div>Data di emissione: <strong>${dataEm}</strong></div>
           <div>Rif. ordine: #${o.codice || '—'} · Tavolo ${o.tavolo}</div>
         </div>
       </div>
@@ -4488,7 +4576,9 @@ function buildFatturaHtml(o, fat) {
           <h3>Cedente / prestatore</h3>
           <div><strong>${nomeRist}</strong></div>
           ${titolare ? `<div>${titolare}</div>` : ''}
-          ${citta ? `<div>${citta}</div>` : ''}
+          ${indCed ? `<div>${indCed}</div>` : (citta ? `<div>${citta}</div>` : '')}
+          ${pivaCed ? `<div>P.IVA ${pivaCed}</div>` : ''}
+          ${pecCed ? `<div>PEC: ${pecCed}</div>` : ''}
         </div>
         <div class="fd-box">
           <h3>Cessionario / committente</h3>
@@ -4508,18 +4598,20 @@ function buildFatturaHtml(o, fat) {
         </thead>
         <tbody>${linesHtml}</tbody>
       </table>
-      <div class="fd-riepilogo">
-        <table class="fd-iva">
-          <thead>
-            <tr><th>Riepilogo IVA</th><th class="num">Imponibile</th><th class="num">Imposta</th></tr>
-          </thead>
-          <tbody>${riepHtml}</tbody>
-        </table>
-      </div>
-      <div class="fd-totali">
-        <div class="row"><span>Totale imponibile</span><span>${formatPrice(totImponibile)}</span></div>
-        <div class="row"><span>Totale IVA</span><span>${formatPrice(totIva)}</span></div>
-        <div class="row grand"><span>Totale documento</span><span>${formatPrice(totDoc)}</span></div>
+      <div class="fd-bottom">
+        <div class="fd-riepilogo">
+          <table class="fd-iva">
+            <thead>
+              <tr><th>Riepilogo IVA</th><th class="num">Imponibile</th><th class="num">Imposta</th></tr>
+            </thead>
+            <tbody>${riepHtml}</tbody>
+          </table>
+        </div>
+        <div class="fd-totali">
+          <div class="row"><span>Totale imponibile</span><span>${formatPrice(totImponibile)}</span></div>
+          <div class="row"><span>Totale IVA</span><span>${formatPrice(totIva)}</span></div>
+          <div class="row grand"><span>Totale documento</span><span>${formatPrice(totDoc)}</span></div>
+        </div>
       </div>
       <p class="fd-note">
         I prezzi di listino sono da intendersi IVA inclusa; l’imposta è stata scorporata per aliquota.
@@ -4538,16 +4630,32 @@ async function confermaFattura() {
   const o = (currentRistorante.ordini || []).find(x => x.id === _fatturaOrdineId);
   if (!o) { toast('Ordine non trovato'); return; }
 
+  // riusa numero se già emessa, altrimenti alloca progressivo
+  let numero = (o.fattura && o.fattura.numero != null) ? parseInt(o.fattura.numero, 10) : null;
+  if (!numero || !Number.isFinite(numero)) {
+    numero = await allocaNumeroFattura(currentRistorante.id);
+  }
+  const data_emissione = (o.fattura && o.fattura.data_emissione)
+    ? o.fattura.data_emissione
+    : new Date().toISOString().slice(0, 10);
+
+  const payload = {
+    ...dati,
+    numero,
+    data_emissione
+  };
+
   if (sb) {
-    let { error } = await sb.from('ordini').update({ fattura: dati }).eq('id', o.id);
+    let { error } = await sb.from('ordini').update({ fattura: payload }).eq('id', o.id);
     if (error) {
       try {
-        const notaFat = (o.note ? o.note + ' | ' : '') + 'Fattura: ' + dati.intestazione;
+        const notaFat = (o.note ? o.note + ' | ' : '') +
+          `Fattura n.${numero} del ${data_emissione}: ` + dati.intestazione;
         await sb.from('ordini').update({ note: notaFat }).eq('id', o.id);
       } catch (e) {}
     }
   }
-  o.fattura = dati;
+  o.fattura = payload;
 
   const doPrint = $('#fattura-stampa')?.checked !== false;
   chiudiModalFattura();
@@ -4567,9 +4675,9 @@ async function confermaFattura() {
         }
       } catch (e) {}
     }
-    stampaAreaHtml(buildFatturaHtml(o, dati));
+    stampaAreaHtml(buildFatturaHtml(o, payload));
   }
-  toast('Fattura emessa per ' + dati.intestazione);
+  toast(`Fattura n. ${numero} emessa per ${dati.intestazione}`);
 }
 
 $('#btn-fattura-ok')?.addEventListener('click', () => { confermaFattura(); });
