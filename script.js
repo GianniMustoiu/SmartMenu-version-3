@@ -5362,10 +5362,10 @@ try {
 let currentLoyalty = null; // { id, nome, cognome, email, punti, codice, id_ristorante }
 
 function loyaltyLocalKey(ristId) {
-  return 'menupro_loyalty_' + ristId;
+  return 'menupro_loyalty_' + String(ristId || '');
 }
 function loyaltySessionKey(ristId) {
-  return 'menupro_loy_session_' + ristId;
+  return 'menupro_loy_session_' + String(ristId || '');
 }
 
 function defaultLoyaltyConfig() {
@@ -5408,45 +5408,99 @@ function genCodiceCarta() {
   return 'MP-' + n;
 }
 
+function mapLoyaltyRow(m) {
+  return {
+    id: m.id,
+    id_ristorante: m.id_ristorante,
+    nome: m.nome || '',
+    cognome: m.cognome || '',
+    email: String(m.email || '').toLowerCase().trim(),
+    telefono: m.telefono || '',
+    password: m.password_hash || m.password || '',
+    punti: Number(m.punti) || 0,
+    codice: m.codice || m.codice_carta || '',
+    created_at: m.created_at || m.createdAt || null
+  };
+}
+
+/** Unisce locale + DB per email (non perde mai i tesserati locali). */
+function mergeLoyaltyLists(localList, dbList) {
+  const byEmail = new Map();
+  (localList || []).forEach(m => {
+    const em = String(m.email || '').toLowerCase().trim();
+    if (!em) return;
+    byEmail.set(em, { ...m, email: em });
+  });
+  (dbList || []).forEach(raw => {
+    const m = mapLoyaltyRow(raw);
+    if (!m.email) return;
+    const prev = byEmail.get(m.email);
+    if (!prev) {
+      byEmail.set(m.email, m);
+      return;
+    }
+    // merge: preferisci id UUID da DB, punti max, password se manca
+    byEmail.set(m.email, {
+      ...prev,
+      ...m,
+      password: m.password || prev.password || '',
+      punti: Math.max(Number(prev.punti) || 0, Number(m.punti) || 0),
+      codice: m.codice || prev.codice,
+      id: (m.id && !String(m.id).startsWith('local_')) ? m.id : (prev.id || m.id)
+    });
+  });
+  return Array.from(byEmail.values());
+}
+
 async function fetchLoyaltyMembers(ristId) {
-  let list = loadLoyaltyMembersLocal(ristId);
+  if (!ristId) return [];
+  const local = loadLoyaltyMembersLocal(ristId);
+  let dbList = null;
   if (sb) {
     try {
-      const { data, error } = await sb.from('clienti_fedelta').select('*').eq('id_ristorante', ristId).order('created_at', { ascending: false });
-      if (!error && data) {
-        list = data.map(m => ({
-          id: m.id,
-          id_ristorante: m.id_ristorante,
-          nome: m.nome,
-          cognome: m.cognome,
-          email: (m.email || '').toLowerCase(),
-          telefono: m.telefono || '',
-          password: m.password_hash || m.password || '',
-          punti: Number(m.punti) || 0,
-          codice: m.codice || m.codice_carta || '',
-          created_at: m.created_at
-        }));
-        saveLoyaltyMembersLocal(ristId, list);
+      const { data, error } = await sb.from('clienti_fedelta')
+        .select('*')
+        .eq('id_ristorante', ristId);
+      if (error) {
+        console.warn('clienti_fedelta select:', error.message || error);
+      } else if (Array.isArray(data)) {
+        dbList = data;
       }
-    } catch (e) { console.warn('clienti_fedelta', e); }
+    } catch (e) {
+      console.warn('clienti_fedelta', e);
+    }
   }
-  return list;
+  // Se DB vuoto/errore → tieni i locali. Se DB ha dati → merge.
+  const merged = dbList ? mergeLoyaltyLists(local, dbList) : local.slice();
+  saveLoyaltyMembersLocal(ristId, merged);
+  return merged;
 }
 
 async function upsertLoyaltyMember(member) {
+  if (!member || !member.id_ristorante) return member;
   const ristId = member.id_ristorante;
+  member.email = String(member.email || '').toLowerCase().trim();
+  member.password = member.password != null ? String(member.password) : '';
+  member.punti = Number(member.punti) || 0;
+  if (!member.codice) member.codice = genCodiceCarta();
+
+  // 1) sempre salva in locale (fonte di verità offline)
   let list = loadLoyaltyMembersLocal(ristId);
-  const idx = list.findIndex(m => String(m.id) === String(member.id) || (m.email || '').toLowerCase() === (member.email || '').toLowerCase());
+  const idx = list.findIndex(m =>
+    String(m.id) === String(member.id) ||
+    (m.email || '').toLowerCase() === member.email
+  );
   if (idx >= 0) list[idx] = { ...list[idx], ...member };
-  else list.unshift(member);
+  else list.unshift({ ...member });
   saveLoyaltyMembersLocal(ristId, list);
 
+  // 2) prova Supabase (se tabella presente)
   if (sb) {
     const row = {
       id_ristorante: ristId,
       nome: member.nome,
       cognome: member.cognome,
-      email: (member.email || '').toLowerCase(),
+      email: member.email,
       telefono: member.telefono || null,
       password_hash: member.password || null,
       punti: member.punti || 0,
@@ -5454,18 +5508,37 @@ async function upsertLoyaltyMember(member) {
     };
     try {
       if (member.id && !String(member.id).startsWith('local_')) {
-        await sb.from('clienti_fedelta').update(row).eq('id', member.id);
+        const { error } = await sb.from('clienti_fedelta').update(row).eq('id', member.id);
+        if (error) console.warn('update loyalty:', error.message || error);
       } else {
-        const { data, error } = await sb.from('clienti_fedelta').insert(row).select().single();
-        if (!error && data) {
-          member.id = data.id;
-          // update local id
-          list = loadLoyaltyMembersLocal(ristId);
-          const i2 = list.findIndex(m => (m.email || '').toLowerCase() === member.email.toLowerCase());
-          if (i2 >= 0) { list[i2].id = data.id; saveLoyaltyMembersLocal(ristId, list); }
-        } else if (error) console.warn('insert loyalty', error.message);
+        // evita duplicati email su DB
+        const { data: existing } = await sb.from('clienti_fedelta')
+          .select('id,punti,codice')
+          .eq('id_ristorante', ristId)
+          .eq('email', member.email)
+          .maybeSingle();
+        if (existing && existing.id) {
+          member.id = existing.id;
+          await sb.from('clienti_fedelta').update(row).eq('id', existing.id);
+        } else {
+          const { data, error } = await sb.from('clienti_fedelta').insert(row).select().single();
+          if (!error && data) {
+            member.id = data.id;
+          } else if (error) {
+            console.warn('insert loyalty (resto su localStorage):', error.message || error);
+          }
+        }
+        // aggiorna id locale se ricevuto da DB
+        list = loadLoyaltyMembersLocal(ristId);
+        const i2 = list.findIndex(m => (m.email || '').toLowerCase() === member.email);
+        if (i2 >= 0) {
+          list[i2] = { ...list[i2], ...member };
+          saveLoyaltyMembersLocal(ristId, list);
+        }
       }
-    } catch (e) { console.warn(e); }
+    } catch (e) {
+      console.warn('upsert loyalty fallback local:', e);
+    }
   }
   return member;
 }
@@ -5602,31 +5675,63 @@ async function restoreLoyaltySession() {
 }
 
 async function registraLoyaltyCliente({ nome, cognome, email, telefono, password }) {
+  if (!currentRistorante || !currentRistorante.id) {
+    return { error: 'Ristorante non disponibile' };
+  }
   const ristId = currentRistorante.id;
+  const em = String(email || '').toLowerCase().trim();
+  if (!em || !password) return { error: 'Email e password obbligatorie' };
+
   const members = await fetchLoyaltyMembers(ristId);
-  const exists = members.find(m => (m.email || '').toLowerCase() === email.toLowerCase());
+  const exists = members.find(m => (m.email || '').toLowerCase() === em);
   if (exists) return { error: 'Email già registrata. Accedi invece di registrarti.' };
+
   const member = {
     id: 'local_' + Date.now(),
     id_ristorante: ristId,
-    nome: nome.trim(),
-    cognome: cognome.trim(),
-    email: email.trim().toLowerCase(),
-    telefono: (telefono || '').trim(),
-    password: password,
+    nome: String(nome || '').trim(),
+    cognome: String(cognome || '').trim(),
+    email: em,
+    telefono: String(telefono || '').trim(),
+    password: String(password),
     punti: 0,
     codice: genCodiceCarta(),
     created_at: new Date().toISOString()
   };
   await upsertLoyaltyMember(member);
+
+  // verifica immediata lettura locale
+  const check = loadLoyaltyMembersLocal(ristId);
+  const ok = check.some(m => (m.email || '').toLowerCase() === em);
+  if (!ok) {
+    // fallback di emergenza
+    saveLoyaltyMembersLocal(ristId, [member, ...check]);
+  }
   return { member };
 }
 
 async function loginLoyaltyCliente(email, password) {
-  const members = await fetchLoyaltyMembers(currentRistorante.id);
-  const m = members.find(x => (x.email || '').toLowerCase() === email.toLowerCase());
-  if (!m) return { error: 'Account non trovato' };
-  if (m.password && m.password !== password) return { error: 'Password errata' };
+  if (!currentRistorante) return { error: 'Ristorante non disponibile' };
+  const em = String(email || '').toLowerCase().trim();
+  const pass = String(password || '');
+  // 1) cerca subito in locale (anche se DB fallisce)
+  let members = loadLoyaltyMembersLocal(currentRistorante.id);
+  let m = members.find(x => (x.email || '').toLowerCase() === em);
+  // 2) poi merge con DB
+  members = await fetchLoyaltyMembers(currentRistorante.id);
+  m = members.find(x => (x.email || '').toLowerCase() === em) || m;
+  if (!m) {
+    return { error: 'Account non trovato. Controlla email o registrati di nuovo.' };
+  }
+  const savedPass = m.password != null ? String(m.password) : '';
+  // se password vuota (registrato in cassa), accetta al primo accesso e salvala
+  if (savedPass && savedPass !== pass) {
+    return { error: 'Password errata' };
+  }
+  if (!savedPass && pass) {
+    m.password = pass;
+    await upsertLoyaltyMember(m);
+  }
   return { member: m };
 }
 
