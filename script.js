@@ -69,34 +69,94 @@ let currentMenuId = null;
 
 const UI_I18N = {
   it: {
-    cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste',
+    cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste (es. togli formaggio)',
+    notePh: 'Allergie, modifiche, richieste speciali...',
     paga: 'Metodo di pagamento', invia: 'Invia ordine', menu: 'Menu', aggiungi: 'Aggiungi',
-    scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo'
+    scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo',
+    carta: 'Carta', cassa: 'Pago in cassa', indietro: 'Indietro',
+    ricevuta: 'Ricevuta ordine', pagamento: 'Pagamento', codice: 'Codice',
+    sessione: 'Sessione attiva · scade tra', sessioneScaduta: 'Sessione scaduta',
+    sessioneHint: 'Per sicurezza puoi ordinare solo entro 30 minuti dalla scansione del QR.',
+    riscansione: 'Inquadra di nuovo il codice QR sul tavolo per continuare.',
+    ordiniValidi: 'Gli ordini già inviati restano validi: il ristorante li vede comunque.',
+    tutti: 'Tutti', nessunPiatto: 'Nessun piatto disponibile.',
+    aPunto: 'A che punto è il tuo ordine', tornaMenu: 'Torna al menu',
+    scaricaRicevuta: 'Scarica ricevuta'
   },
   en: {
-    cart: 'Cart', stato: 'Order status', totale: 'Total', note: 'Notes / requests',
+    cart: 'Cart', stato: 'Order status', totale: 'Total', note: 'Notes / requests (e.g. no cheese)',
+    notePh: 'Allergies, changes, special requests...',
     paga: 'Payment method', invia: 'Place order', menu: 'Menu', aggiungi: 'Add',
-    scelto: 'Your selection', vuoto: 'Your cart is empty.', tavolo: 'Table'
+    scelto: 'Your selection', vuoto: 'Your cart is empty.', tavolo: 'Table',
+    carta: 'Card', cassa: 'Pay at counter', indietro: 'Back',
+    ricevuta: 'Order receipt', pagamento: 'Payment', codice: 'Code',
+    sessione: 'Session active · expires in', sessioneScaduta: 'Session expired',
+    sessioneHint: 'For security you can only order within 30 minutes of scanning the QR.',
+    riscansione: 'Scan the table QR code again to continue.',
+    ordiniValidi: 'Orders already sent remain valid: the restaurant still sees them.',
+    tutti: 'All', nessunPiatto: 'No dishes available.',
+    aPunto: 'Where is your order', tornaMenu: 'Back to menu',
+    scaricaRicevuta: 'Download receipt'
   },
   es: {
-    cart: 'Carrito', stato: 'Estado del pedido', totale: 'Total', note: 'Notas / peticiones',
+    cart: 'Carrito', stato: 'Estado del pedido', totale: 'Total', note: 'Notas / peticiones (ej. sin queso)',
+    notePh: 'Alergias, cambios, peticiones especiales...',
     paga: 'Método de pago', invia: 'Enviar pedido', menu: 'Menú', aggiungi: 'Añadir',
-    scelto: 'Tu selección', vuoto: 'El carrito está vacío.', tavolo: 'Mesa'
+    scelto: 'Tu selección', vuoto: 'El carrito está vacío.', tavolo: 'Mesa',
+    carta: 'Tarjeta', cassa: 'Pago en caja', indietro: 'Atrás',
+    ricevuta: 'Recibo del pedido', pagamento: 'Pago', codice: 'Código',
+    sessione: 'Sesión activa · caduca en', sessioneScaduta: 'Sesión caducada',
+    sessioneHint: 'Por seguridad solo puedes pedir en los 30 minutos tras escanear el QR.',
+    riscansione: 'Escanea de nuevo el código QR de la mesa para continuar.',
+    ordiniValidi: 'Los pedidos ya enviados siguen siendo válidos.',
+    tutti: 'Todos', nessunPiatto: 'No hay platos disponibles.',
+    aPunto: 'Estado de tu pedido', tornaMenu: 'Volver al menú',
+    scaricaRicevuta: 'Descargar recibo'
   },
   de: {
-    cart: 'Warenkorb', stato: 'Bestellstatus', totale: 'Gesamt', note: 'Hinweise / Wünsche',
+    cart: 'Warenkorb', stato: 'Bestellstatus', totale: 'Gesamt', note: 'Hinweise / Wünsche (z.B. ohne Käse)',
+    notePh: 'Allergien, Änderungen, Sonderwünsche...',
     paga: 'Zahlungsart', invia: 'Bestellung senden', menu: 'Menü', aggiungi: 'Hinzufügen',
-    scelto: 'Ihre Auswahl', vuoto: 'Der Warenkorb ist leer.', tavolo: 'Tisch'
+    scelto: 'Ihre Auswahl', vuoto: 'Der Warenkorb ist leer.', tavolo: 'Tisch',
+    carta: 'Karte', cassa: 'An der Kasse zahlen', indietro: 'Zurück',
+    ricevuta: 'Bestellbeleg', pagamento: 'Zahlung', codice: 'Code',
+    sessione: 'Sitzung aktiv · endet in', sessioneScaduta: 'Sitzung abgelaufen',
+    sessioneHint: 'Aus Sicherheitsgründen können Sie nur 30 Minuten nach dem QR-Scan bestellen.',
+    riscansione: 'Scannen Sie den QR-Code am Tisch erneut.',
+    ordiniValidi: 'Bereits gesendete Bestellungen bleiben gültig.',
+    tutti: 'Alle', nessunPiatto: 'Keine Gerichte verfügbar.',
+    aPunto: 'Status Ihrer Bestellung', tornaMenu: 'Zurück zum Menü',
+    scaricaRicevuta: 'Beleg herunterladen'
   },
   fr: {
-    cart: 'Panier', stato: 'État de la commande', totale: 'Total', note: 'Notes / demandes',
+    cart: 'Panier', stato: 'État de la commande', totale: 'Total', note: 'Notes / demandes (ex. sans fromage)',
+    notePh: 'Allergies, modifications, demandes spéciales...',
     paga: 'Mode de paiement', invia: 'Envoyer la commande', menu: 'Menu', aggiungi: 'Ajouter',
-    scelto: 'Votre sélection', vuoto: 'Le panier est vide.', tavolo: 'Table'
+    scelto: 'Votre sélection', vuoto: 'Le panier est vide.', tavolo: 'Table',
+    carta: 'Carte', cassa: 'Payer au comptoir', indietro: 'Retour',
+    ricevuta: 'Reçu de commande', pagamento: 'Paiement', codice: 'Code',
+    sessione: 'Session active · expire dans', sessioneScaduta: 'Session expirée',
+    sessioneHint: 'Pour votre sécurité, commande possible uniquement dans les 30 minutes après le QR.',
+    riscansione: 'Scannez à nouveau le QR de la table pour continuer.',
+    ordiniValidi: 'Les commandes déjà envoyées restent valides.',
+    tutti: 'Tous', nessunPiatto: 'Aucun plat disponible.',
+    aPunto: 'Où en est votre commande', tornaMenu: 'Retour au menu',
+    scaricaRicevuta: 'Télécharger le reçu'
   },
   zh: {
-    cart: '购物车', stato: '订单状态', totale: '合计', note: '备注 / 要求',
+    cart: '购物车', stato: '订单状态', totale: '合计', note: '备注 / 要求（例如不要芝士）',
+    notePh: '过敏、修改、特殊要求...',
     paga: '支付方式', invia: '提交订单', menu: '菜单', aggiungi: '添加',
-    scelto: '已选菜品', vuoto: '购物车是空的。', tavolo: '桌号'
+    scelto: '已选菜品', vuoto: '购物车是空的。', tavolo: '桌号',
+    carta: '银行卡', cassa: '到柜台付款', indietro: '返回',
+    ricevuta: '订单收据', pagamento: '支付', codice: '编号',
+    sessione: '会话有效 · 剩余', sessioneScaduta: '会话已过期',
+    sessioneHint: '为安全起见，扫码后 30 分钟内可下单。',
+    riscansione: '请重新扫描桌上的二维码继续。',
+    ordiniValidi: '已提交的订单仍然有效。',
+    tutti: '全部', nessunPiatto: '暂无菜品。',
+    aPunto: '订单进度', tornaMenu: '返回菜单',
+    scaricaRicevuta: '下载收据'
   }
 };
 
@@ -114,29 +174,55 @@ function piattoLabel(p, field) {
   return lang[field] || p[field] || '';
 }
 
+function menusStorageKey(rid) {
+  return 'menupro_menus_' + rid;
+}
+
+function loadMenusLocal(rid) {
+  try {
+    const v = JSON.parse(localStorage.getItem(menusStorageKey(rid)) || 'null');
+    if (Array.isArray(v) && v.length) return v;
+  } catch (e) {}
+  return null;
+}
+
+function saveMenusLocal(rid, menus) {
+  try {
+    localStorage.setItem(menusStorageKey(rid), JSON.stringify(menus || []));
+  } catch (e) {}
+}
+
 function ensureMenus(r) {
-  if (!r) return [];
-  if (Array.isArray(r.menus) && r.menus.length) return r.menus;
-  // default un menu
-  const def = [{ id: 'default', nome: 'Menu principale' }];
-  r.menus = def;
-  return def;
+  if (!r) return [{ id: 'default', nome: 'Menu principale' }];
+  if (Array.isArray(r.menus) && r.menus.length) {
+    saveMenusLocal(r.id, r.menus);
+    return r.menus;
+  }
+  const local = r.id ? loadMenusLocal(r.id) : null;
+  if (local && local.length) {
+    r.menus = local;
+    return r.menus;
+  }
+  r.menus = [{ id: 'default', nome: 'Menu principale' }];
+  if (r.id) saveMenusLocal(r.id, r.menus);
+  return r.menus;
 }
 
 function getCurrentMenuId(r) {
   const menus = ensureMenus(r);
-  if (currentMenuId && menus.some(m => m.id === currentMenuId)) return currentMenuId;
+  if (currentMenuId && menus.some(m => String(m.id) === String(currentMenuId))) {
+    return currentMenuId;
+  }
   currentMenuId = menus[0].id;
   return currentMenuId;
 }
 
 function piattiDelMenu(r, menuId) {
-  const menu = (r && r.menu) || [];
-  const mid = menuId || getCurrentMenuId(r);
-  // piatti senza id_menu appartengono al menu default
-  return menu.filter(p => {
-    const pid = p.id_menu || 'default';
-    return pid === mid || (mid === 'default' && !p.id_menu);
+  const all = (r && r.menu) || [];
+  const mid = String(menuId || getCurrentMenuId(r));
+  return all.filter(p => {
+    const pid = String(p.id_menu || 'default');
+    return pid === mid;
   });
 }
 
@@ -1802,8 +1888,21 @@ function renderRistCharts() {
 // =====================================================
 async function renderMenuTable(filter = '') {
   if (!currentRistorante) return;
-  currentRistorante = await loadRistoranteFull(currentRistorante.id);
-  let menu = currentRistorante.menu || [];
+  const prevMenus = currentRistorante.menus;
+  const prevMenuId = currentMenuId;
+  const loaded = await loadRistoranteFull(currentRistorante.id);
+  if (loaded) {
+    // non perdere i menu locali se il DB non ha ancora la colonna
+    if (!(Array.isArray(loaded.menus) && loaded.menus.length) && Array.isArray(prevMenus) && prevMenus.length) {
+      loaded.menus = prevMenus;
+    }
+    currentRistorante = loaded;
+  }
+  ensureMenus(currentRistorante);
+  if (prevMenuId) currentMenuId = prevMenuId;
+  populateMenuSwitcher();
+  const mid = getCurrentMenuId(currentRistorante);
+  let menu = piattiDelMenu(currentRistorante, mid);
 
   // chips categorie
   const chips = $('#categorie-chips');
@@ -1823,7 +1922,7 @@ async function renderMenuTable(filter = '') {
   if (menuFilterCat !== 'tutti') menu = menu.filter(p => p.categoria === menuFilterCat);
   if (filter) {
     const q = filter.toLowerCase();
-    menu = menu.filter(p => p.nome.toLowerCase().includes(q));
+    menu = menu.filter(p => (p.nome || '').toLowerCase().includes(q));
   }
 
   const sel = $('#piatto-categoria');
@@ -1835,7 +1934,7 @@ async function renderMenuTable(filter = '') {
 
   const body = $('#menu-body');
   if (!menu.length) {
-    body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">Nessun piatto. Aggiungine uno!</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">Nessun piatto in questo menu. Aggiungine uno!</td></tr>`;
     return;
   }
   body.innerHTML = menu.map(p => `
@@ -3356,7 +3455,7 @@ function renderClienteMenu() {
   }
   const list = $('#cliente-menu-list');
   if (!filtered.length) {
-    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Nessun piatto disponibile.</p>';
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">' + tUI('nessunPiatto') + '</p>';
     return;
   }
   list.innerHTML = filtered.map(p => {
@@ -3391,29 +3490,81 @@ function renderClienteMenu() {
 
 function applyClienteChromeI18n() {
   const cartBtn = $('#cliente-carrello-btn');
-  // keep icon + count; title attribute
   if (cartBtn) cartBtn.title = tUI('cart');
   const statoBtn = $('#cliente-stato-btn');
-  if (statoBtn) {
-    const countSpan = statoBtn.querySelector('span') || null;
-    statoBtn.innerHTML = `<i class="fas fa-info-circle"></i> ${tUI('stato')}`;
-  }
+  if (statoBtn) statoBtn.innerHTML = `<i class="fas fa-info-circle"></i> ${tUI('stato')}`;
+
   const h2 = document.querySelector('#cliente-carrello-view h2');
   if (h2) h2.textContent = tUI('scelto');
-  const totLabel = document.querySelector('#cliente-carrello-view .carrello-totale span');
+  const totLabel = document.querySelector('#cliente-carrello-view .carrello-totale > span');
   if (totLabel) totLabel.textContent = tUI('totale');
-  const noteLab = document.querySelector('label[for="ordine-note"]') ||
-    [...document.querySelectorAll('#cliente-carrello-view label')].find(l => (l.textContent || '').includes('Messaggio') || (l.textContent || '').includes('Notes'));
-  // labels by structure
+
   const labels = document.querySelectorAll('#cliente-carrello-view .form-group > label');
   if (labels[0]) labels[0].textContent = tUI('note');
   if (labels[1]) labels[1].textContent = tUI('paga');
+  const noteTa = $('#ordine-note');
+  if (noteTa) noteTa.placeholder = tUI('notePh');
+
+  // payment option labels
+  document.querySelectorAll('input[name="pagamento"]').forEach(inp => {
+    const lab = inp.closest('label');
+    if (!lab) return;
+    const icon = lab.querySelector('i');
+    const iconHtml = icon ? icon.outerHTML + ' ' : '';
+    if (inp.value === 'carta') lab.innerHTML = `${inp.outerHTML} ${iconHtml}${tUI('carta')}`;
+    if (inp.value === 'cassa') lab.innerHTML = `${inp.outerHTML} ${iconHtml}${tUI('cassa')}`;
+  });
+
   const invia = $('#btn-invia-ordine');
   if (invia) invia.innerHTML = `<i class="fas fa-paper-plane"></i> ${tUI('invia')}`;
+
+  const tavoloNum = $('#cliente-tavolo-num')?.textContent || '';
   const tavoloP = document.querySelector('.cliente-header p');
-  if (tavoloP && $('#cliente-tavolo-num')) {
-    tavoloP.innerHTML = `${tUI('tavolo')} <strong id="cliente-tavolo-num">${$('#cliente-tavolo-num').textContent}</strong>`;
+  if (tavoloP) tavoloP.innerHTML = `${tUI('tavolo')} <strong id="cliente-tavolo-num">${tavoloNum}</strong>`;
+
+  // empty cart message if present
+  const cartItems = $('#carrello-items');
+  if (cartItems && !(cart && cart.length) && cartItems.querySelector('p')) {
+    cartItems.innerHTML = `<p style="color:var(--muted);text-align:center">${tUI('vuoto')}</p>`;
   }
+
+  // category chips "tutti"
+  document.querySelectorAll('#cliente-categorie .cat-chip').forEach(chip => {
+    if (chip.dataset.cat === 'tutti') chip.textContent = tUI('tutti');
+  });
+
+  // session banner
+  const banner = document.getElementById('qr-session-banner');
+  if (banner) {
+    const timer = document.getElementById('qr-session-timer');
+    const t = timer ? timer.textContent : '';
+    banner.innerHTML = `<i class="fas fa-clock"></i> <span>${tUI('sessione')} <strong id="qr-session-timer">${t}</strong></span>`;
+  }
+  const expCard = document.querySelector('.qr-expired-card');
+  if (expCard) {
+    const h2e = expCard.querySelector('h2');
+    if (h2e) h2e.textContent = tUI('sessioneScaduta');
+    const ps = expCard.querySelectorAll('p');
+    if (ps[0]) ps[0].textContent = tUI('sessioneHint');
+    if (ps[1]) ps[1].textContent = tUI('riscansione');
+    if (ps[2]) ps[2].textContent = tUI('ordiniValidi');
+  }
+
+  // ricevuta / stato headings
+  const ricH = document.querySelector('#cliente-ricevuta-view h2, .ricevuta-header h2');
+  // leave dynamic codes
+  const statoH = document.querySelector('#cliente-stato-view h2');
+  if (statoH) statoH.textContent = tUI('aPunto');
+  const torna = $('#btn-torna-da-stato');
+  if (torna) torna.textContent = tUI('tornaMenu');
+  const scarica = $('#btn-scarica-ricevuta');
+  if (scarica) scarica.innerHTML = `<i class="fas fa-download"></i> ${tUI('scaricaRicevuta')}`;
+  const indietro = document.querySelectorAll('.btn-back');
+  indietro.forEach(b => {
+    if (b.id === 'btn-indietro-pagamento' || b.id === 'btn-torna-menu' || b.id === 'btn-indietro-stato') {
+      b.innerHTML = `<i class="fas fa-arrow-left"></i> ${tUI('indietro')}`;
+    }
+  });
 }
 
 function updateCartCount() {
@@ -3449,7 +3600,7 @@ function renderCarrello() {
   applyPaymentOptions();
   const el = $('#carrello-items');
   if (!cart.length) {
-    el.innerHTML = '<p style="color:var(--muted);text-align:center">Il carrello è vuoto.</p>';
+    el.innerHTML = '<p style="color:var(--muted);text-align:center">' + tUI('vuoto') + '</p>';
     $('#carrello-totale').textContent = formatPrice(0);
     return;
   }
@@ -4869,63 +5020,118 @@ $('#fat-sdi')?.addEventListener('input', (e) => {
 // MULTI-MENU + LINGUA CLIENTE
 // =====================================================
 function populateMenuSwitcher() {
-  const sel = $('#menu-switcher');
+  const sel = document.getElementById('menu-switcher');
   if (!sel || !currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
-  const mid = getCurrentMenuId(currentRistorante);
+  const mid = String(getCurrentMenuId(currentRistorante));
   sel.innerHTML = menus.map(m =>
-    `<option value="${m.id}" ${m.id === mid ? 'selected' : ''}>${m.nome}</option>`
+    `<option value="${m.id}" ${String(m.id) === mid ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
   ).join('');
 }
 
 async function salvaMenusSuDb() {
-  if (!sb || !currentRistorante) return;
+  if (!currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
-  let { error } = await sb.from('ristoranti').update({ menus }).eq('id', currentRistorante.id);
+  saveMenusLocal(currentRistorante.id, menus);
+  try {
+    cacheSet('rist_' + currentRistorante.id, stripSecrets(currentRistorante));
+  } catch (e) {}
+  if (!sb) return;
+  const { error } = await sb.from('ristoranti').update({ menus }).eq('id', currentRistorante.id);
   if (error) {
-    console.warn('Colonna ristoranti.menus assente o errore:', error.message);
-    // resta in memoria + cache locale
-    try {
-      cacheSet('rist_' + currentRistorante.id, stripSecrets(currentRistorante));
-    } catch (e) {}
+    console.warn('menus non salvati su DB (colonna assente?):', error.message || error);
   }
 }
 
-$('#menu-switcher')?.addEventListener('change', (e) => {
+document.getElementById('menu-switcher')?.addEventListener('change', (e) => {
   currentMenuId = e.target.value;
   menuFilterCat = 'tutti';
-  renderMenuTable($('#search-menu')?.value || '');
+  // non ricaricare tutto dal DB: filtra subito
+  const mid = currentMenuId;
+  let list = piattiDelMenu(currentRistorante, mid);
+  if (menuFilterCat !== 'tutti') list = list.filter(p => p.categoria === menuFilterCat);
+  const filter = ($('#search-menu')?.value || '').toLowerCase();
+  if (filter) list = list.filter(p => (p.nome || '').toLowerCase().includes(filter));
+  // ridisegna tabella senza await full reload
+  const body = $('#menu-body');
+  if (body) {
+    if (!list.length) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">Nessun piatto in questo menu. Aggiungine uno!</td></tr>`;
+    } else {
+      body.innerHTML = list.map(p => `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              ${p.immagine ? `<img src="${p.immagine}" class="piatto-img" alt="" onerror="this.style.display='none'"/>` : ''}
+              <div>
+                <strong>${p.nome}</strong>
+                ${p.descrizione ? `<br><small style="color:var(--muted)">${p.descrizione}</small>` : ''}
+              </div>
+            </div>
+          </td>
+          <td>${p.categoria || '—'}</td>
+          <td>${formatPrice(p.prezzo)}<br><span style="font-size:11px;color:var(--muted)">IVA ${p.iva != null ? p.iva : 10}%</span></td>
+          <td style="font-size:12px">${(p.allergeni || []).join(', ') || '—'}</td>
+          <td><span class="badge ${p.disponibile !== false ? 'badge-pro' : 'badge-base'}">${p.disponibile !== false ? 'Sì' : 'No'}</span></td>
+          <td class="actions">
+            <button class="btn btn-secondary btn-sm" onclick="editPiatto('${p.id}')"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deletePiatto('${p.id}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+  }
+  const chips = $('#categorie-chips');
+  if (chips) {
+    const cats = ['tutti', ...(currentRistorante.categorie || [])];
+    chips.innerHTML = cats.map(c =>
+      `<button class="cat-chip ${c === menuFilterCat ? 'active' : ''}" data-cat="${c}">${c === 'tutti' ? 'Tutti' : c}</button>`
+    ).join('');
+    chips.querySelectorAll('.cat-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        menuFilterCat = chip.dataset.cat;
+        document.getElementById('menu-switcher')?.dispatchEvent(new Event('change'));
+      });
+    });
+  }
 });
 
-$('#btn-nuovo-menu')?.addEventListener('click', () => {
-  $('#modal-menu-nome-title').textContent = 'Nuovo menu';
-  $('#menu-nome-mode').value = 'new';
-  $('#menu-nome-input').value = '';
-  $('#modal-menu-nome')?.classList.remove('hidden');
-  setTimeout(() => $('#menu-nome-input')?.focus(), 40);
+document.getElementById('btn-nuovo-menu')?.addEventListener('click', () => {
+  const title = document.getElementById('modal-menu-nome-title');
+  if (title) title.textContent = 'Nuovo menu';
+  const mode = document.getElementById('menu-nome-mode');
+  if (mode) mode.value = 'new';
+  const inp = document.getElementById('menu-nome-input');
+  if (inp) inp.value = '';
+  document.getElementById('modal-menu-nome')?.classList.remove('hidden');
+  setTimeout(() => inp?.focus(), 40);
 });
 
-$('#btn-rinomina-menu')?.addEventListener('click', () => {
-  if (!currentRistorante) return;
+document.getElementById('btn-rinomina-menu')?.addEventListener('click', () => {
+  if (!currentRistorante) { toast('Nessun ristorante selezionato'); return; }
   const mid = getCurrentMenuId(currentRistorante);
-  const m = ensureMenus(currentRistorante).find(x => x.id === mid);
-  $('#modal-menu-nome-title').textContent = 'Rinomina menu';
-  $('#menu-nome-mode').value = 'rename';
-  $('#menu-nome-input').value = m ? m.nome : '';
-  $('#modal-menu-nome')?.classList.remove('hidden');
-  setTimeout(() => $('#menu-nome-input')?.focus(), 40);
+  const m = ensureMenus(currentRistorante).find(x => String(x.id) === String(mid));
+  const title = document.getElementById('modal-menu-nome-title');
+  if (title) title.textContent = 'Rinomina menu';
+  const mode = document.getElementById('menu-nome-mode');
+  if (mode) mode.value = 'rename';
+  const inp = document.getElementById('menu-nome-input');
+  if (inp) inp.value = m ? m.nome : '';
+  document.getElementById('modal-menu-nome')?.classList.remove('hidden');
+  setTimeout(() => inp?.focus(), 40);
 });
 
-$('#form-menu-nome')?.addEventListener('submit', async (e) => {
+document.getElementById('form-menu-nome')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!currentRistorante) return;
-  const nome = ($('#menu-nome-input')?.value || '').trim();
-  if (!nome) return;
-  const mode = $('#menu-nome-mode')?.value || 'new';
+  if (!currentRistorante) { toast('Nessun ristorante selezionato'); return; }
+  const nome = (document.getElementById('menu-nome-input')?.value || '').trim();
+  if (!nome) { toast('Inserisci un nome per il menu'); return; }
+  const mode = document.getElementById('menu-nome-mode')?.value || 'new';
   ensureMenus(currentRistorante);
+  if (!Array.isArray(currentRistorante.menus)) currentRistorante.menus = [];
   if (mode === 'rename') {
     const mid = getCurrentMenuId(currentRistorante);
-    const m = currentRistorante.menus.find(x => x.id === mid);
+    const m = currentRistorante.menus.find(x => String(x.id) === String(mid));
     if (m) m.nome = nome;
   } else {
     const id = uidMenu();
@@ -4933,9 +5139,11 @@ $('#form-menu-nome')?.addEventListener('submit', async (e) => {
     currentMenuId = id;
   }
   await salvaMenusSuDb();
-  $('#modal-menu-nome')?.classList.add('hidden');
-  await renderMenuTable();
-  toast(mode === 'rename' ? 'Menu rinominato' : 'Menu creato');
+  document.getElementById('modal-menu-nome')?.classList.add('hidden');
+  populateMenuSwitcher();
+  // aggiorna lista piatti del menu corrente
+  document.getElementById('menu-switcher')?.dispatchEvent(new Event('change'));
+  toast(mode === 'rename' ? 'Menu rinominato' : 'Menu creato: ' + nome);
 });
 
 $('#cliente-lang')?.addEventListener('change', (e) => {
