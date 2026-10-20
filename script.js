@@ -590,9 +590,9 @@ async function _fetchRistoranteFull(id) {
   // ordini: ultimi 80 (abbastanza per kanban/cassa, evita scaricare mesi di storia)
   const [tavoli, piatti, categorie, ordini] = await Promise.all([
     sb.from('tavoli').select('*').eq('id_ristorante', id).order('numero'),
-    sb.from('piatti').select('*').eq('id_ristorante', id).order('nome'),
+    sb.from('piatti').select('id,id_ristorante,nome,descrizione,prezzo,categoria,disponibile,allergeni,immagine,iva,traduzioni,id_menu').eq('id_ristorante', id).order('nome'),
     sb.from('categorie').select('*').eq('id_ristorante', id).order('posizione'),
-    sb.from('ordini').select('*').eq('id_ristorante', id).order('created_at', { ascending: false }).limit(80)
+    sb.from('ordini').select('id,id_ristorante,codice,tavolo,stato,stato_pagamento,pagamento,totale,note,items,created_at,circuito_pagamento,fattura').eq('id_ristorante', id).order('created_at', { ascending: false }).limit(60)
   ]);
   const failed = [tavoli, piatti, categorie, ordini].find(x => x.error);
   if (failed) throw failed.error;
@@ -646,7 +646,7 @@ async function _fetchRistoranteFull(id) {
       }
     } catch (e) { console.warn('ordine_riga load', e); }
   }
-  r.pagamenti = pagamenti.data || [];
+  r.pagamenti = [];
   r.sale = r.sale || ['Sala principale'];
   return r;
 }
@@ -756,10 +756,22 @@ async function populateRistSwitcher() {
 }
 
 async function renderRistAll() {
-  await renderRistDashboard();
-  await renderMenuTable();
-  await renderOrdiniKanban();
-  await renderTavoli();
+  const sess = loadSession();
+  const page = (sess && sess.page) || 'rist-dashboard';
+  if (page === 'rist-ordini') await renderOrdiniKanban();
+  else if (page === 'rist-menu') await renderMenuTable();
+  else if (page === 'rist-tavoli') await renderTavoli();
+  else if (page === 'rist-chiusura') await renderChiusuraFiscale();
+  else if (page === 'rist-loyalty') await renderLoyaltyAdmin();
+  else await renderRistDashboard();
+  setTimeout(() => {
+    try {
+      if (page !== 'rist-dashboard') renderRistDashboard();
+      if (page !== 'rist-menu') renderMenuTable();
+      if (page !== 'rist-ordini') renderOrdiniKanban();
+      if (page !== 'rist-tavoli') renderTavoli();
+    } catch (e) {}
+  }, 80);
 }
 
 async function switchRistorante(id) {
@@ -787,24 +799,44 @@ document.addEventListener('change', (e) => {
 });
 
 async function enterAsRistoratore(r) {
-  currentRistorante = await getRistorante(
-  r.id || r.ristoranteId
-);
-  currentUser = { role: 'ristoratore', email: r.email, ristoranteId: r.id || r.ristoranteId };
-    const prevR = loadSession();
-  saveSession({ role: 'ristoratore', email: r.email, ristoranteId: currentUser.ristoranteId,
-                page: prevR && prevR.role === 'ristoratore' ? prevR.page : 'rist-dashboard' });
+  const rid = r.id || r.ristoranteId;
+  currentUser = { role: 'ristoratore', email: r.email, ristoranteId: rid };
+  const prevR = loadSession();
+  const page = (prevR && prevR.role === 'ristoratore' && prevR.page) ? prevR.page : 'rist-dashboard';
+  saveSession({ role: 'ristoratore', email: r.email, ristoranteId: rid, page });
+
+  // UI subito
   $('#login-screen').classList.add('hidden');
+  $('#app-admin')?.classList.add('hidden');
+  $('#app-cliente')?.classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
-  $('#rist-nome-sidebar').textContent = (currentRistorante && currentRistorante.nome) || r.nome || 'Ristorante';
-  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
-  updateRistSidebarAbbonamento(currentRistorante || r);
-  $('#rist-user-email').textContent = r.email;
-  try { localStorage.setItem(lastRistKey(r.email), currentUser.ristoranteId); } catch (e) {}
+  $('#rist-nome-sidebar').textContent = r.nome || 'Caricamento…';
+  $('#rist-user-email').textContent = r.email || '';
   applyCassaNavRestrictions(false);
-  await populateRistSwitcher();
-  await renderRistAll();
-  startOrdiniWatch();
+  $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
+  $$('#app-ristoratore .page').forEach(pg => pg.classList.add('hidden'));
+  (document.querySelector('#app-ristoratore .nav-item[data-page="' + page + '"]')
+    || document.querySelector('#app-ristoratore .nav-item[data-page="rist-dashboard"]'))?.classList.add('active');
+  (document.getElementById('page-' + page) || document.getElementById('page-rist-dashboard'))?.classList.remove('hidden');
+  const titles = {
+    'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
+    'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
+    'rist-loyalty': 'Loyalty card', 'rist-chiusura': 'Chiusura fiscale'
+  };
+  if ($('#rist-page-title')) $('#rist-page-title').textContent = titles[page] || 'Panoramica';
+
+  const full = await getRistorante(rid);
+  if (!full) {
+    toast('Impossibile caricare i dati del ristorante');
+    return false;
+  }
+  currentRistorante = full;
+  $('#rist-nome-sidebar').textContent = full.nome || r.nome || 'Ristorante';
+  try { updateRistSidebarAbbonamento(full); } catch (e) {}
+  try { localStorage.setItem(lastRistKey(r.email), rid); } catch (e) {}
+  applyCassaNavRestrictions(false);
+  populateRistSwitcher().catch(() => {});
+  renderRistAll().then(() => startOrdiniWatch()).catch(() => startOrdiniWatch());
   return true;
 }
 
@@ -841,12 +873,6 @@ async function enterAsCassa(u) {
     toast('Questa cassa non è collegata a nessun ristorante. Esegui supabase-casse.sql e ricrea le casse.');
     return false;
   }
-  const r = await getRistorante(ristId);
-  if (!r) {
-    toast('Ristorante della cassa non trovato');
-    return false;
-  }
-  currentRistorante = r;
   currentUser = {
     role: 'cassa',
     email: u.email,
@@ -859,28 +885,40 @@ async function enterAsCassa(u) {
     ristoranteId: ristId,
     page: 'rist-ordini'
   });
+
   $('#login-screen').classList.add('hidden');
   $('#app-admin')?.classList.add('hidden');
   $('#app-cliente')?.classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
-  $('#rist-nome-sidebar').textContent = (r.nome || 'Ristorante') + ' · Cassa';
-  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
-  updateRistSidebarAbbonamento(r);
-  $('#rist-user-email').textContent = u.email;
-  applyCassaNavRestrictions(true);
-
-  // mostra solo Ordini come pagina iniziale
+  $('#rist-nome-sidebar').textContent = 'Cassa…';
+  $('#rist-user-email').textContent = u.email || '';
   $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
-  $$('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
-  const ordNav = document.querySelector('#app-ristoratore .nav-item[data-page="rist-ordini"]');
-  if (ordNav) ordNav.classList.add('active');
-  $('#page-rist-ordini')?.classList.remove('hidden');
-  $('#rist-page-title').textContent = 'Ordini';
-
-  await renderOrdiniKanban();
-  startOrdiniWatch();
+  $$('#app-ristoratore .page').forEach(pg => pg.classList.add('hidden'));
+  document.querySelector('#app-ristoratore .nav-item[data-page="rist-ordini"]')?.classList.add('active');
+  document.getElementById('page-rist-ordini')?.classList.remove('hidden');
+  if ($('#rist-page-title')) $('#rist-page-title').textContent = 'Ordini';
+  applyCassaNavRestrictions(true);
   toast('Accesso cassa: ' + (u.nome || u.email));
+
+  const r = await getRistorante(ristId);
+  if (!r) {
+    toast('Ristorante della cassa non trovato');
+    return false;
+  }
+  currentRistorante = r;
+  $('#rist-nome-sidebar').textContent = (r.nome || 'Ristorante') + ' · Cassa';
+  try { updateRistSidebarAbbonamento(r); } catch (e) {}
+  applyCassaNavRestrictions(true);
+  renderOrdiniKanban({ force: true }).then(() => startOrdiniWatch()).catch(() => startOrdiniWatch());
   return true;
+}
+
+async function _enterByUtenteRow(u, email) {
+  if (!u) return false;
+  if (u.ruolo === 'admin') return await enterAsAdmin(u.email || email);
+  if (u.ruolo === 'ristoratore') return await enterRistoratoreByEmail(u.email || email);
+  if (u.ruolo === 'cassa') return await enterAsCassa(u);
+  return false;
 }
 
 async function doLogin(email, pass) {
@@ -891,102 +929,78 @@ async function doLogin(email, pass) {
     toast('Inserisci la password');
     return false;
   }
-    // ========== 0) Supabase Authentication ==========
-  if (sb && email) {
-    try {
-      const { data: auth, error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
-      if (!authErr && auth?.user) {
-        const { data: u } = await sb.from('utenti').select('*').eq('email', email).maybeSingle();
-        if (u && u.ruolo === 'admin') return await enterAsAdmin(u.email);
-        if (u && u.ruolo === 'ristoratore') {
-          return await enterRistoratoreByEmail(email);
-        }
-        if (u && u.ruolo === 'cassa') {
-          return await enterAsCassa(u);
-        }
-        await sb.auth.signOut();
-        toast('Utente autenticato ma senza ruolo: aggiungilo nella tabella utenti');
-        return false;
-      }
-    } catch (e) {
-      console.warn('Supabase Auth non disponibile:', e.message);
-    }
-  }
-
-  // ========== 1) API server-side /api/utenti ==========
-  try {
-    const resp = await fetch('/api/utenti', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password: pass })
-    });
-    const json = await resp.json().catch(() => null);
-    if (json && json.ok && json.user) {
-      if (json.user.ruolo === 'admin') {
-        return await enterAsAdmin(json.user.email);
-      }
-      if (json.user.ruolo === 'ristoratore') {
-        // i locali si cercano sempre per email (json.user.id è l'id dell'utente, non del ristorante)
-        return await enterRistoratoreByEmail(json.user.email);
-      }
-      if (json.user.ruolo === 'cassa') {
-        return await enterAsCassa(json.user);
-      }
-    }
-  } catch (e) {
-    console.warn('API /api/utenti non disponibile, uso fallback client:', e.message);
-  }
-
-  // ========== 2) Solo account reali (niente login admin con sola password "admin") ==========
   if (!email) {
     toast('Inserisci email e password');
     return false;
   }
-
   if (!sb) {
     toast('Configura config.js (ANON_KEY) oppure le env su Vercel');
     return false;
   }
 
+  // ========== FAST PATH: tabella utenti (1 query, senza Auth lento) ==========
   try {
-    // prima cerca in utenti (ristoratore)
-    const { data: u } = await sb
+    const { data: u, error } = await sb
       .from('utenti')
       .select('*')
       .eq('email', email)
       .eq('password_hash', pass)
       .maybeSingle();
-
-    if (u && u.ruolo === 'admin') {
-      return await enterAsAdmin(u.email);
+    if (!error && u) {
+      const ok = await _enterByUtenteRow(u, email);
+      if (ok) return true;
     }
+  } catch (e) {
+    console.warn('login utenti:', e.message || e);
+  }
 
-    if (u && u.ruolo === 'ristoratore') {
-      return await enterRistoratoreByEmail(email);
-    }
-
-    if (u && u.ruolo === 'cassa') {
-      return await enterAsCassa(u);
-    }
-
-    // poi cerca direttamente in ristoranti (compatibilità)
-    const { data: rr, error } = await sb
+  // compat: password sul ristorante
+  try {
+    const { data: rr } = await sb
       .from('ristoranti')
-      .select('id')
+      .select('id,email,nome')
       .eq('email', email)
       .eq('password', pass)
       .limit(1);
+    if (rr && rr.length) return await enterRistoratoreByEmail(email);
+  } catch (e) {}
 
-    if (error) {
-      console.error(error);
-      toast('Errore database: ' + (error.message || 'controlla config.js'));
+  // ========== Auth Supabase (solo se tabella utenti non ha match) ==========
+  try {
+    const { data: auth, error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (!authErr && auth?.user) {
+      const { data: u } = await sb.from('utenti').select('*').eq('email', email).maybeSingle();
+      if (u) {
+        const ok = await _enterByUtenteRow(u, email);
+        if (ok) return true;
+      }
+      try { await sb.auth.signOut(); } catch (_) {}
+      toast('Utente autenticato ma senza ruolo in tabella utenti');
       return false;
     }
-    if (rr && rr.length) return await enterRistoratoreByEmail(email);
   } catch (e) {
-    console.error(e);
-    toast('Errore di connessione');
-    return false;
+    console.warn('Supabase Auth:', e.message || e);
+  }
+
+  // ========== API opzionale (timeout 2.5s: non bloccare se assente) ==========
+  try {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const t = ctrl ? setTimeout(() => ctrl.abort(), 2500) : null;
+    const resp = await fetch('/api/utenti', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', email, password: pass }),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+    if (t) clearTimeout(t);
+    const json = await resp.json().catch(() => null);
+    if (json && json.ok && json.user) {
+      const ok = await _enterByUtenteRow(json.user, email);
+      if (ok) return true;
+      if (json.user.ruolo === 'ristoratore') return await enterRistoratoreByEmail(json.user.email || email);
+    }
+  } catch (e) {
+    // /api assente o lenta: ignora
   }
 
   toast('Credenziali non valide');
