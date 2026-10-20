@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -604,9 +604,17 @@
       </div>
     </div>
     <div class="cliente-content">
+      <div id="cliente-main-tabs" class="cliente-main-tabs">
+        <button type="button" class="cliente-main-tab active" data-view="menu" id="tab-cliente-menu">Menu</button>
+        <button type="button" class="cliente-main-tab" data-view="premi" id="tab-cliente-premi">Premi</button>
+      </div>
       <section id="cliente-menu-view">
         <div class="cliente-categorie" id="cliente-categorie"></div>
         <div id="cliente-menu-list" class="cliente-menu-list"></div>
+      </section>
+      <section id="cliente-premi-view" class="hidden">
+        <p id="cliente-premi-intro" class="hint-inline" style="margin:0 0 12px">Premi loyalty del ristorante. Accedi alla carta per accumulare punti.</p>
+        <div id="cliente-premi-list" class="loyalty-premi-list"></div>
       </section>
       <section id="cliente-carrello-view" class="hidden">
         <h2>Cosa hai scelto</h2>
@@ -1352,7 +1360,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=8"></script>
-  <script src="script.js?v=16"></script>
+  <script src="script.js?v=17"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
