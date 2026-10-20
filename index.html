@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -291,9 +291,10 @@
 
       <section id="page-rist-menu" class="page hidden">
         <div class="toolbar" style="align-items:flex-end">
-          <div class="form-group" style="margin:0;min-width:200px">
-            <label for="menu-switcher">Menu attivo</label>
+          <div class="form-group" style="margin:0;min-width:220px">
+            <label for="menu-switcher">Menu (modifica + clienti QR)</label>
             <select id="menu-switcher"></select>
+            <small style="color:var(--muted);display:block;margin-top:4px">Il menu selezionato è quello che vedono i clienti dal QR</small>
           </div>
           <div class="search-box">
             <i class="fas fa-search"></i>
@@ -320,8 +321,12 @@
       </section>
 
       <section id="page-rist-ordini" class="page hidden">
-        <div class="toolbar" style="margin-bottom:16px">
-          <p class="hint-inline" style="margin:0">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
+        <div class="toolbar" style="margin-bottom:16px;align-items:flex-end">
+          <p class="hint-inline" style="margin:0;flex:1">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
+          <div class="form-group" style="margin:0;min-width:180px">
+            <label for="menu-pubblico-ordini">Menu clienti (QR)</label>
+            <select id="menu-pubblico-ordini"></select>
+          </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button type="button" id="btn-stampa-comande" class="btn btn-secondary">
               <i class="fas fa-print"></i> Stampa comande
@@ -1134,7 +1139,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=8"></script>
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=13"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
