@@ -63,6 +63,42 @@ function maxCassePerPiano(id) {
   return p.maxCasse;
 }
 
+function updateRistSidebarAbbonamento(r) {
+  const el = document.getElementById('rist-piano-sidebar');
+  if (!el) return;
+  const rist = r || currentRistorante;
+  if (!rist) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    return;
+  }
+  const pianoId = normalizzaPiano(rist.id_piano);
+  const piano = PIANI[pianoId] || PIANI.standard;
+  const prezzo = piano.prezzo != null ? piano.prezzo : 0;
+  const periodo = piano.periodo === 'anno' ? '/anno' : '/mese';
+  let scaduto = false;
+  if (rist.scadenza) {
+    const d = new Date(rist.scadenza);
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    if (!isNaN(d.getTime()) && d < oggi) scaduto = true;
+  }
+  el.className = 'rist-piano-badge piano-' + (scaduto ? 'scaduto' : pianoId);
+  el.classList.remove('hidden');
+  const label = scaduto
+    ? ('Scaduto · era ' + (piano.nome || pianoId))
+    : ((piano.nome || pianoId) + ' · €' + prezzo + periodo);
+  el.innerHTML = '<i class="fas fa-crown" style="font-size:10px"></i> ' + label;
+  if (rist.scadenza && !scaduto) {
+    el.title = 'Scade il ' + formatDataItLong(rist.scadenza);
+  } else if (scaduto && rist.scadenza) {
+    el.title = 'Scaduto il ' + formatDataItLong(rist.scadenza);
+  } else {
+    el.title = 'Abbonamento ' + (piano.nome || pianoId);
+  }
+}
+
+
 const LANGS = ['it', 'en', 'es', 'de', 'fr', 'zh'];
 let clienteLang = 'it';
 let currentMenuId = null;
@@ -713,6 +749,7 @@ async function switchRistorante(id) {
   const sess = loadSession();
   if (sess && sess.role === 'ristoratore') { sess.ristoranteId = id; saveSession(sess); }
   $('#rist-nome-sidebar').textContent = r.nome || 'Ristorante';
+  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
   await renderRistAll();
   startOrdiniWatch();
   toast('Locale: ' + (r.nome || ''));
@@ -733,6 +770,8 @@ async function enterAsRistoratore(r) {
   $('#login-screen').classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
   $('#rist-nome-sidebar').textContent = (currentRistorante && currentRistorante.nome) || r.nome || 'Ristorante';
+  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
+  updateRistSidebarAbbonamento(currentRistorante || r);
   $('#rist-user-email').textContent = r.email;
   try { localStorage.setItem(lastRistKey(r.email), currentUser.ristoranteId); } catch (e) {}
   applyCassaNavRestrictions(false);
@@ -792,6 +831,8 @@ async function enterAsCassa(u) {
   $('#app-cliente')?.classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
   $('#rist-nome-sidebar').textContent = (r.nome || 'Ristorante') + ' · Cassa';
+  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
+  updateRistSidebarAbbonamento(r);
   $('#rist-user-email').textContent = u.email;
   applyCassaNavRestrictions(true);
 
@@ -1554,6 +1595,7 @@ $('#form-admin-menu-login')?.addEventListener('submit', async (e) => {
   $('#app-admin').classList.add('hidden');
   $('#app-ristoratore').classList.remove('hidden');
   $('#rist-nome-sidebar').textContent = r.nome + ' (admin)';
+  try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
   $('#rist-user-email').textContent = 'Gestione menu';
   $$('#app-ristoratore .nav-item').forEach(n => n.classList.remove('active'));
   $$('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
