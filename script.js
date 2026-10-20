@@ -3559,16 +3559,36 @@ function showClienteView(view) {
   });
   $(`#cliente-${view}-view`)?.classList.remove('hidden');
 
-  // tabs Menu / Premi solo nelle viste menu|premi
-  const tabs = document.getElementById('cliente-main-tabs');
-  if (tabs) {
-    const showTabs = (view === 'menu' || view === 'premi');
-    tabs.classList.toggle('hidden', !showTabs);
-    tabs.querySelectorAll('.cliente-main-tab').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.view === view);
-    });
+  updateClienteLoyaltyTabs(view);
+  if (view === 'premi') {
+    if (!currentLoyalty) {
+      // premi solo per chi ha fatto accesso
+      showClienteView('menu');
+      renderClienteMenu();
+      return;
+    }
+    renderClientePremi();
   }
-  if (view === 'premi') renderClientePremi();
+}
+
+/** Mostra tab Premi solo se loggato in loyalty; nasconde i tab fuori da menu/premi. */
+function updateClienteLoyaltyTabs(view) {
+  const tabs = document.getElementById('cliente-main-tabs');
+  const tabPremi = document.getElementById('tab-cliente-premi');
+  if (!tabs) return;
+  const onMenuArea = (view === 'menu' || view === 'premi');
+  const logged = !!currentLoyalty;
+  // se non loggato: nascondi tutta la barra tab (solo menu, senza tab Premi)
+  if (!logged) {
+    tabs.classList.add('hidden');
+    if (tabPremi) tabPremi.classList.add('hidden');
+    return;
+  }
+  tabs.classList.toggle('hidden', !onMenuArea);
+  if (tabPremi) tabPremi.classList.remove('hidden');
+  tabs.querySelectorAll('.cliente-main-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
 }
 
 async function renderClientePremi() {
@@ -3606,6 +3626,10 @@ document.getElementById('tab-cliente-menu')?.addEventListener('click', () => {
   renderClienteMenu();
 });
 document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
+  if (!currentLoyalty) {
+    toast('Accedi alla loyalty card per vedere i premi');
+    return;
+  }
   showClienteView('premi');
 });
 
@@ -5752,12 +5776,17 @@ function applyLoyaltyBar() {
   if (!bar) return;
   if (!currentLoyalty) {
     bar.classList.add('hidden');
+    updateClienteLoyaltyTabs('menu');
     return;
   }
   bar.classList.remove('hidden');
   const nome = (currentLoyalty.nome || '') + ' ' + (currentLoyalty.cognome || '');
   document.getElementById('loy-bar-nome').textContent = nome.trim() || currentLoyalty.email;
   document.getElementById('loy-bar-punti').textContent = (currentLoyalty.punti || 0) + ' pt';
+  updateClienteLoyaltyTabs(
+    document.getElementById('cliente-premi-view') && !document.getElementById('cliente-premi-view').classList.contains('hidden')
+      ? 'premi' : 'menu'
+  );
 }
 
 function setLoyaltySession(member) {
