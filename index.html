@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -217,6 +217,7 @@
         <i class="fas fa-store"></i>
         <span id="rist-nome-sidebar">Ristorante</span>
       </div>
+      <div id="rist-piano-sidebar" class="rist-piano-badge hidden"></div>
       <div id="rist-switcher-wrap" class="rist-switcher hidden">
         <label for="rist-switcher">I tuoi locali</label>
         <select id="rist-switcher"></select>
@@ -226,6 +227,7 @@
         <a href="#" class="nav-item" data-page="rist-menu"><i class="fas fa-book-open"></i> <span>Menu</span></a>
         <a href="#" class="nav-item" data-page="rist-ordini"><i class="fas fa-clipboard-list"></i> <span>Ordini</span> <span id="badge-ordini" class="nav-badge hidden">0</span></a>
         <a href="#" class="nav-item" data-page="rist-tavoli"><i class="fas fa-qrcode"></i> <span>Tavoli &amp; QR</span></a>
+        <a href="#" class="nav-item" data-page="rist-loyalty"><i class="fas fa-gift"></i> <span>Loyalty card</span></a>
         <a href="#" class="nav-item" data-page="rist-chiusura"><i class="fas fa-cash-register"></i> <span>Chiusura fiscale</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -350,6 +352,62 @@
         <div id="tavoli-grid" class="tavoli-grid" style="margin-top:24px"></div>
       </section>
     
+
+      <section id="page-rist-loyalty" class="page hidden">
+        <div class="toolbar" style="margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <p class="hint-inline" style="margin:0;flex:1">Programma fidelity: punti, premi e tesserati.</p>
+          <button type="button" id="btn-loy-cassa" class="btn btn-secondary">
+            <i class="fas fa-search"></i> Cerca / registra in cassa
+          </button>
+        </div>
+        <div class="cards" style="margin-bottom:18px">
+          <div class="card" style="flex-direction:column;align-items:stretch;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="card-icon purple"><i class="fas fa-coins"></i></div>
+              <div><h3 style="font-size:16px;margin:0">Proporzione punti</h3><p style="margin:0">Quanto vale 1 punto</p></div>
+            </div>
+            <div class="form-row" style="padding:0">
+              <div class="form-group" style="margin:0">
+                <label>Euro</label>
+                <input type="number" id="loy-euro" min="0.5" step="0.5" value="1" />
+              </div>
+              <div class="form-group" style="margin:0">
+                <label>Punti</label>
+                <input type="number" id="loy-punti" min="0" step="1" value="1" />
+              </div>
+            </div>
+            <p id="loy-config-preview" style="color:var(--muted);font-size:13px;margin:0"></p>
+            <button type="button" id="btn-salva-loy-config" class="btn btn-primary btn-sm" style="align-self:flex-start">
+              <i class="fas fa-save"></i> Salva proporzione
+            </button>
+          </div>
+        </div>
+        <div class="recent-box" style="margin-bottom:18px">
+          <div class="toolbar" style="margin-bottom:12px">
+            <h3 style="margin:0">Premi</h3>
+            <button type="button" id="btn-nuovo-premio" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nuovo premio</button>
+          </div>
+          <div id="loyalty-premi-list"></div>
+        </div>
+        <div class="recent-box">
+          <div class="toolbar" style="margin-bottom:12px">
+            <h3 style="margin:0">Tesserati</h3>
+            <div class="search-box" style="max-width:280px">
+              <i class="fas fa-search"></i>
+              <input type="text" id="loy-search-admin" placeholder="Cerca nome, email o codice..." />
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>Nome</th><th>Email</th><th>Codice</th><th>Punti</th><th>Azioni</th></tr>
+              </thead>
+              <tbody id="loyalty-membri-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="page-rist-chiusura" class="page hidden">
         <div class="toolbar" style="margin-bottom:18px">
           <div class="form-group" style="margin:0;min-width:200px">
@@ -431,12 +489,77 @@
   </div>
 
   <div id="app-cliente" class="app-cliente hidden">
+    <!-- Gate loyalty: ospite / accedi / registrati -->
+    <div id="cliente-auth-gate" class="cliente-auth-gate hidden">
+      <div class="cliente-auth-card">
+        <div class="logo" style="margin-bottom:18px">
+          <i class="fas fa-utensils"></i>
+          <h1 id="cliente-auth-rist-nome">Benvenuto</h1>
+          <p>Tavolo <strong id="cliente-auth-tavolo">1</strong></p>
+        </div>
+        <p style="color:var(--muted);text-align:center;margin-bottom:18px;font-size:14px">
+          Accedi alla loyalty card per accumulare punti, oppure continua come ospite.
+        </p>
+        <button type="button" id="btn-auth-ospite" class="btn btn-primary btn-block" style="margin-bottom:10px">
+          <i class="fas fa-user"></i> Continua come ospite
+        </button>
+        <button type="button" id="btn-auth-login" class="btn btn-secondary btn-block" style="margin-bottom:10px">
+          <i class="fas fa-sign-in-alt"></i> Accedi
+        </button>
+        <button type="button" id="btn-auth-register" class="btn btn-secondary btn-block">
+          <i class="fas fa-id-card"></i> Registrati e attiva card
+        </button>
+      </div>
+    </div>
+    <div id="cliente-auth-form" class="cliente-auth-gate hidden">
+      <div class="cliente-auth-card">
+        <button type="button" id="btn-auth-back" class="btn-back"><i class="fas fa-arrow-left"></i> Indietro</button>
+        <h2 id="cliente-auth-form-title" style="margin-bottom:16px">Accedi</h2>
+        <form id="form-cliente-auth">
+          <input type="hidden" id="auth-mode" value="login" />
+          <div id="auth-register-fields" class="hidden">
+            <div class="form-row" style="padding:0">
+              <div class="form-group">
+                <label>Nome *</label>
+                <input type="text" id="auth-nome" maxlength="60" />
+              </div>
+              <div class="form-group">
+                <label>Cognome *</label>
+                <input type="text" id="auth-cognome" maxlength="60" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Telefono</label>
+              <input type="text" id="auth-tel" maxlength="20" placeholder="Opzionale" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" id="auth-email" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label>Password *</label>
+            <input type="password" id="auth-password" required minlength="4" autocomplete="current-password" />
+          </div>
+          <button type="submit" id="btn-auth-submit" class="btn btn-primary btn-block">Accedi</button>
+        </form>
+      </div>
+    </div>
+
     <header class="cliente-header">
       <div>
         <h1 id="cliente-rist-nome">Ristorante</h1>
         <p>Tavolo <strong id="cliente-tavolo-num">1</strong></p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
+        <select id="cliente-lang" title="Lingua" style="width:auto;padding:6px 8px;font-size:13px;min-width:0">
+          <option value="it">IT</option>
+          <option value="en">EN</option>
+          <option value="es">ES</option>
+          <option value="de">DE</option>
+          <option value="fr">FR</option>
+          <option value="zh">中文</option>
+        </select>
         <button id="cliente-stato-btn" class="btn btn-secondary btn-sm" style="display:none">
           <i class="fas fa-info-circle"></i> Stato ordine
         </button>
@@ -459,10 +582,35 @@
         <p class="qr-expired-hint">Gli ordini già inviati restano validi: il ristorante li vede comunque.</p>
       </div>
     </div>
+    <div id="cliente-loyalty-bar" class="cliente-loyalty-bar hidden">
+      <div class="loy-bar-info">
+        <i class="fas fa-id-card"></i>
+        <div>
+          <strong id="loy-bar-nome">—</strong>
+          <span id="loy-bar-punti">0 pt</span>
+        </div>
+      </div>
+      <div class="loy-bar-actions">
+        <button type="button" id="btn-loy-wallet" class="btn btn-secondary btn-sm" title="Wallet"><i class="fas fa-wallet"></i></button>
+        <button type="button" id="btn-loy-logout" class="btn btn-secondary btn-sm" title="Esci"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
+    </div>
     <div class="cliente-content">
+      <div id="cliente-main-tabs" class="cliente-main-tabs hidden">
+        <button type="button" class="cliente-main-tab active" id="tab-cliente-menu" data-view="menu">
+          <i class="fas fa-utensils"></i> Menu
+        </button>
+        <button type="button" class="cliente-main-tab" id="tab-cliente-premi" data-view="premi">
+          <i class="fas fa-gift"></i> Premi
+        </button>
+      </div>
       <section id="cliente-menu-view">
         <div class="cliente-categorie" id="cliente-categorie"></div>
         <div id="cliente-menu-list" class="cliente-menu-list"></div>
+      </section>
+      <section id="cliente-premi-view" class="hidden">
+        <p id="cliente-premi-intro" style="color:var(--muted);font-size:14px;margin-bottom:14px"></p>
+        <div id="cliente-premi-list" class="cliente-premi-list"></div>
       </section>
       <section id="cliente-carrello-view" class="hidden">
         <h2>Cosa hai scelto</h2>
@@ -1026,11 +1174,116 @@
     </div>
   </div>
 
+
+  <!-- Modal loyalty wallet -->
+  <div id="modal-loy-wallet" class="modal hidden">
+    <div class="modal-content" style="max-width:400px;text-align:center">
+      <div class="modal-header">
+        <h3>La tua loyalty card</h3>
+        <button class="close-modal" data-modal="modal-loy-wallet">&times;</button>
+      </div>
+      <div style="padding:20px 24px">
+        <p id="loy-wc-nome" style="font-weight:700;font-size:18px;margin-bottom:4px">—</p>
+        <p id="loy-wc-code" style="font-family:ui-monospace,monospace;color:var(--primary);margin-bottom:8px">—</p>
+        <p id="loy-wc-punti" style="margin-bottom:16px">0 punti</p>
+        <div id="loy-wc-qr" style="display:flex;justify-content:center;margin-bottom:16px"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <button type="button" id="btn-loy-copy-code" class="btn btn-secondary btn-sm"><i class="fas fa-copy"></i> Copia codice</button>
+          <button type="button" id="btn-loy-download-card" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Scarica card</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal premio -->
+  <div id="modal-premio" class="modal hidden">
+    <div class="modal-content" style="max-width:440px">
+      <div class="modal-header">
+        <h3 id="modal-premio-title">Nuovo premio</h3>
+        <button class="close-modal" data-modal="modal-premio">&times;</button>
+      </div>
+      <form id="form-premio">
+        <input type="hidden" id="premio-edit-id" />
+        <div class="form-group" style="padding:16px 24px 0">
+          <label>Nome *</label>
+          <input type="text" id="premio-nome" required maxlength="80" />
+        </div>
+        <div class="form-group" style="padding:0 24px">
+          <label>Descrizione</label>
+          <textarea id="premio-desc" rows="2" maxlength="200"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Punti richiesti *</label>
+            <input type="number" id="premio-punti" required min="1" value="100" />
+          </div>
+          <div class="form-group">
+            <label>Quantità max (0 = illimitato)</label>
+            <input type="number" id="premio-qty-max" min="0" value="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Già usati</label>
+            <input type="number" id="premio-qty-usati" min="0" value="0" />
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end">
+            <label class="check-label inline-check">
+              <input type="checkbox" id="premio-attivo" checked />
+              <span>Attivo</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal" data-modal="modal-premio">Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal cassa loyalty -->
+  <div id="modal-loy-cassa" class="modal hidden">
+    <div class="modal-content" style="max-width:480px">
+      <div class="modal-header">
+        <h3>Loyalty in cassa</h3>
+        <button class="close-modal" data-modal="modal-loy-cassa">&times;</button>
+      </div>
+      <div style="padding:16px 24px">
+        <div class="form-group">
+          <label>Cerca tesserato</label>
+          <input type="text" id="loy-cassa-q" placeholder="Nome, email o codice..." />
+        </div>
+        <div id="loy-cassa-results" style="margin-bottom:16px;max-height:180px;overflow:auto"></div>
+        <h4 style="font-size:14px;margin:0 0 10px">Premi attivi</h4>
+        <div id="loy-cassa-premi" style="margin-bottom:18px"></div>
+        <h4 style="font-size:14px;margin:0 0 10px">Registra nuova carta</h4>
+        <form id="form-loy-cassa-reg">
+          <div class="form-row" style="padding:0">
+            <div class="form-group">
+              <label>Nome *</label>
+              <input type="text" id="loy-cassa-nome" required />
+            </div>
+            <div class="form-group">
+              <label>Cognome *</label>
+              <input type="text" id="loy-cassa-cognome" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" id="loy-cassa-email" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-id-card"></i> Crea carta</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=6"></script>
-  <script src="script.js?v=6"></script>
+  <script src="config.js?v=7"></script>
+  <script src="script.js?v=7"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
