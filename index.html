@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=22" />
+  <link rel="stylesheet" href="style.css?v=6" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -137,24 +137,20 @@
             <h3>Standard</h3>
             <div class="plan-price">€159<span>/anno</span></div>
             <ul>
-              <li><i class="fas fa-check"></i> Tutte le funzionalità</li>
-              <li><i class="fas fa-check"></i> Menu multipli personalizzabili</li>
-              <li><i class="fas fa-check"></i> QR code e ordini</li>
-              <li><i class="fas fa-check"></i> Traduzioni menu (IT/EN/ES/DE/FR/ZH)</li>
+              <li><i class="fas fa-check"></i> Menu digitale + QR</li>
+              <li><i class="fas fa-check"></i> Ordini e tavoli</li>
               <li><i class="fas fa-check"></i> Max 1 cassa</li>
               <li><i class="fas fa-check"></i> Supporto email</li>
             </ul>
           </div>
           <div class="plan-card featured">
-            <div class="plan-badge">Consigliato</div>
+            <div class="plan-badge">Popolare</div>
             <h3>Pro</h3>
             <div class="plan-price">€189<span>/anno</span></div>
             <ul>
-              <li><i class="fas fa-check"></i> Tutte le funzionalità</li>
-              <li><i class="fas fa-check"></i> Menu multipli personalizzabili</li>
-              <li><i class="fas fa-check"></i> QR code e ordini</li>
-              <li><i class="fas fa-check"></i> Traduzioni menu (IT/EN/ES/DE/FR/ZH)</li>
+              <li><i class="fas fa-check"></i> Tutto Standard</li>
               <li><i class="fas fa-check"></i> Casse illimitate</li>
+              <li><i class="fas fa-check"></i> Multi-menu e report</li>
               <li><i class="fas fa-check"></i> Supporto prioritario</li>
             </ul>
           </div>
@@ -219,10 +215,7 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <i class="fas fa-store"></i>
-        <div class="sidebar-title-wrap">
-          <span id="rist-nome-sidebar">Ristorante</span>
-          <span id="rist-piano-sidebar" class="rist-piano-badge hidden"></span>
-        </div>
+        <span id="rist-nome-sidebar">Ristorante</span>
       </div>
       <div id="rist-switcher-wrap" class="rist-switcher hidden">
         <label for="rist-switcher">I tuoi locali</label>
@@ -233,7 +226,6 @@
         <a href="#" class="nav-item" data-page="rist-menu"><i class="fas fa-book-open"></i> <span>Menu</span></a>
         <a href="#" class="nav-item" data-page="rist-ordini"><i class="fas fa-clipboard-list"></i> <span>Ordini</span> <span id="badge-ordini" class="nav-badge hidden">0</span></a>
         <a href="#" class="nav-item" data-page="rist-tavoli"><i class="fas fa-qrcode"></i> <span>Tavoli &amp; QR</span></a>
-        <a href="#" class="nav-item" data-page="rist-loyalty"><i class="fas fa-id-card"></i> <span>Loyalty</span></a>
         <a href="#" class="nav-item" data-page="rist-chiusura"><i class="fas fa-cash-register"></i> <span>Chiusura fiscale</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -294,19 +286,12 @@
       </section>
 
       <section id="page-rist-menu" class="page hidden">
-        <div class="toolbar" style="align-items:flex-end">
-          <div class="form-group" style="margin:0;min-width:220px">
-            <label for="menu-switcher">Menu (modifica + clienti QR)</label>
-            <select id="menu-switcher"></select>
-            <small style="color:var(--muted);display:block;margin-top:4px">Il menu selezionato è quello che vedono i clienti dal QR</small>
-          </div>
+        <div class="toolbar">
           <div class="search-box">
             <i class="fas fa-search"></i>
             <input type="text" id="search-menu" placeholder="Cerca piatto..." />
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button type="button" id="btn-nuovo-menu" class="btn btn-secondary"><i class="fas fa-book"></i> Nuovo menu</button>
-            <button type="button" id="btn-rinomina-menu" class="btn btn-secondary"><i class="fas fa-pen"></i> Rinomina</button>
             <button id="btn-nuova-categoria" class="btn btn-secondary"><i class="fas fa-folder-plus"></i> Nuova categoria</button>
             <button id="btn-nuovo-piatto" class="btn btn-primary"><i class="fas fa-plus"></i> Nuovo piatto</button>
           </div>
@@ -325,21 +310,14 @@
       </section>
 
       <section id="page-rist-ordini" class="page hidden">
-        <div class="toolbar" style="margin-bottom:16px;align-items:flex-end">
-          <p class="hint-inline" style="margin:0;flex:1">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
-          <div class="form-group" style="margin:0;min-width:180px">
-            <label for="menu-pubblico-ordini">Menu clienti (QR)</label>
-            <select id="menu-pubblico-ordini"></select>
-          </div>
+        <div class="toolbar" style="margin-bottom:16px">
+          <p class="hint-inline" style="margin:0">Trascina le card tra le colonne o apri un ordine per aggiornarlo.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button type="button" id="btn-loy-cassa" class="btn btn-secondary">
-              <i class="fas fa-id-card"></i> Carta fedeltà
-            </button>
             <button type="button" id="btn-stampa-comande" class="btn btn-secondary">
               <i class="fas fa-print"></i> Stampa comande
             </button>
             <button type="button" id="btn-chiudi-tutto" class="btn btn-danger">
-              <i class="fas fa-lock"></i> Chiudi tutto
+              <i class="fas fa-lock"></i> Chiudi conti consegnati
             </button>
           </div>
         </div>
@@ -372,52 +350,6 @@
         <div id="tavoli-grid" class="tavoli-grid" style="margin-top:24px"></div>
       </section>
     
-      
-      <section id="page-rist-loyalty" class="page hidden">
-        <div class="loyalty-admin">
-          <div class="card-box" style="margin-bottom:18px">
-            <h3><i class="fas fa-coins"></i> Conversione punti</h3>
-            <p class="hint-inline">Per ogni <strong>X euro</strong> spesi il cliente guadagna <strong>Z punti</strong>.</p>
-            <div class="form-row" style="align-items:flex-end">
-              <div class="form-group">
-                <label>Euro (X)</label>
-                <input type="number" id="loy-euro" min="0.01" step="0.01" value="1" />
-              </div>
-              <div class="form-group">
-                <label>Punti (Z)</label>
-                <input type="number" id="loy-punti" min="0" step="1" value="10" />
-              </div>
-              <button type="button" id="btn-salva-loy-config" class="btn btn-primary">Salva proporzione</button>
-            </div>
-            <p id="loy-config-preview" style="color:var(--muted);font-size:13px;margin-top:8px"></p>
-          </div>
-
-          <div class="card-box" style="margin-bottom:18px">
-            <div class="toolbar" style="margin-bottom:12px">
-              <h3 style="margin:0"><i class="fas fa-gift"></i> Premi e vantaggi</h3>
-              <button type="button" id="btn-nuovo-premio" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nuovo premio</button>
-            </div>
-            <div id="loyalty-premi-list" class="loyalty-premi-list"></div>
-          </div>
-
-          <div class="card-box">
-            <div class="toolbar" style="margin-bottom:12px">
-              <h3 style="margin:0"><i class="fas fa-users"></i> Tesserati</h3>
-              <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="loy-search-admin" placeholder="Cerca nome, email..." />
-              </div>
-            </div>
-            <div class="table-wrapper">
-              <table>
-                <thead><tr><th>Cliente</th><th>Email</th><th>Carta</th><th>Punti</th><th>Azioni</th></tr></thead>
-                <tbody id="loyalty-membri-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="page-rist-chiusura" class="page hidden">
         <div class="toolbar" style="margin-bottom:18px">
           <div class="form-group" style="margin:0;min-width:200px">
@@ -499,88 +431,12 @@
   </div>
 
   <div id="app-cliente" class="app-cliente hidden">
-    <div id="cliente-auth-gate" class="cliente-auth-gate hidden">
-      <div class="cliente-auth-card">
-        <div class="cliente-auth-logo"><i class="fas fa-id-card"></i></div>
-        <h2 id="cliente-auth-rist-nome">Benvenuto</h2>
-        <p class="cliente-auth-sub">Tavolo <strong id="cliente-auth-tavolo">—</strong></p>
-        <p style="color:var(--muted);font-size:14px;margin:0 0 18px">Come vuoi continuare?</p>
-        <button type="button" id="btn-auth-ospite" class="btn btn-secondary btn-block">
-          <i class="fas fa-user"></i> Continua come ospite
-        </button>
-        <button type="button" id="btn-auth-login" class="btn btn-primary btn-block" style="margin-top:10px">
-          <i class="fas fa-sign-in-alt"></i> Accedi (loyalty card)
-        </button>
-        <button type="button" id="btn-auth-register" class="btn btn-primary btn-block" style="margin-top:10px">
-          <i class="fas fa-user-plus"></i> Registrati e attiva loyalty
-        </button>
-        <p class="cliente-auth-hint">Registrandoti attivi la carta fedeltà e accumuli punti a ogni ordine online.</p>
-      </div>
-    </div>
-
-    <div id="cliente-auth-form" class="cliente-auth-gate hidden">
-      <div class="cliente-auth-card">
-        <button type="button" id="btn-auth-back" class="btn-back" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Indietro</button>
-        <h2 id="cliente-auth-form-title">Accedi</h2>
-        <form id="form-cliente-auth">
-          <input type="hidden" id="auth-mode" value="login" />
-          <div class="form-group">
-            <label>Email *</label>
-            <input type="email" id="auth-email" required autocomplete="email" />
-          </div>
-          <div id="auth-register-fields" class="hidden">
-            <div class="form-row">
-              <div class="form-group">
-                <label>Nome *</label>
-                <input type="text" id="auth-nome" maxlength="60" />
-              </div>
-              <div class="form-group">
-                <label>Cognome *</label>
-                <input type="text" id="auth-cognome" maxlength="60" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Telefono</label>
-              <input type="tel" id="auth-tel" maxlength="20" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Password *</label>
-            <input type="password" id="auth-password" required minlength="4" autocomplete="current-password" />
-          </div>
-          <button type="submit" class="btn btn-primary btn-block" id="btn-auth-submit">Accedi</button>
-        </form>
-      </div>
-    </div>
-
-    <div id="cliente-loyalty-bar" class="cliente-loyalty-bar hidden">
-      <div class="loy-bar-info">
-        <i class="fas fa-id-card"></i>
-        <span id="loy-bar-nome">—</span>
-        <strong id="loy-bar-punti">0 pt</strong>
-      </div>
-      <div class="loy-bar-actions">
-        <button type="button" id="btn-loy-wallet" class="btn btn-secondary btn-sm" title="Aggiungi a Wallet">
-          <i class="fas fa-wallet"></i> Wallet
-        </button>
-        <button type="button" id="btn-loy-logout" class="btn btn-secondary btn-sm">Esci</button>
-      </div>
-    </div>
-
     <header class="cliente-header">
       <div>
         <h1 id="cliente-rist-nome">Ristorante</h1>
         <p>Tavolo <strong id="cliente-tavolo-num">1</strong></p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <select id="cliente-lang" class="cliente-lang-select" title="Language">
-          <option value="it">IT</option>
-          <option value="en">EN</option>
-          <option value="es">ES</option>
-          <option value="de">DE</option>
-          <option value="fr">FR</option>
-          <option value="zh">中文</option>
-        </select>
         <button id="cliente-stato-btn" class="btn btn-secondary btn-sm" style="display:none">
           <i class="fas fa-info-circle"></i> Stato ordine
         </button>
@@ -604,17 +460,9 @@
       </div>
     </div>
     <div class="cliente-content">
-      <div id="cliente-main-tabs" class="cliente-main-tabs">
-        <button type="button" class="cliente-main-tab active" data-view="menu" id="tab-cliente-menu">Menu</button>
-        <button type="button" class="cliente-main-tab" data-view="premi" id="tab-cliente-premi">Premi</button>
-      </div>
       <section id="cliente-menu-view">
         <div class="cliente-categorie" id="cliente-categorie"></div>
         <div id="cliente-menu-list" class="cliente-menu-list"></div>
-      </section>
-      <section id="cliente-premi-view" class="hidden">
-        <p id="cliente-premi-intro" class="hint-inline" style="margin:0 0 12px">Premi loyalty del ristorante. Accedi alla carta per accumulare punti.</p>
-        <div id="cliente-premi-list" class="loyalty-premi-list"></div>
       </section>
       <section id="cliente-carrello-view" class="hidden">
         <h2>Cosa hai scelto</h2>
@@ -773,20 +621,6 @@
             <small id="email-hint" style="display:block;margin-top:6px;color:var(--muted)"></small>
           </div>
         </div>
-        <div class="form-group" style="padding:0 24px;margin-top:4px">
-          <label>Indirizzo di fatturazione (cedente)</label>
-          <input type="text" id="indirizzo_fatturazione" maxlength="200" placeholder="Via, n., CAP, Città" />
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>P.IVA ristorante</label>
-            <input type="text" id="piva_rist" maxlength="11" inputmode="numeric" placeholder="11 cifre" />
-          </div>
-          <div class="form-group">
-            <label>PEC ristorante</label>
-            <input type="email" id="pec_rist" maxlength="120" placeholder="es. info@pec-ristorante.it" />
-          </div>
-        </div>
         <div class="form-row">
           <div class="form-group">
             <label>Password *</label>
@@ -822,33 +656,15 @@
           </select>
           <small style="color:var(--muted)">Il cliente vedrà solo i metodi abilitati quando conferma l'ordine</small>
         </div>
-        <div class="form-row form-row-3">
-          <div class="form-group">
-            <label>Scadenza punti (mesi)</label>
-            <input type="number" id="punti_scadenza_mesi" min="1" max="36" step="1" placeholder="Mai" />
-            <small style="color:var(--muted)">Da 1 a 36 · vuoto = non scadono</small>
-          </div>
-          <div class="form-group">
-            <label>Tavoli iniziali</label>
-            <input type="number" id="n_tavoli" min="1" max="200" value="8" />
-            <small style="color:var(--muted)">Configurabili poi dal ristoratore</small>
-          </div>
-          <div class="form-group">
-            <label>Numero casse</label>
-            <input type="number" id="n_casse" min="0" max="20" value="1" />
-            <small style="color:var(--muted)">Standard max 1 · Pro illimitate</small>
-          </div>
-        </div>
-        <p style="padding:0 24px;margin:0 0 4px;font-size:12px;color:var(--muted)">
-          Ogni punto scade dopo il periodo indicato dal momento in cui viene guadagnato.
-          Accesso casse: email nomristorante@cassa1.it — password: cassa123
-        </p>
         <div class="form-group" style="padding:0 24px;margin-top:8px">
-          <label class="check-label">
-            <input type="checkbox" id="fidelity_enabled" checked />
-            Aderisce al programma fidelity (loyalty card)
-          </label>
-          <small style="color:var(--muted);display:block;margin-top:6px">Se disattivo, clienti e casse non vedono registrazione/premi. Modificabile in seguito.</small>
+          <label>Numero tavoli iniziale</label>
+          <input type="number" id="n_tavoli" min="1" max="200" value="8" />
+          <small style="color:var(--muted)">Il ristoratore potrà poi configurare posti e tipo di ogni tavolo</small>
+        </div>
+        <div class="form-group" style="padding:0 24px;margin-top:8px">
+          <label>Numero casse</label>
+          <input type="number" id="n_casse" min="0" max="20" value="1" />
+          <small style="color:var(--muted)">Verranno create automaticamente le email cassa (es. nomristorante@cassa1.it). Password predefinita: cassa123</small>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary close-modal" data-modal="modal-ristorante">Annulla</button>
@@ -871,19 +687,8 @@
           <input type="text" id="piatto-nome" required maxlength="80" />
         </div>
         <div class="form-group" style="padding:0 24px">
-          <label>Descrizione (italiano)</label>
+          <label>Descrizione</label>
           <textarea id="piatto-desc" rows="2" maxlength="200" class="auto-resize"></textarea>
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Traduzioni nome e descrizione</label>
-          <div class="traduzioni-box" id="piatto-traduzioni">
-            <div class="trad-row" data-lang="en"><span class="trad-lang">EN</span><input type="text" id="piatto-nome-en" placeholder="Name" /><input type="text" id="piatto-desc-en" placeholder="Description" /></div>
-            <div class="trad-row" data-lang="es"><span class="trad-lang">ES</span><input type="text" id="piatto-nome-es" placeholder="Nombre" /><input type="text" id="piatto-desc-es" placeholder="Descripción" /></div>
-            <div class="trad-row" data-lang="de"><span class="trad-lang">DE</span><input type="text" id="piatto-nome-de" placeholder="Name" /><input type="text" id="piatto-desc-de" placeholder="Beschreibung" /></div>
-            <div class="trad-row" data-lang="fr"><span class="trad-lang">FR</span><input type="text" id="piatto-nome-fr" placeholder="Nom" /><input type="text" id="piatto-desc-fr" placeholder="Description" /></div>
-            <div class="trad-row" data-lang="zh"><span class="trad-lang">ZH</span><input type="text" id="piatto-nome-zh" placeholder="名称" /><input type="text" id="piatto-desc-zh" placeholder="描述" /></div>
-          </div>
-          <small style="color:var(--muted)">Opzionale: se vuoto, al cliente resta l’italiano</small>
         </div>
         <div class="form-group" style="padding:0 24px">
           <label>Immagine del piatto</label>
@@ -908,20 +713,9 @@
             <select id="piatto-categoria" required></select>
           </div>
           <div class="form-group">
-            <label>Prezzo (€) IVA inclusa *</label>
-            <input type="number" id="piatto-prezzo" required min="0" step="0.01" />
+            <label>Prezzo (€) *</label>
+            <input type="number" id="piatto-prezzo" required min="0" step="0.50" />
           </div>
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Aliquota IVA *</label>
-          <select id="piatto-iva" required>
-            <option value="10">10% – ristorazione / alimenti</option>
-            <option value="22">22% – ordinaria</option>
-            <option value="5">5% – ridotta</option>
-            <option value="4">4% – super ridotta</option>
-            <option value="0">0% – esente / non imponibile</option>
-          </select>
-          <small style="color:var(--muted)">Il prezzo del menu è IVA inclusa. In fattura l’imposta viene scorporata con questa aliquota.</small>
         </div>
         <div class="form-group" style="padding:0 24px">
           <label>Allergeni</label>
@@ -1157,6 +951,31 @@
     </div>
   </div>
 
+  <!-- Conferma chiusura conti consegnati -->
+  <div id="modal-chiudi-conti" class="modal hidden">
+    <div class="modal-content" style="max-width:440px">
+      <div class="modal-header">
+        <h3><i class="fas fa-lock" style="color:var(--danger);margin-right:8px"></i> Chiudi conti consegnati</h3>
+        <button type="button" class="close-modal" data-modal="modal-chiudi-conti" id="btn-chiudi-conti-x">&times;</button>
+      </div>
+      <div class="conferma-stato-body">
+        <p id="chiudi-conti-msg">Stai per chiudere <strong id="chiudi-conti-n">0</strong> conti.</p>
+        <div class="chiudi-conti-box">
+          <div class="chiudi-conti-row"><span>Stato richiesto</span><strong>Consegnato</strong></div>
+          <div class="chiudi-conti-row"><span>Pagamento</span><strong>Pagato</strong></div>
+          <div class="chiudi-conti-row"><span>Dopo la chiusura</span><strong>Stato → Chiuso</strong></div>
+        </div>
+        <p class="conferma-stato-hint">Non verranno toccati ordini nuovi, in preparazione, pronti o non pagati.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-chiudi-conti-no">Annulla</button>
+        <button type="button" class="btn btn-danger" id="btn-chiudi-conti-si">
+          <i class="fas fa-lock"></i> Conferma chiusura
+        </button>
+      </div>
+    </div>
+  </div>
+
 
   <div id="modal-chiusura-fiscale" class="modal hidden">
     <div class="modal-content" style="max-width:460px">
@@ -1182,212 +1001,11 @@
     </div>
   </div>
 
-  <!-- Modal fattura -->
-  <div id="modal-fattura" class="modal hidden">
-    <div class="modal-content" style="max-width:520px">
-      <div class="modal-header">
-        <h3><i class="fas fa-file-invoice" style="color:var(--primary);margin-right:8px"></i> Emetti fattura</h3>
-        <button type="button" class="close-modal" data-modal="modal-fattura" id="btn-fattura-x">&times;</button>
-      </div>
-      <div class="fattura-body">
-        <input type="hidden" id="fattura-ordine-id" />
-        <p class="fattura-meta" id="fattura-meta"></p>
-        <div class="fattura-tipo-tabs">
-          <button type="button" class="fattura-tipo-btn active" data-tipo="pf">Persona fisica</button>
-          <button type="button" class="fattura-tipo-btn" data-tipo="pg">Persona giuridica</button>
-        </div>
-
-        <div id="fattura-pf" class="fattura-fields">
-          <div class="form-row" style="padding:0">
-            <div class="form-group">
-              <label>Nome *</label>
-              <input type="text" id="fat-nome" maxlength="80" autocomplete="given-name" />
-            </div>
-            <div class="form-group">
-              <label>Cognome *</label>
-              <input type="text" id="fat-cognome" maxlength="80" autocomplete="family-name" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Data di nascita *</label>
-            <input type="date" id="fat-nascita" />
-          </div>
-          <div class="form-group">
-            <label>Indirizzo di fatturazione *</label>
-            <input type="text" id="fat-indirizzo-pf" maxlength="200" placeholder="Via, n., CAP, Città" />
-          </div>
-          <div class="form-group">
-            <label>Codice fiscale *</label>
-            <input type="text" id="fat-cf" maxlength="16" placeholder="16 caratteri" style="text-transform:uppercase" />
-          </div>
-        </div>
-
-        <div id="fattura-pg" class="fattura-fields hidden">
-          <div class="form-group">
-            <label>Ragione sociale *</label>
-            <input type="text" id="fat-ragione" maxlength="120" placeholder="Nome azienda" />
-          </div>
-          <div class="form-group">
-            <label>Indirizzo di fatturazione *</label>
-            <input type="text" id="fat-indirizzo-pg" maxlength="200" placeholder="Via, n., CAP, Città" />
-          </div>
-          <div class="form-group">
-            <label>Partita IVA *</label>
-            <input type="text" id="fat-piva" maxlength="11" inputmode="numeric" placeholder="11 cifre" />
-          </div>
-          <div class="form-row" style="padding:0">
-            <div class="form-group">
-              <label>PEC</label>
-              <input type="email" id="fat-pec" maxlength="120" placeholder="es. azienda@pec.it" />
-            </div>
-            <div class="form-group">
-              <label>Codice destinatario (SDI)</label>
-              <input type="text" id="fat-sdi" maxlength="7" placeholder="7 caratteri" style="text-transform:uppercase" />
-            </div>
-          </div>
-          <p class="fattura-hint">Serve almeno uno tra PEC e codice destinatario (puoi inserirli entrambi).</p>
-        </div>
-
-        <label class="check-label" style="margin-top:8px">
-          <input type="checkbox" id="fattura-stampa" checked />
-          <span>Stampa documento dopo il salvataggio</span>
-        </label>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btn-fattura-annulla">Annulla</button>
-        <button type="button" class="btn btn-primary" id="btn-fattura-ok">
-          <i class="fas fa-file-invoice"></i> Emetti fattura
-        </button>
-      </div>
-    </div>
-  </div>
-
-
-  <div id="modal-menu-nome" class="modal hidden">
-    <div class="modal-content" style="max-width:400px">
-      <div class="modal-header">
-        <h3 id="modal-menu-nome-title">Nuovo menu</h3>
-        <button class="close-modal" data-modal="modal-menu-nome">&times;</button>
-      </div>
-      <form id="form-menu-nome">
-        <input type="hidden" id="menu-nome-mode" value="new" />
-        <div class="form-group" style="padding:16px 24px">
-          <label>Nome menu *</label>
-          <input type="text" id="menu-nome-input" required maxlength="60" placeholder="es. Pranzo, Cena, Estivo..." />
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary close-modal" data-modal="modal-menu-nome">Annulla</button>
-          <button type="submit" class="btn btn-primary">Salva</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="modal-premio" class="modal hidden">
-    <div class="modal-content" style="max-width:440px">
-      <div class="modal-header">
-        <h3 id="modal-premio-title">Nuovo premio</h3>
-        <button class="close-modal" data-modal="modal-premio">&times;</button>
-      </div>
-      <form id="form-premio">
-        <input type="hidden" id="premio-edit-id" />
-        <div class="form-group" style="padding:0 24px;margin-top:16px">
-          <label>Nome premio *</label>
-          <input type="text" id="premio-nome" required maxlength="80" />
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Descrizione</label>
-          <textarea id="premio-desc" rows="2" maxlength="200"></textarea>
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Punti richiesti *</label>
-          <input type="number" id="premio-punti" min="1" step="1" required value="100" />
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Quantità massima disponibile</label>
-          <input type="number" id="premio-qty-max" min="0" step="1" value="0" />
-          <small style="color:var(--muted)">0 = illimitata. Visibile solo a ristoratore/cassa, non al cliente. A esaurimento: «premio terminato».</small>
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label>Già riscattati (contatore)</label>
-          <input type="number" id="premio-qty-usati" min="0" step="1" value="0" />
-          <small style="color:var(--muted)">Solo staff. Si incrementa quando un cliente ordina il premio.</small>
-        </div>
-        <div class="form-group" style="padding:0 24px">
-          <label class="check-label"><input type="checkbox" id="premio-attivo" checked /> Attivo</label>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary close-modal" data-modal="modal-premio">Annulla</button>
-          <button type="submit" class="btn btn-primary">Salva</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  
-  <div id="modal-loy-cassa" class="modal hidden">
-    <div class="modal-content" style="max-width:520px">
-      <div class="modal-header">
-        <h3><i class="fas fa-id-card"></i> Carta fedeltà</h3>
-        <button class="close-modal" data-modal="modal-loy-cassa">&times;</button>
-      </div>
-      <div style="padding:16px 24px">
-        <div class="form-group">
-          <label>Cerca per nome, cognome o email</label>
-          <input type="text" id="loy-cassa-q" placeholder="es. Mario Rossi oppure mario@..." />
-        </div>
-        <div id="loy-cassa-results" class="loy-cassa-results"></div>
-        <hr style="border-color:var(--border);margin:16px 0" />
-        <h4 style="margin:0 0 10px;font-size:14px">Registra nuovo cliente</h4>
-        <form id="form-loy-cassa-reg">
-          <div class="form-row">
-            <div class="form-group"><label>Nome *</label><input type="text" id="loy-cassa-nome" required /></div>
-            <div class="form-group"><label>Cognome *</label><input type="text" id="loy-cassa-cognome" required /></div>
-          </div>
-          <div class="form-group"><label>Email *</label><input type="email" id="loy-cassa-email" required /></div>
-          <button type="submit" class="btn btn-primary btn-block">Crea carta fedeltà</button>
-        </form>
-        <div style="margin-top:16px">
-          <h4 style="margin:0 0 8px;font-size:14px">Premi attivi (sola lettura)</h4>
-          <div id="loy-cassa-premi" class="loyalty-premi-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  
-  <div id="modal-loy-wallet" class="modal hidden">
-    <div class="modal-content" style="max-width:400px">
-      <div class="modal-header">
-        <h3>La tua loyalty card</h3>
-        <button class="close-modal" data-modal="modal-loy-wallet">&times;</button>
-      </div>
-      <div style="padding:20px 24px;text-align:center">
-        <div id="loy-wallet-card" class="loy-wallet-card">
-          <div class="loy-wc-brand">MenuPro Loyalty</div>
-          <div class="loy-wc-nome" id="loy-wc-nome">—</div>
-          <div class="loy-wc-code" id="loy-wc-code">—</div>
-          <div class="loy-wc-punti" id="loy-wc-punti">0 punti</div>
-        </div>
-        <div id="loy-wc-qr" style="margin:12px 0;display:flex;justify-content:center"></div>
-        <p style="font-size:13px;color:var(--muted);margin:10px 0 14px;line-height:1.45">
-          Salva la card come immagine o copia il codice da mostrare in cassa.
-        </p>
-        <button type="button" id="btn-loy-download-card" class="btn btn-primary btn-block">
-          <i class="fas fa-download"></i> Scarica card PNG
-        </button>
-        <button type="button" id="btn-loy-copy-code" class="btn btn-secondary btn-block" style="margin-top:8px">
-          <i class="fas fa-copy"></i> Copia codice carta
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=8"></script>
-  <script src="script.js?v=22"></script>
+  <script src="config.js?v=6"></script>
+  <script src="script.js?v=6"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
