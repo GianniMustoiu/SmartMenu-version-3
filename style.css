@@ -293,7 +293,8 @@ td.actions .btn { margin-right: 4px; }
   display: inline-block; padding: 3px 10px; border-radius: 99px;
   font-size: 12px; font-weight: 600; text-transform: capitalize; white-space: nowrap;
 }
-.badge-base { background: rgba(100,116,139,.22); color: #94a3b8; }
+.badge-base,
+.badge-standard { background: rgba(100,116,139,.22); color: #94a3b8; }
 .badge-pro { background: rgba(59,130,246,.2); color: #60a5fa; }
 .badge-enterprise { background: rgba(129,140,248,.22); color: #a5b4fc; }
 
@@ -623,153 +624,99 @@ body.cliente-night { background: #0a0f1c; }
 .conferma-stato-body p {
   margin: 0 0 10px;
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 .conferma-stato-hint {
   color: var(--muted);
   font-size: 13px !important;
-  line-height: 1.5 !important;
-}
-.conferma-stato-hint.hidden { display: none !important; }
-#modal-conferma-stato .modal-footer .btn-danger {
-  background: rgba(239, 68, 68, .14);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, .35);
-}
-#modal-conferma-stato .modal-footer .btn-danger:hover {
-  background: var(--danger);
-  color: #fff;
 }
 
 /* =====================================================
-   STAMPA COMANDE / RICEVUTA
+   STAMPA COMANDE / SCONTRINO (una comanda = un ticket)
    ===================================================== */
 @media print {
   body * { visibility: hidden !important; }
   #print-area, #print-area * { visibility: visible !important; }
   #print-area {
-    position: absolute; left: 0; top: 0;
-    width: 72mm; max-width: 72mm;
-    background: #fff; color: #000; padding: 2mm;
+    position: absolute; left: 0; top: 0; width: 100%;
+    background: #fff; color: #000; padding: 0; margin: 0;
   }
-  /* margini minimi: scontrini tagliabili */
-  @page { margin: 4mm; size: auto; }
+  .comanda-ticket.scontrino {
+    page-break-after: always;
+    page-break-inside: avoid;
+    width: 72mm;
+    max-width: 72mm;
+    margin: 0 auto 0;
+    padding: 4mm 3mm 8mm;
+    border: none;
+    box-shadow: none;
+  }
+  .comanda-ticket.scontrino:last-child {
+    page-break-after: auto;
+  }
+  @page {
+    size: 80mm auto;
+    margin: 2mm;
+  }
 }
 #print-area { display: none; }
 #print-area.printing { display: block; }
 
-/* Scontrino comanda: formato stretto tipo ricevuta termica, una per ordine */
-.comanda-ticket {
+.comanda-ticket,
+.comanda-ticket.scontrino {
   width: 72mm;
   max-width: 100%;
-  margin: 0 auto 6mm;
-  padding: 0;
+  margin: 0 auto 12px;
+  padding: 10px 12px;
+  border: 1px dashed #999;
   page-break-inside: avoid;
   page-break-after: always;
-  break-after: page;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
   color: #111;
   background: #fff;
+  box-sizing: border-box;
 }
-.comanda-ticket:last-child {
-  page-break-after: auto;
-  break-after: auto;
-}
-.comanda-cut {
-  text-align: center;
-  font-size: 9px;
-  color: #888;
-  letter-spacing: 0.5px;
-  padding: 4px 0 6px;
-  border-bottom: 1px dashed #999;
-  margin-bottom: 6px;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-.comanda-body {
-  border: 1px solid #222;
-  padding: 8px 10px 10px;
-}
-.comanda-brand {
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 2px;
-}
-.comanda-title {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  margin-bottom: 6px;
-}
-.comanda-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 2px;
-}
-.comanda-tavolo { font-size: 14px; }
-.comanda-codice { font-size: 12px; }
-.comanda-ticket .meta {
-  color: #333;
-  font-size: 10px;
-  margin: 0 0 1px;
-}
-.comanda-sep {
-  text-align: center;
-  color: #666;
-  font-size: 10px;
-  margin: 4px 0;
-  letter-spacing: 1px;
-}
-.comanda-ticket ul { list-style: none; padding: 0; margin: 0; }
-.comanda-ticket li {
-  padding: 2px 0;
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  border-bottom: none;
-}
-.comanda-ticket .cqty {
-  font-weight: 700;
-  min-width: 1.6em;
-  flex-shrink: 0;
-}
-.comanda-ticket .cname { flex: 1; }
-.comanda-ticket .note {
-  margin-top: 4px;
-  font-style: italic;
-  font-size: 10px;
-  border-top: 1px dotted #aaa;
-  padding-top: 4px;
-}
-.comanda-ticket .tot {
-  margin-top: 2px;
-  font-weight: 700;
-  font-size: 13px;
-  text-align: right;
-}
+.comanda-ticket.scontrino:last-child { page-break-after: auto; }
 
-@media print {
-  #print-area {
-    width: 72mm;
-    max-width: 72mm;
-    margin: 0;
-    padding: 2mm;
-  }
-  .comanda-ticket {
-    width: 68mm;
-    margin: 0 0 0;
-    box-shadow: none;
-  }
+.scontrino-head { text-align: center; margin-bottom: 4px; }
+.scontrino-nome { font-weight: 700; font-size: 13px; text-transform: uppercase; }
+.scontrino-tipo { font-size: 11px; letter-spacing: 0.06em; margin-top: 2px; }
+.scontrino-sep {
+  text-align: center; color: #555; font-size: 11px;
+  margin: 4px 0; white-space: nowrap; overflow: hidden;
 }
+.scontrino-meta { font-size: 11px; margin-bottom: 2px; }
+.scontrino-meta div { margin: 1px 0; }
+.scontrino-items { margin: 4px 0; }
+.scontrino-riga {
+  display: flex; gap: 6px; padding: 2px 0;
+  border-bottom: 1px dotted #ddd; font-size: 12px;
+}
+.scontrino-riga .sq { font-weight: 700; min-width: 1.6em; flex-shrink: 0; }
+.scontrino-riga .sn { flex: 1; }
+.scontrino-note {
+  margin-top: 6px; font-size: 11px; font-style: italic;
+  border-top: 1px dashed #aaa; padding-top: 4px;
+}
+.scontrino-tot {
+  margin-top: 6px; font-weight: 700; font-size: 13px; text-align: right;
+}
+.scontrino-foot { text-align: center; margin-top: 6px; font-size: 11px; letter-spacing: 0.1em; }
+
+/* Modal chiudi conti consegnati */
+.chiudi-conti-box {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin: 12px 0;
+}
+.chiudi-conti-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 6px 0; font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.chiudi-conti-row:last-child { border-bottom: none; }
+.chiudi-conti-row span { color: var(--muted); }
 
 .ricevuta-download-card {
   max-width: 420px;
@@ -921,325 +868,4 @@ html.qr-entry #network-status {
 }
 .chiusura-modal-note {
   font-size: 12px; color: var(--muted); margin: 0 0 4px; line-height: 1.45;
-}
-
-
-/* =====================================================
-   FATTURA
-   ===================================================== */
-.fattura-body {
-  padding: 18px 24px 8px;
-}
-.fattura-meta {
-  color: var(--muted); font-size: 13px; margin: 0 0 14px;
-}
-.fattura-tipo-tabs {
-  display: flex; gap: 8px; margin-bottom: 16px;
-  background: var(--bg-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 4px;
-}
-.fattura-tipo-btn {
-  flex: 1; border: none; background: transparent; color: var(--muted);
-  padding: 9px 12px; border-radius: 8px; font-weight: 600; font-size: 13px;
-  cursor: pointer;
-}
-.fattura-tipo-btn.active {
-  background: var(--primary); color: #fff;
-}
-.fattura-fields .form-group { margin-bottom: 12px; }
-.fattura-hint {
-  font-size: 12px; color: var(--muted); margin: 0 0 8px; line-height: 1.45;
-}
-
-/* Documento fattura – A4 centrato */
-.fattura-doc {
-  width: 210mm;
-  max-width: 100%;
-  min-height: 297mm;
-  margin: 0 auto;
-  padding: 18mm 16mm;
-  box-sizing: border-box;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #111;
-  background: #fff;
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-.fattura-doc .fd-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  border-bottom: 2px solid #111;
-  padding-bottom: 14px;
-  margin-bottom: 18px;
-}
-.fattura-doc .fd-doc-title {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  margin: 0;
-  text-align: left;
-}
-.fattura-doc .fd-doc-num {
-  text-align: right;
-  font-size: 13px;
-  line-height: 1.55;
-}
-.fattura-doc .fd-doc-num strong { font-size: 16px; }
-.fattura-doc .fd-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.fattura-doc .fd-box {
-  border: 1px solid #bbb;
-  border-radius: 6px;
-  padding: 12px 14px;
-  min-height: 120px;
-}
-.fattura-doc .fd-box h3 {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: #555;
-  margin: 0 0 8px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 4px;
-}
-.fattura-doc table.fd-lines {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0 0 16px;
-}
-.fattura-doc table.fd-lines th {
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  padding: 8px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .03em;
-  color: #333;
-  text-align: left;
-}
-.fattura-doc table.fd-lines td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  vertical-align: top;
-}
-.fattura-doc table.fd-lines .num { text-align: right; white-space: nowrap; }
-.fattura-doc table.fd-lines .ctr { text-align: center; }
-.fattura-doc .fd-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  margin-top: 8px;
-}
-.fattura-doc .fd-riepilogo { flex: 1; }
-.fattura-doc table.fd-iva {
-  width: 100%;
-  max-width: 340px;
-  border-collapse: collapse;
-}
-.fattura-doc table.fd-iva th,
-.fattura-doc table.fd-iva td {
-  border: 1px solid #ccc;
-  padding: 7px 8px;
-  font-size: 12px;
-}
-.fattura-doc table.fd-iva th {
-  background: #f0f0f0;
-  font-size: 10px;
-  text-transform: uppercase;
-  text-align: left;
-}
-.fattura-doc table.fd-iva .num { text-align: right; }
-.fattura-doc .fd-totali {
-  width: 260px;
-  border: 1px solid #111;
-  border-radius: 6px;
-  padding: 12px 14px;
-  flex-shrink: 0;
-}
-.fattura-doc .fd-totali .row {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 13px;
-}
-.fattura-doc .fd-totali .row.grand {
-  font-size: 16px;
-  font-weight: 700;
-  border-top: 1px solid #111;
-  margin-top: 8px;
-  padding-top: 10px;
-}
-.fattura-doc .fd-note {
-  font-size: 10px;
-  color: #666;
-  margin-top: 28px;
-  line-height: 1.5;
-  border-top: 1px dashed #ccc;
-  padding-top: 12px;
-  text-align: center;
-}
-
-@media print {
-  @page {
-    size: A4 portrait;
-    margin: 12mm;
-  }
-  #print-area {
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-  }
-  .fattura-doc {
-    width: 186mm;
-    min-height: auto;
-    margin: 0 auto;
-    padding: 8mm 6mm;
-    box-shadow: none;
-  }
-}
-
-
-/* Multi-menu + traduzioni + lingua cliente */
-.traduzioni-box {
-  display: flex; flex-direction: column; gap: 8px;
-  background: var(--bg-2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px;
-}
-.trad-row {
-  display: grid; grid-template-columns: 36px 1fr 1fr; gap: 8px; align-items: center;
-}
-.trad-lang {
-  font-size: 11px; font-weight: 700; color: var(--muted); text-align: center;
-}
-.trad-row input {
-  padding: 8px 10px; font-size: 13px;
-}
-.cliente-lang-select {
-  width: auto; min-width: 64px; padding: 8px 10px;
-  background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  font-weight: 700; font-size: 13px; cursor: pointer;
-}
-.badge-standard { background: rgba(100,116,139,.22); color: #94a3b8; }
-.badge-pro { background: rgba(59,130,246,.2); color: #60a5fa; }
-
-.sidebar-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.sidebar-title-wrap #rist-nome-sidebar {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rist-piano-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  width: fit-content;
-  max-width: 100%;
-  white-space: nowrap;
-}
-.rist-piano-badge.piano-standard {
-  background: rgba(148, 163, 184, 0.2);
-  color: #94a3b8;
-}
-.rist-piano-badge.piano-pro {
-  background: rgba(59, 130, 246, 0.22);
-  color: #60a5fa;
-}
-.rist-piano-badge.piano-scaduto {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-}
-
-/* ========== LOYALTY ========== */
-.cliente-auth-gate {
-  position: fixed; inset: 0; z-index: 40;
-  background: var(--bg); display: flex; align-items: center; justify-content: center;
-  padding: 24px;
-}
-.cliente-auth-gate.hidden { display: none !important; }
-.cliente-auth-card {
-  width: 100%; max-width: 400px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 28px 24px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.25);
-}
-.cliente-auth-logo {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: rgba(59,130,246,.15); color: var(--primary);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; margin: 0 auto 14px;
-}
-.cliente-auth-card h2 { text-align: center; margin: 0 0 4px; font-size: 22px; }
-.cliente-auth-sub { text-align: center; color: var(--muted); margin: 0 0 8px; }
-.cliente-auth-hint { font-size: 12px; color: var(--muted); text-align: center; margin: 16px 0 0; line-height: 1.45; }
-.cliente-loyalty-bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 8px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.cliente-loyalty-bar.hidden { display: none !important; }
-.loy-bar-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.loy-bar-info i { color: var(--primary); }
-.loy-bar-actions { display: flex; gap: 6px; }
-.loy-wallet-card {
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-  color: #fff; border-radius: 14px; padding: 20px; text-align: left;
-  margin-bottom: 8px;
-}
-.loy-wc-brand { font-size: 11px; opacity: .85; letter-spacing: .06em; text-transform: uppercase; }
-.loy-wc-nome { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
-.loy-wc-code { font-family: ui-monospace, monospace; font-size: 14px; opacity: .95; }
-.loy-wc-punti { margin-top: 12px; font-size: 15px; font-weight: 600; }
-.loyalty-premi-list { display: flex; flex-direction: column; gap: 8px; }
-.loyalty-premio-item {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
-  background: var(--bg-2);
-}
-.loyalty-premio-item.inactive { opacity: .55; }
-.loy-cassa-results { max-height: 200px; overflow-y: auto; margin-top: 8px; }
-.loy-cassa-row {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
-}
-
-.cliente-main-tabs {
-  display: flex; gap: 8px;
-  padding: 10px 14px 16px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.cliente-main-tabs.hidden { display: none !important; }
-.cliente-main-tab {
-  flex: 1; border: 1px solid var(--border); background: var(--surface-2);
-  color: var(--muted); padding: 10px; border-radius: 10px;
-  font-weight: 600; font-size: 14px; cursor: pointer;
-}
-.cliente-main-tab.active {
-  background: var(--primary); color: #fff; border-color: var(--primary);
-}
-.cliente-main-tab.hidden { display: none !important; }
-#cliente-menu-view .cliente-categorie {
-  margin-top: 12px;
-  padding-top: 4px;
 }
