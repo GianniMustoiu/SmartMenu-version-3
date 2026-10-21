@@ -504,40 +504,74 @@ async function translateTextOnline(text, targetLang) {
 
 async function ensureMenuTranslations() {
   if (!currentRistorante || clienteLang === 'it' || !navigator.onLine) return;
-  const pubId = getMenuPubblicoId(currentRistorante);
-  const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
-  const tasks = [];
-  for (const p of menu) {
-    for (const field of ['nome', 'descrizione']) {
-      const base = p[field];
-      if (!base) continue;
-      const tr = (p.traduzioni || {})[clienteLang] || {};
-      if (tr[field]) continue;
-      if (translateCached(base, 'p:' + p.id + ':' + field)) continue;
-      const key = base + '|' + field;
-      if (_trQueue.has(key)) continue;
-      _trQueue.add(key);
-      tasks.push({ p, field, base });
-    }
-    const cat = p.categoria;
-    if (cat && !CAT_I18N_KEYS[String(cat).toLowerCase().trim()] && !translateCached(cat, 'cat:' + cat)) {
-      const key = 'cat|' + cat;
-      if (!_trQueue.has(key)) {
-        _trQueue.add(key);
-        tasks.push({ cat: true, base: cat });
+  if (_trBusy) return;
+  _trBusy = true;
+  try {
+    const pubId = getMenuPubblicoId(currentRistorante);
+    const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
+    const tasks = [];
+    const seen = new Set();
+    for (const p of menu) {
+      for (const field of ['nome', 'descrizione']) {
+        const base = p[field];
+        if (!base) continue;
+        const tr = (p.traduzioni || {})[clienteLang] || {};
+        if (tr[field]) continue;
+        if (translateCached(base)) continue;
+        const key = String(base);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tasks.push(base);
+      }
+      const cat = p.categoria;
+      if (cat && !CAT_I18N_KEYS[String(cat).toLowerCase().trim()] && !translateCached(cat)) {
+        const key = 'CAT:' + cat;
+        if (!seen.has(key)) {
+          seen.add(key);
+          tasks.push(cat);
+        }
       }
     }
-  }
-  if (!tasks.length) return;
-  // max 8 richieste per ciclo per non saturare
-  const batch = tasks.slice(0, 8);
-  for (const t of batch) {
-    await translateTextOnline(t.base, clienteLang);
-    await new Promise(r => setTimeout(r, 120));
-  }
-  // ridisegna se siamo ancora sulla vista menu
-  if (!$('#cliente-menu-view')?.classList.contains('hidden')) {
-    renderClienteMenu(true);
+    if (!tasks.length) return;
+    // mostra hint una sola volta per cambio lingua
+    const list = $('#cliente-menu-list');
+    if (list && !list.querySelector('.tr-progress')) {
+      const tip = document.createElement('p');
+      tip.className = 'tr-progress';
+      tip.style.cssText = 'color:var(--muted);text-align:center;font-size:12px;padding:8px';
+      tip.textContent = '…';
+      tip.setAttribute('data-i18n-loading', '1');
+      // testi loading localizzati
+      const loadingMsg = {
+        en: 'Translating menu…', es: 'Traduciendo el menú…', de: 'Menü wird übersetzt…',
+        fr: 'Traduction du menu…', pt: 'A traduzir o menu…', zh: '正在翻译菜单…'
+      };
+      tip.textContent = loadingMsg[clienteLang] || 'Traduzione menu in corso…';
+      list.prepend(tip);
+    }
+    // traduce tutti i testi unici (max 40 per sessione lingua, poi continua al prossimo render)
+    const batch = tasks.slice(0, 40);
+    let done = 0;
+    for (const text of batch) {
+      if (clienteLang === 'it') break;
+      await translateTextOnline(text, clienteLang);
+      done++;
+      if (done % 3 === 0) {
+        if (!$('#cliente-menu-view')?.classList.contains('hidden')) renderClienteMenu(true);
+        if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
+      }
+      await new Promise(r => setTimeout(r, 80));
+    }
+    if (!$('#cliente-menu-view')?.classList.contains('hidden')) renderClienteMenu(true);
+    if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
+    // se ne restano, programma altro giro
+    if (tasks.length > batch.length) {
+      setTimeout(() => { _trBusy = false; ensureMenuTranslations().catch(() => {}); }, 400);
+      return;
+    }
+  } finally {
+    _trBusy = false;
+    document.querySelectorAll('[data-i18n-loading]').forEach(el => el.remove());
   }
 }
 
@@ -2386,6 +2420,14 @@ $('#btn-avvia-demo')?.addEventListener('click', async () => {
 // =====================================================
 function labelStato(s) {
   const key = 'st_' + s;
+  const useClientLang = (currentUser && currentUser.role === 'cliente')
+    || document.body.classList.contains('cliente-night')
+    || (clienteLang && clienteLang !== 'it');
+  if (useClientLang && clienteLang !== 'it') {
+    const t = tUI(key);
+    if (t !== key) return t;
+  }
+  // anche in italiano esplicito da pack
   if (currentUser && currentUser.role === 'cliente') {
     const t = tUI(key);
     if (t !== key) return t;
@@ -5629,9 +5671,15 @@ function resetFatturaForm() {
 window.apriFattura = function(ordineId) {
   const o = (currentRistorante?.ordini || []).find(x => x.id === ordineId);
   if (!o) { toast('Ordine non trovato'); return; }
+  const modal = document.getElementById('modal-fattura');
+  if (!modal) {
+    toast('Modulo fattura non disponibile. Aggiorna la pagina (hard refresh).');
+    console.error('modal-fattura assente nel DOM');
+    return;
+  }
   _fatturaOrdineId = ordineId;
-  $('#fattura-ordine-id').value = ordineId;
-  $('#fattura-meta').textContent =
+  if ($('#fattura-ordine-id')) $('#fattura-ordine-id').value = ordineId;
+  if ($('#fattura-meta')) $('#fattura-meta').textContent =
     `Ordine #${o.codice || ''} · Tavolo ${o.tavolo} · Totale ${formatPrice(o.totale || 0)}`;
   resetFatturaForm();
   if (o.fattura && typeof o.fattura === 'object') {
@@ -6229,17 +6277,47 @@ document.getElementById('form-menu-nome')?.addEventListener('submit', async (e) 
   toast(mode === 'rename' ? 'Menu rinominato' : 'Menu creato: ' + nome);
 });
 
-$('#cliente-lang')?.addEventListener('change', (e) => {
+$('#cliente-lang')?.addEventListener('change', async (e) => {
   clienteLang = e.target.value || 'it';
   try { localStorage.setItem('menupro_cliente_lang', clienteLang); } catch (err) {}
+  _trBusy = false;
   applyClienteChromeI18n();
   renderClienteMenu();
   if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
   if (!$('#cliente-premi-view')?.classList.contains('hidden')) renderClientePremi();
-  if (!$('#cliente-ricevuta-view')?.classList.contains('hidden') || !$('#cliente-stato-view')?.classList.contains('hidden')) {
-    try { updateClienteOrdiniSelect(); } catch (err) {}
+  if (!$('#cliente-ricevuta-view')?.classList.contains('hidden')) {
+    try {
+      updateClienteOrdiniSelect();
+      // rinfresca badge stato/pagamento se presenti
+      if ($('#ricevuta-stato') && $('#ricevuta-stato').textContent) {
+        /* labels aggiornate al prossimo poll */
+      }
+      applyClienteChromeI18n();
+    } catch (err) {}
+  }
+  if (!$('#cliente-stato-view')?.classList.contains('hidden')) {
+    try {
+      const steps = ['nuovo', 'in_preparazione', 'pronto', 'consegnato'];
+      const tl = $('#stato-timeline');
+      if (tl) {
+        const active = tl.querySelector('.stato-step.active');
+        // rebuild labels
+        const idx = [...tl.querySelectorAll('.stato-step')].findIndex(el => el.classList.contains('active'));
+        tl.innerHTML = steps.map((s, i) => {
+          let cls = '';
+          if (idx >= 0 && i < idx) cls = 'done';
+          else if (i === idx) cls = 'active';
+          return `<div class="stato-step ${cls}"><div class="dot"></div><span>${labelStato(s)}</span></div>`;
+        }).join('');
+      }
+      const statoH = document.querySelector('#cliente-stato-view h2');
+      if (statoH) statoH.textContent = tUI('aPunto');
+    } catch (err) {}
   }
   updateQrSessionUI();
+  if (clienteLang !== 'it') {
+    await ensureMenuTranslations();
+  }
 });
 
 // ripristina lingua cliente
