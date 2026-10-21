@@ -1506,14 +1506,14 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
   if (id) {
     // --- MODIFICA ristorante ---
     if (!data.password) delete data.password;
-    const { error } = await sb.from('ristoranti').update(data).eq('id', id);
+    let { error } = await sb.from('ristoranti').update(data).eq('id', id);
+    // se il CHECK accetta solo base/pro/enterprise, riprova con valore legacy
+    if (error && /ristoranti_id_piano_check|id_piano/i.test(String(error.message || ''))) {
+      const legacyPiano = normalizzaPiano(data.id_piano) === 'standard' ? 'base' : (data.id_piano || 'pro');
+      ({ error } = await sb.from('ristoranti').update({ ...data, id_piano: legacyPiano }).eq('id', id));
+    }
     if (error) {
-      const msg = String(error.message || '');
-      if (/ristoranti_id_piano_check|id_piano/i.test(msg)) {
-        toast('Errore piano: esegui supabase-fixi-fix.sql in Supabase (id_piano standard/pro)');
-      } else {
-        toast('Errore aggiornamento ristorante: ' + msg);
-      }
+      toast('Errore aggiornamento ristorante: ' + (error.message || error));
       console.error(error);
       return;
     }
@@ -1564,28 +1564,57 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
       return;
     }
 
+    // mappa standard→base se il DB ha ancora il vecchio CHECK (base/pro/enterprise)
+    function pianoDbCompat(id) {
+      const n = normalizzaPiano(id);
+      if (n === 'standard') return 'base';
+      if (n === 'pro') return 'pro';
+      return n || 'base';
+    }
+
     let inserted, error;
     ({ data: inserted, error } = await sb.from('ristoranti').insert({
       ...data,
       password: password || null
     }).select().single());
 
-    if (error && /column|piva|pec|indirizzo|ultimo_numero/i.test(String(error.message || ''))) {
+    // vincolo id_piano vecchio: riprova con valori legacy
+    if (error && /ristoranti_id_piano_check|id_piano/i.test(String(error.message || ''))) {
+      const dataLegacy = { ...data, id_piano: pianoDbCompat(data.id_piano) };
+      ({ data: inserted, error } = await sb.from('ristoranti').insert({
+        ...dataLegacy,
+        password: password || null
+      }).select().single());
+      if (!error) data.id_piano = dataLegacy.id_piano;
+    }
+
+    if (error && /column|piva|pec|indirizzo|ultimo_numero|fidelity|punti_scadenza|menu_pubblico/i.test(String(error.message || ''))) {
       const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, fidelity_enabled, loyalty_config, menus, menu_pubblico_id, punti_scadenza_mesi, ...base } = data;
+      base.id_piano = pianoDbCompat(base.id_piano);
       ({ data: inserted, error } = await sb.from('ristoranti').insert({
         ...base,
         password: password || null
       }).select().single());
-      if (!error) toast('Ristorante creato (dati fiscali non salvati: aggiungi le colonne in Supabase)');
+      if (!error) toast('Ristorante creato (alcune colonne opzionali assenti in DB)');
+    }
+
+    // ultimo tentativo solo campi essenziali + piano legacy
+    if (error && /ristoranti_id_piano_check|id_piano/i.test(String(error.message || ''))) {
+      ({ data: inserted, error } = await sb.from('ristoranti').insert({
+        nome: data.nome,
+        titolare: data.titolare,
+        citta: data.citta,
+        email: data.email,
+        password: password || null,
+        id_piano: pianoDbCompat(data.id_piano),
+        scadenza: data.scadenza,
+        sale: data.sale,
+        pagamenti_accettati: data.pagamenti_accettati
+      }).select().single());
     }
 
     if (error) {
-      const msg = String(error.message || '');
-      if (/ristoranti_id_piano_check|id_piano/i.test(msg)) {
-        toast('Errore piano: esegui supabase-fixi-fix.sql in Supabase (id_piano standard/pro)');
-      } else {
-        toast('Errore creazione ristorante: ' + msg);
-      }
+      toast('Errore creazione ristorante: ' + (error.message || error));
       console.error(error);
       return;
     }
