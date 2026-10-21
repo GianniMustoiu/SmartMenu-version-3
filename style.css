@@ -1017,3 +1017,46 @@ html.qr-entry #network-status {
   font-size: 14px;
 }
 .loy-cassa-row:last-child { border-bottom: none; }
+
+
+/* Multi-menu bar (area ristoratore) */
+.menu-multi-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.menu-multi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.menu-pubblico-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--primary-soft);
+  border: 1px solid rgba(59,130,246,.35);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+.menu-pubblico-banner i { color: var(--primary); }
+.menu-pubblico-banner strong { color: var(--primary); }
+.menu-pubblico-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+@media (max-width: 700px) {
+  .menu-pubblico-hint { margin-left: 0; width: 100%; }
+}
