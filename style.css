@@ -897,3 +897,123 @@ html.qr-entry #network-status {
 .chiusura-modal-note {
   font-size: 12px; color: var(--muted); margin: 0 0 4px; line-height: 1.45;
 }
+
+
+/* =====================================================
+   CLIENTE AUTH / LOYALTY (fixati)
+   ===================================================== */
+.cliente-auth-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(700px 400px at 20% 0%, rgba(59,130,246,.16), transparent 60%),
+    var(--bg);
+}
+.cliente-auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
+}
+.cliente-loyalty-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--primary-soft);
+  border-bottom: 1px solid var(--border);
+}
+.loy-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.loy-bar-info i { color: var(--primary); font-size: 18px; }
+.loy-bar-info strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loy-bar-info span { font-size: 12px; color: var(--primary); font-weight: 700; }
+.loy-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.cliente-main-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+}
+.cliente-main-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.cliente-main-tab.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.cliente-premi-list { display: flex; flex-direction: column; gap: 10px; }
+.loyalty-premio-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.loyalty-premio-item.inactive { opacity: .55; }
+
+.rist-piano-badge {
+  margin: 8px 14px 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid rgba(59,130,246,.35);
+}
+.rist-piano-badge.piano-scaduto {
+  background: rgba(239,68,68,.12);
+  color: #f87171;
+  border-color: rgba(239,68,68,.35);
+}
+.rist-piano-badge.piano-pro {
+  background: rgba(129,140,248,.18);
+  color: #a5b4fc;
+  border-color: rgba(129,140,248,.35);
+}
+
+.loy-cassa-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.loy-cassa-row:last-child { border-bottom: none; }
