@@ -1253,6 +1253,41 @@ async function renderAdminTable(filter = '') {
 
 $('#search-ristoranti')?.addEventListener('input', e => renderAdminTable(e.target.value));
 
+/** Limita il campo n_casse in base al piano selezionato (Standard = max 1). */
+function applyPianoCasseLimits() {
+  const inp = $('#n_casse');
+  const hint = $('#n_casse_hint');
+  if (!inp) return;
+  const pianoId = normalizzaPiano($('#id_piano')?.value || 'standard');
+  const maxC = maxCassePerPiano(pianoId);
+  if (Number.isFinite(maxC)) {
+    inp.max = String(maxC);
+    inp.min = '0';
+    const cur = parseInt(inp.value, 10);
+    if (!Number.isFinite(cur) || cur < 0) inp.value = '0';
+    else if (cur > maxC) inp.value = String(maxC);
+    if (hint) {
+      hint.textContent = `Piano Standard: massimo ${maxC} cassa · email tipo nomristorante@cassa1.it · pwd: cassa123`;
+    }
+  } else {
+    inp.max = '50';
+    inp.min = '0';
+    if (hint) {
+      hint.textContent = 'Piano Pro: casse illimitate · email tipo nomristorante@cassa1.it · pwd: cassa123';
+    }
+  }
+}
+
+$('#id_piano')?.addEventListener('change', () => applyPianoCasseLimits());
+$('#n_casse')?.addEventListener('change', () => applyPianoCasseLimits());
+$('#n_casse')?.addEventListener('input', () => {
+  const max = parseInt($('#n_casse')?.max || '50', 10);
+  const v = parseInt($('#n_casse')?.value, 10);
+  if (Number.isFinite(v) && Number.isFinite(max) && v > max) {
+    $('#n_casse').value = String(max);
+  }
+});
+
 // Nuovo / Modifica ristorante
 $('#btn-nuovo')?.addEventListener('click', () => {
   $('#modal-title').textContent = 'Nuovo ristorante';
@@ -1271,6 +1306,8 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = true;
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
   if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = '';
+  if ($('#id_piano')) $('#id_piano').value = 'standard';
+  applyPianoCasseLimits();
   $('#modal-ristorante').classList.remove('hidden');
 });
 
@@ -1587,14 +1624,18 @@ window.editRistorante = async function(id) {
   $('#toggle-pass i').className = 'fas fa-eye';
   $('#id_piano').value = normalizzaPiano(r.id_piano);
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = r.pagamenti_accettati || 'entrambi';
-  if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = r.punti_scadenza_mesi || '';
+  if ($('#punti_scadenza_mesi')) {
+    $('#punti_scadenza_mesi').value =
+      r.punti_scadenza_mesi != null && r.punti_scadenza_mesi !== '' ? r.punti_scadenza_mesi : '';
+  }
   $('#scadenza').value = r.scadenza || '';
   $('#sale').value = (r.sale || []).join(', ');
   const { count } = await sb.from('tavoli').select('*', { count: 'exact', head: true }).eq('id_ristorante', id);
   $('#n_tavoli').value = count || 8;
-  // in modifica non ricreiamo le casse (già esistenti); campo a 0
+  // in modifica: 0 = non creare nuove casse (quelle esistenti restano)
   if ($('#n_casse')) $('#n_casse').value = 0;
   if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = r.fidelity_enabled !== false;
+  applyPianoCasseLimits();
   $('#modal-ristorante').classList.remove('hidden');
 };
 
