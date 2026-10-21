@@ -4149,8 +4149,18 @@ async function inviaOrdineFinale({ pagamento, circuito }) {
     totale,
     stato: 'nuovo',
     // SOLO tipologia circuito (visa, apple_pay, …) — mai numero/CVV
-    circuito_pagamento: circuitoPagamento
+    circuito_pagamento: circuitoPagamento,
+    // collega l'ordine alla tessera: i punti li accredita il database quando l'ordine è pagato e consegnato
+    id_cliente_fedelta: (currentLoyalty && currentLoyalty.id && !String(currentLoyalty.id).startsWith('local_')) ? currentLoyalty.id : null
   };
+
+  let riscatto = null;
+  if (puntiPremio > 0) {
+    if (!navigator.onLine) { toast('Per riscattare i premi serve la connessione'); return; }
+    const resR = await loyaltyRiscatta(codice);
+    if (resR.error) { toast(resR.error); return; }
+    riscatto = resR;
+  }
 if (!navigator.onLine) {
 
   saveOfflineOrder({
@@ -4192,6 +4202,7 @@ if (!navigator.onLine) {
   }
 
   if (error || !inserted) {
+    if (riscatto) await loyaltyRimborsa(riscatto);     // ordine non creato: i punti tornano al cliente
     toast('Errore invio ordine: ' + (error?.message || 'sconosciuto'));
     console.error(error);
     return;
@@ -4233,24 +4244,14 @@ if (!navigator.onLine) {
   }
   updateClienteOrdiniSelect();
 
-  // Loyalty: punti se pagamento online e cliente registrato
-  try {
-    if (typeof currentLoyalty !== 'undefined' && currentLoyalty) {
-      if (puntiPremio > 0) {
-        const scaled = await scalaPuntiLoyalty(currentLoyalty, puntiPremio);
-        if (scaled < 0) {
-          toast('Punti insufficienti per i premi');
-        } else if (scaled > 0) {
-          toast('Premi riscattati: −' + scaled + ' pt');
-        }
-      }
-      // aggiorna quantità usata premi (solo staff vede il residuale)
-      try { await incrementaPremiUsatiDaCarrello(); } catch (e) { console.warn(e); }
-      const pts = await accreditaPuntiLoyalty(currentLoyalty, totale);
-      if (pts > 0) toast('+' + pts + ' punti loyalty (saldo ' + currentLoyalty.punti + ' pt)');
-      if (pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
-    }
-  } catch (e) { console.warn('loyalty punti', e); }
+  // Loyalty: i punti spesi sono già stati scalati dal database; quelli guadagnati arrivano quando lo staff
+  // segna l'ordine pagato e consegnato (aggiornamento automatico del saldo nella schermata ordine).
+  if (riscatto && currentLoyalty) {
+    currentLoyalty.punti = riscatto.punti;
+    applyLoyaltyBar();
+    toast('Premi riscattati: −' + riscatto.spesi + ' pt');
+  }
+  if (currentLoyalty && pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
 
   $('#ricevuta-codice').textContent = codice;
   $('#ricevuta-rist').textContent = currentRistorante.nome;
@@ -4384,6 +4385,7 @@ function stopOrdineStatusPolling() {
 
 function applyOrdineStatusUI(o) {
   if (!o) return;
+  try { refreshLoyaltyBalance(); } catch (e) {}
   const stato = o.stato || 'nuovo';
   const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
   if ($('#ricevuta-stato')) {
@@ -5634,6 +5636,122 @@ function loyaltySessionKey(ristId) {
   return 'menupro_loy_session_' + String(ristId || '');
 }
 
+// ---------- LOYALTY: accesso ai dati solo tramite funzioni del database (vedi loyalty_secure.sql) ----------
+// Password cifrate, punti calcolati dal database, nessun elenco di tesserati scaricato dai clienti.
+try {   // pulizia dei vecchi dati locali (contenevano password in chiaro)
+  Object.keys(localStorage).filter(k => k.startsWith('menupro_loyalty_') || k.startsWith('menupro_premi_local_'))
+    .forEach(k => localStorage.removeItem(k));
+} catch (e) {}
+
+async function loyRpc(fn, args) {
+  if (!sb) return { error: 'Database non collegato' };
+  try {
+    const { data, error } = await sb.rpc(fn, args);
+    if (error) { console.warn('rpc ' + fn, error); return { error: 'Errore: ' + (error.message || 'riprova') + ' (hai eseguito loyalty_secure.sql?)' }; }
+    return data || {};
+  } catch (e) { return { error: 'Connessione assente: riprova' }; }
+}
+
+function loyMember(j) {
+  return { ...mapLoyaltyRow(j.member), password: '', token: j.token || null };
+}
+
+// Elenco tesserati per cassa/ristoratore (colonne esplicite: la password non è leggibile)
+async function fetchLoyaltyMembers(ristId) {
+  if (!ristId || !sb) return [];
+  const { data, error } = await sb.from('clienti_fedelta')
+    .select('id,id_ristorante,nome,cognome,email,telefono,punti,codice,created_at')
+    .eq('id_ristorante', ristId)
+    .order('created_at', { ascending: false });
+  if (error) { console.warn('clienti_fedelta select:', error.message || error); toast('Impossibile caricare i tesserati'); return []; }
+  return (data || []).map(mapLoyaltyRow);
+}
+
+async function upsertLoyaltyMember() {
+  console.error('upsertLoyaltyMember rimossa: i punti si modificano solo con le funzioni del database');
+  return null;
+}
+
+function setLoyaltySession(member) {
+  currentLoyalty = member;
+  if (member && currentRistorante) {
+    try {
+      localStorage.setItem(loyaltySessionKey(currentRistorante.id), JSON.stringify({
+        id: member.id, email: member.email, token: member.token || null
+      }));
+    } catch (e) {}
+  }
+  applyLoyaltyBar();
+}
+
+async function restoreLoyaltySession() {
+  if (!currentRistorante) return;
+  try {
+    const raw = localStorage.getItem(loyaltySessionKey(currentRistorante.id));
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s.id || !s.token) { clearLoyaltySession(); return; }
+    const j = await loyRpc('loyalty_me', { p_id: s.id, p_token: s.token });
+    if (j.error || !j.member) { if (navigator.onLine) clearLoyaltySession(); return; }
+    setLoyaltySession({ ...loyMember(j), token: s.token });
+  } catch (e) {}
+}
+
+async function registraLoyaltyCliente({ nome, cognome, email, telefono, password }) {
+  if (!currentRistorante || !currentRistorante.id) return { error: 'Ristorante non disponibile' };
+  const em = String(email || '').toLowerCase().trim();
+  if (!em || !password) return { error: 'Email e password obbligatorie' };
+  const j = await loyRpc('loyalty_registra', {
+    p_rist: currentRistorante.id, p_nome: String(nome || '').trim(), p_cognome: String(cognome || '').trim(),
+    p_email: em, p_tel: String(telefono || '').trim(), p_password: String(password)
+  });
+  if (j.error) return { error: j.error };
+  return { member: loyMember(j) };
+}
+
+async function loginLoyaltyCliente(email, password) {
+  if (!currentRistorante) return { error: 'Ristorante non disponibile' };
+  const j = await loyRpc('loyalty_login', {
+    p_rist: currentRistorante.id, p_email: String(email || '').toLowerCase().trim(), p_password: String(password || '')
+  });
+  if (j.error) return { error: j.error };
+  return { member: loyMember(j) };
+}
+
+// aggiorna il saldo (es. dopo che lo staff ha segnato l'ordine pagato e consegnato)
+let _loyRefreshAt = 0;
+async function refreshLoyaltyBalance(force) {
+  if (!currentLoyalty || !currentLoyalty.token || !sb) return;
+  if (!force && Date.now() - _loyRefreshAt < 15000) return;
+  _loyRefreshAt = Date.now();
+  const j = await loyRpc('loyalty_me', { p_id: currentLoyalty.id, p_token: currentLoyalty.token });
+  if (j.error || !j.member) return;
+  const nuovi = Number(j.member.punti) || 0;
+  const prima = Number(currentLoyalty.punti) || 0;
+  currentLoyalty.punti = nuovi;
+  applyLoyaltyBar();
+  if (nuovi > prima) toast('+' + (nuovi - prima) + ' punti loyalty (saldo ' + nuovi + ' pt)');
+}
+
+// riscatto premi PRIMA di creare l'ordine: punti e disponibilità premio vengono bloccati in modo atomico
+async function loyaltyRiscatta(codice) {
+  const agg = {};
+  cart.filter(c => c.isPremio && c.premioId).forEach(c => { agg[c.premioId] = (agg[c.premioId] || 0) + (c.qty || 1); });
+  const premi = Object.entries(agg).map(([id, qty]) => ({ id, qty }));
+  const j = await loyRpc('loyalty_riscatta', {
+    p_id: currentLoyalty.id, p_token: currentLoyalty.token, p_premi: premi, p_codice: codice
+  });
+  if (j.error) return { error: j.error };
+  return { punti: j.punti, spesi: j.spesi, premi, codice };
+}
+
+async function loyaltyRimborsa(r) {
+  await loyRpc('loyalty_rimborsa', {
+    p_id: currentLoyalty.id, p_token: currentLoyalty.token, p_premi: r.premi, p_codice: r.codice
+  });
+  await refreshLoyaltyBalance(true);
+}
+
 function defaultLoyaltyConfig() {
   return { euro: 1, punti: 10 };
 }
@@ -5738,96 +5856,7 @@ function mergeLoyaltyLists(localList, dbList) {
   return Array.from(byEmail.values());
 }
 
-async function fetchLoyaltyMembers(ristId) {
-  if (!ristId) return [];
-  const local = loadLoyaltyMembersLocal(ristId);
-  let dbList = null;
-  if (sb) {
-    try {
-      const { data, error } = await sb.from('clienti_fedelta')
-        .select('*')
-        .eq('id_ristorante', ristId);
-      if (error) {
-        console.warn('clienti_fedelta select:', error.message || error);
-      } else if (Array.isArray(data)) {
-        dbList = data;
-      }
-    } catch (e) {
-      console.warn('clienti_fedelta', e);
-    }
-  }
-  // Se DB vuoto/errore → tieni i locali. Se DB ha dati → merge.
-  const merged = dbList ? mergeLoyaltyLists(local, dbList) : local.slice();
-  saveLoyaltyMembersLocal(ristId, merged);
-  return merged;
-}
 
-async function upsertLoyaltyMember(member) {
-  if (!member || !member.id_ristorante) return member;
-  const ristId = member.id_ristorante;
-  member.email = String(member.email || '').toLowerCase().trim();
-  member.password = member.password != null ? String(member.password) : '';
-  member.punti = Number(member.punti) || 0;
-  if (!member.codice) member.codice = genCodiceCarta();
-
-  // 1) sempre salva in locale (fonte di verità offline)
-  let list = loadLoyaltyMembersLocal(ristId);
-  const idx = list.findIndex(m =>
-    String(m.id) === String(member.id) ||
-    (m.email || '').toLowerCase() === member.email
-  );
-  if (idx >= 0) list[idx] = { ...list[idx], ...member };
-  else list.unshift({ ...member });
-  saveLoyaltyMembersLocal(ristId, list);
-
-  // 2) prova Supabase (se tabella presente)
-  if (sb) {
-    const row = {
-      id_ristorante: ristId,
-      nome: member.nome,
-      cognome: member.cognome,
-      email: member.email,
-      telefono: member.telefono || null,
-      password_hash: member.password || null,
-      punti: member.punti || 0,
-      codice: member.codice
-    };
-    try {
-      if (member.id && !String(member.id).startsWith('local_')) {
-        const { error } = await sb.from('clienti_fedelta').update(row).eq('id', member.id);
-        if (error) console.warn('update loyalty:', error.message || error);
-      } else {
-        // evita duplicati email su DB
-        const { data: existing } = await sb.from('clienti_fedelta')
-          .select('id,punti,codice')
-          .eq('id_ristorante', ristId)
-          .eq('email', member.email)
-          .maybeSingle();
-        if (existing && existing.id) {
-          member.id = existing.id;
-          await sb.from('clienti_fedelta').update(row).eq('id', existing.id);
-        } else {
-          const { data, error } = await sb.from('clienti_fedelta').insert(row).select().single();
-          if (!error && data) {
-            member.id = data.id;
-          } else if (error) {
-            console.warn('insert loyalty (resto su localStorage):', error.message || error);
-          }
-        }
-        // aggiorna id locale se ricevuto da DB
-        list = loadLoyaltyMembersLocal(ristId);
-        const i2 = list.findIndex(m => (m.email || '').toLowerCase() === member.email);
-        if (i2 >= 0) {
-          list[i2] = { ...list[i2], ...member };
-          saveLoyaltyMembersLocal(ristId, list);
-        }
-      }
-    } catch (e) {
-      console.warn('upsert loyalty fallback local:', e);
-    }
-  }
-  return member;
-}
 
 function calcolaPuntiDaEuro(euro, cfg) {
   const e = Number(euro) || 0;
@@ -6006,17 +6035,6 @@ function applyLoyaltyBar() {
   );
 }
 
-function setLoyaltySession(member) {
-  currentLoyalty = member;
-  if (member && currentRistorante) {
-    try {
-      localStorage.setItem(loyaltySessionKey(currentRistorante.id), JSON.stringify({
-        id: member.id, email: member.email
-      }));
-    } catch (e) {}
-  }
-  applyLoyaltyBar();
-}
 
 function clearLoyaltySession() {
   currentLoyalty = null;
@@ -6026,122 +6044,11 @@ function clearLoyaltySession() {
   applyLoyaltyBar();
 }
 
-async function restoreLoyaltySession() {
-  if (!currentRistorante) return;
-  try {
-    const raw = localStorage.getItem(loyaltySessionKey(currentRistorante.id));
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    const members = await fetchLoyaltyMembers(currentRistorante.id);
-    const m = members.find(x => String(x.id) === String(s.id) || (x.email || '') === (s.email || '').toLowerCase());
-    if (m) setLoyaltySession(m);
-  } catch (e) {}
-}
 
-async function registraLoyaltyCliente({ nome, cognome, email, telefono, password }) {
-  if (!currentRistorante || !currentRistorante.id) {
-    return { error: 'Ristorante non disponibile' };
-  }
-  const ristId = currentRistorante.id;
-  const em = String(email || '').toLowerCase().trim();
-  if (!em || !password) return { error: 'Email e password obbligatorie' };
 
-  const members = await fetchLoyaltyMembers(ristId);
-  const exists = members.find(m => (m.email || '').toLowerCase() === em);
-  if (exists) return { error: 'Email già registrata. Accedi invece di registrarti.' };
 
-  const member = {
-    id: 'local_' + Date.now(),
-    id_ristorante: ristId,
-    nome: String(nome || '').trim(),
-    cognome: String(cognome || '').trim(),
-    email: em,
-    telefono: String(telefono || '').trim(),
-    password: String(password),
-    punti: 0,
-    codice: genCodiceCarta(),
-    created_at: new Date().toISOString()
-  };
-  await upsertLoyaltyMember(member);
 
-  // verifica immediata lettura locale
-  const check = loadLoyaltyMembersLocal(ristId);
-  const ok = check.some(m => (m.email || '').toLowerCase() === em);
-  if (!ok) {
-    // fallback di emergenza
-    saveLoyaltyMembersLocal(ristId, [member, ...check]);
-  }
-  return { member };
-}
 
-async function loginLoyaltyCliente(email, password) {
-  if (!currentRistorante) return { error: 'Ristorante non disponibile' };
-  const em = String(email || '').toLowerCase().trim();
-  const pass = String(password || '');
-  // 1) cerca subito in locale (anche se DB fallisce)
-  let members = loadLoyaltyMembersLocal(currentRistorante.id);
-  let m = members.find(x => (x.email || '').toLowerCase() === em);
-  // 2) poi merge con DB
-  members = await fetchLoyaltyMembers(currentRistorante.id);
-  m = members.find(x => (x.email || '').toLowerCase() === em) || m;
-  if (!m) {
-    return { error: 'Account non trovato. Controlla email o registrati di nuovo.' };
-  }
-  const savedPass = m.password != null ? String(m.password) : '';
-  // se password vuota (registrato in cassa), accetta al primo accesso e salvala
-  if (savedPass && savedPass !== pass) {
-    return { error: 'Password errata' };
-  }
-  if (!savedPass && pass) {
-    m.password = pass;
-    await upsertLoyaltyMember(m);
-  }
-  return { member: m };
-}
-
-async function incrementaPremiUsatiDaCarrello() {
-  if (!currentRistorante) return;
-  const premi = await loadPremi(currentRistorante.id);
-  let changed = false;
-  for (const c of cart) {
-    if (!c.isPremio || !c.premioId) continue;
-    const pr = premi.find(p => String(p.id) === String(c.premioId));
-    if (!pr) continue;
-    const max = Number(pr.quantita_max) || 0;
-    pr.quantita_usati = (Number(pr.quantita_usati) || 0) + (c.qty || 1);
-    if (max > 0 && pr.quantita_usati > max) pr.quantita_usati = max;
-    await savePremio(pr);
-    changed = true;
-  }
-  return changed;
-}
-
-async function scalaPuntiLoyalty(member, puntiDaScalare) {
-  if (!member || !puntiDaScalare || puntiDaScalare <= 0) return 0;
-  const have = Number(member.punti) || 0;
-  if (have < puntiDaScalare) return -1;
-  member.punti = have - puntiDaScalare;
-  await upsertLoyaltyMember(member);
-  if (currentLoyalty && String(currentLoyalty.id) === String(member.id)) {
-    currentLoyalty.punti = member.punti;
-    applyLoyaltyBar();
-  }
-  return puntiDaScalare;
-}
-
-async function accreditaPuntiLoyalty(member, totaleEuro) {
-  if (!member || !currentRistorante) return 0;
-  const cfg = getLoyaltyConfig(currentRistorante);
-  const pts = calcolaPuntiDaEuro(totaleEuro, cfg);
-  if (pts <= 0) return 0;
-  member.punti = (Number(member.punti) || 0) + pts;
-  await upsertLoyaltyMember(member);
-  if (currentLoyalty && String(currentLoyalty.id) === String(member.id)) {
-    currentLoyalty.punti = member.punti;
-    applyLoyaltyBar();
-  }
-  return pts;
-}
 
 function simulaEmailRicevuta(member, ordine) {
   // In produzione: edge function / Resend. Qui log + toast.
@@ -6444,13 +6351,10 @@ window.aggiungiPuntiManuali = async function(memberId) {
   if (raw == null) return;
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n) || n === 0) return;
-  const members = await fetchLoyaltyMembers(currentRistorante.id);
-  const m = members.find(x => String(x.id) === String(memberId));
-  if (!m) return;
-  m.punti = Math.max(0, (Number(m.punti) || 0) + n);
-  await upsertLoyaltyMember(m);
+  const j = await loyRpc('loyalty_staff_rettifica', { p_id: memberId, p_punti: n, p_nota: 'rettifica da ' + ((currentUser && currentUser.email) || 'staff') });
+  if (j.error) { toast(j.error); return; }
   renderLoyaltyAdmin();
-  toast('Punti aggiornati: ' + m.punti);
+  toast('Punti aggiornati: ' + j.punti);
 };
 
 // --- Cassa search ---
@@ -6498,20 +6402,9 @@ document.getElementById('form-loy-cassa-reg')?.addEventListener('submit', async 
   const cognome = document.getElementById('loy-cassa-cognome').value.trim();
   const email = document.getElementById('loy-cassa-email').value.trim().toLowerCase();
   if (!nome || !cognome || !email) return;
-  const members = await fetchLoyaltyMembers(currentRistorante.id);
-  if (members.some(m => m.email === email)) { toast('Email già registrata'); return; }
-  const member = {
-    id: 'local_' + Date.now(),
-    id_ristorante: currentRistorante.id,
-    nome, cognome, email,
-    telefono: '',
-    password: '',
-    punti: 0,
-    codice: genCodiceCarta(),
-    created_at: new Date().toISOString()
-  };
-  await upsertLoyaltyMember(member);
-  toast('Carta creata: ' + member.codice);
+  const j = await loyRpc('loyalty_staff_crea', { p_rist: currentRistorante.id, p_nome: nome, p_cognome: cognome, p_email: email, p_tel: null });
+  if (j.error) { toast(j.error); return; }
+  toast('Carta creata: ' + j.member.codice);
   document.getElementById('form-loy-cassa-reg').reset();
   document.getElementById('loy-cassa-q').value = email;
   document.getElementById('loy-cassa-q').dispatchEvent(new Event('input'));
