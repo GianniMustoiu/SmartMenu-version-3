@@ -656,30 +656,27 @@
           </select>
           <small style="color:var(--muted)">Il cliente vedrà solo i metodi abilitati quando conferma l'ordine</small>
         </div>
-        <div class="form-row form-row-nums">
-          <div class="form-group">
-            <label title="Da 1 a 36 mesi. Vuoto = i punti non scadono">Scadenza punti (mesi)</label>
-            <input type="number" id="punti_scadenza_mesi" min="1" max="36" step="1" placeholder="Vuoto = mai" />
-          </div>
-          <div class="form-group">
-            <label title="Il ristoratore potrà poi configurare posti e tipo">N. tavoli</label>
-            <input type="number" id="n_tavoli" min="1" max="200" value="8" />
-          </div>
-          <div class="form-group">
-            <label title="Standard max 1, Pro illimitate. Password casse: cassa123">N. casse</label>
-            <input type="number" id="n_casse" min="0" max="20" value="1" />
-          </div>
-        </div>
-        <p id="n_casse_hint" class="form-row-hint" style="padding:0 24px;margin:4px 0 0;color:var(--muted);font-size:12px">
-          Standard: max 1 cassa · Pro: illimitate · email cassa: nomristorante@cassa1.it · pwd: cassa123
-        </p>
         <div class="form-group" style="padding:0 24px;margin-top:8px">
           <label class="check-label inline-check">
             <input type="checkbox" id="fidelity_enabled" checked />
             <span>Aderisce al programma fidelity (loyalty card)</span>
           </label>
-          <small style="color:var(--muted);display:block;margin-top:6px">Se disattivo, i clienti non vedono login loyalty e non accumulano punti</small>
         </div>
+        <div class="form-row form-row-nums" id="row-numeri-rist">
+          <div class="form-group" id="wrap-punti-scadenza">
+            <label>Scadenza punti (mesi)</label>
+            <input type="number" id="punti_scadenza_mesi" min="1" max="36" step="1" placeholder="Vuoto = mai" />
+          </div>
+          <div class="form-group">
+            <label>N. tavoli</label>
+            <input type="number" id="n_tavoli" min="1" max="200" value="8" />
+          </div>
+          <div class="form-group">
+            <label>N. casse</label>
+            <input type="number" id="n_casse" min="0" max="20" value="1" />
+          </div>
+        </div>
+        <span id="n_casse_hint" class="hidden" aria-hidden="true"></span>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary close-modal" data-modal="modal-ristorante">Annulla</button>
           <button type="submit" class="btn btn-primary">Salva</button>
