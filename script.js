@@ -1270,6 +1270,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   if ($('#n_casse')) $('#n_casse').value = 1;
   if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = true;
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
+  if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = '';
   $('#modal-ristorante').classList.remove('hidden');
 });
 
@@ -1414,6 +1415,16 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     return;
   }
 
+  const rawScad = ($('#punti_scadenza_mesi')?.value || '').trim();
+  let scadenzaMesi = null;               // vuoto = i punti non scadono
+  if (rawScad !== '') {
+    scadenzaMesi = Number(rawScad);
+    if (!Number.isInteger(scadenzaMesi) || scadenzaMesi < 1 || scadenzaMesi > 36) {
+      toast('La scadenza dei punti deve essere un numero intero da 1 a 36 mesi (oppure lascia vuoto)');
+      return;
+    }
+  }
+
   const data = {
     nome: nomeRist,
     titolare,
@@ -1422,6 +1433,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     password: password || undefined,
     id_piano: normalizzaPiano($('#id_piano').value),
     pagamenti_accettati: $('#metodi_pagamento')?.value || 'entrambi',
+    punti_scadenza_mesi: scadenzaMesi,
     scadenza: $('#scadenza').value || null,
     sale,
     indirizzo_fatturazione: ($('#indirizzo_fatturazione')?.value || '').trim() || null,
@@ -1493,7 +1505,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     }).select().single());
 
     if (error && /column|piva|pec|indirizzo|ultimo_numero/i.test(String(error.message || ''))) {
-      const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, fidelity_enabled, loyalty_config, menus, menu_pubblico_id, ...base } = data;
+      const { piva, pec, indirizzo_fatturazione, ultimo_numero_fattura, fidelity_enabled, loyalty_config, menus, menu_pubblico_id, punti_scadenza_mesi, ...base } = data;
       ({ data: inserted, error } = await sb.from('ristoranti').insert({
         ...base,
         password: password || null
@@ -1565,6 +1577,7 @@ window.editRistorante = async function(id) {
   $('#toggle-pass i').className = 'fas fa-eye';
   $('#id_piano').value = normalizzaPiano(r.id_piano);
   if ($('#metodi_pagamento')) $('#metodi_pagamento').value = r.pagamenti_accettati || 'entrambi';
+  if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = r.punti_scadenza_mesi || '';
   $('#scadenza').value = r.scadenza || '';
   $('#sale').value = (r.sale || []).join(', ');
   const { count } = await sb.from('tavoli').select('*', { count: 'exact', head: true }).eq('id_ristorante', id);
@@ -3715,7 +3728,7 @@ async function renderClientePremi() {
   const disponibili = punti != null ? Math.max(0, punti - impegnati) : null;
   if (intro) {
     intro.textContent = currentLoyalty
-      ? ('Hai ' + punti + ' punti' + (impegnati ? (' · ' + impegnati + ' pt nel carrello') : '') + '. Se ti bastano, aggiungi il premio al carrello.')
+      ? ('Hai ' + punti + ' punti' + (impegnati ? (' · ' + impegnati + ' pt nel carrello') : '') + '. Se ti bastano, aggiungi il premio al carrello.' + scadenzaNota())
       : 'Accedi alla loyalty card per riscattare i premi.';
   }
   if (!premi.length) {
@@ -5750,6 +5763,11 @@ async function loyaltyRimborsa(r) {
     p_id: currentLoyalty.id, p_token: currentLoyalty.token, p_premi: r.premi, p_codice: r.codice
   });
   await refreshLoyaltyBalance(true);
+}
+
+function scadenzaNota() {
+  const m = Number(currentRistorante && currentRistorante.punti_scadenza_mesi);
+  return m > 0 ? ' I punti scadono dopo ' + m + (m === 1 ? ' mese' : ' mesi') + ' dal momento in cui li guadagni.' : '';
 }
 
 function defaultLoyaltyConfig() {
