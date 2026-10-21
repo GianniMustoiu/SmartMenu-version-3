@@ -2026,13 +2026,26 @@ $('#btn-avvia-demo')?.addEventListener('click', async () => {
   document.body.classList.add('cliente-night');
   if ($('#cliente-auth-rist-nome')) $('#cliente-auth-rist-nome').textContent = r.nome || 'Benvenuto';
   if ($('#cliente-auth-tavolo')) $('#cliente-auth-tavolo').textContent = tavolo;
-  await restoreLoyaltySession();
-  if (currentLoyalty) {
+  // Demo da admin: se fidelity attiva e non loggato → gate, altrimenti menu diretto
+  if (isFidelityEnabled(r)) {
+    await restoreLoyaltySession();
+    if (currentLoyalty) {
+      showClienteAuthGate(false);
+      showClienteView('menu');
+      renderClienteMenu();
+    } else {
+      showClienteAuthGate(true);
+      // fallback se gate assente
+      if (!document.getElementById('cliente-auth-gate')) {
+        showClienteView('menu');
+        renderClienteMenu();
+      }
+    }
+  } else {
+    clearLoyaltySession();
     showClienteAuthGate(false);
     showClienteView('menu');
     renderClienteMenu();
-  } else {
-    showClienteAuthGate(true);
   }
 });
 
@@ -4856,6 +4869,11 @@ function assertQrSessionOrBlock() {
       renderClienteMenu();
     } else {
       showClienteAuthGate(true);
+      // se il gate non è nel DOM, mostra comunque il menu
+      if (!document.getElementById('cliente-auth-gate')) {
+        showClienteView('menu');
+        renderClienteMenu();
+      }
     }
   } catch (e) {
     console.error('QR init error:', e);
@@ -6112,8 +6130,15 @@ async function savePremio(premio) {
 function showClienteAuthGate(show) {
   const gate = document.getElementById('cliente-auth-gate');
   const form = document.getElementById('cliente-auth-form');
-  const content = document.querySelector('.cliente-content');
-  const header = document.querySelector('.cliente-header');
+  const content = document.querySelector('#app-cliente .cliente-content') || document.querySelector('.cliente-content');
+  const header = document.querySelector('#app-cliente .cliente-header') || document.querySelector('.cliente-header');
+  // Se il gate non esiste in HTML, non nascondere mai menu/header (evita schermo bianco)
+  if (show && !gate) {
+    content?.classList.remove('hidden');
+    header?.classList.remove('hidden');
+    form?.classList.add('hidden');
+    return;
+  }
   if (show) {
     gate?.classList.remove('hidden');
     form?.classList.add('hidden');
