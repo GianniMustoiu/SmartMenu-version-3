@@ -3744,6 +3744,7 @@ window.apriDettaglioOrdine = async function(ordineId) {
   if (o.stato !== 'chiuso') {
     actions += `<button class="btn btn-danger" onclick="chiudiConto('${o.id}')"><i class="fas fa-lock"></i> Chiudi conto</button>`;
   }
+  actions += `<button class="btn btn-secondary" onclick="stampaComandaSingola('${o.id}')"><i class="fas fa-print"></i> Stampa comanda</button>`;
   actions += `<button class="btn btn-secondary close-modal" data-modal="modal-ordine">Chiudi</button>`;
   const actionsEl = $('#ordine-detail-actions');
   if (actionsEl) {
@@ -5384,6 +5385,156 @@ function scaricaRicevuta() {
 // =====================================================
 let _fatturaOrdineId = null;
 let _fatturaTipo = 'pf'; // pf | pg
+
+
+/** Escape HTML per comanda stampata */
+function escComanda(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Costruisce HTML di una singola comanda cucina (ticket 80mm) */
+function buildComandaHtml(o) {
+  const r = currentRistorante || {};
+  const nomeRist = r.nome || 'Ristorante';
+  const items = Array.isArray(o.items) ? o.items : [];
+  const rows = items.map(it => {
+    const qty = Number(it.qty) || 1;
+    const nome = it.nome || it.piatto || 'Piatto';
+    const noteRiga = it.note ? `<div style="font-size:10px;font-style:italic;color:#333">↳ ${escComanda(it.note)}</div>` : '';
+    return `<div class="scontrino-riga">
+      <span class="sq">${qty}×</span>
+      <span class="sn">${escComanda(nome)}${noteRiga}</span>
+    </div>`;
+  }).join('') || '<div class="scontrino-riga"><span class="sn">— nessuna riga —</span></div>';
+
+  let ora = '—';
+  try {
+    const d = new Date(o.created_at || o.createdAt || Date.now());
+    if (!isNaN(d.getTime())) {
+      ora = d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+  } catch (e) {}
+
+  const noteOrdine = (o.note || '').trim()
+    ? `<div class="scontrino-note"><b>Note:</b> ${escComanda(o.note)}</div>`
+    : '';
+
+  const totale = o.totale != null ? Number(o.totale) : items.reduce((s, it) => {
+    return s + (Number(it.prezzo) || 0) * (Number(it.qty) || 1);
+  }, 0);
+
+  return `
+    <div class="comanda-ticket scontrino">
+      <div class="scontrino-head">
+        <div class="scontrino-nome">${escComanda(nomeRist)}</div>
+        <div class="scontrino-tipo">COMANDA CUCINA</div>
+      </div>
+      <div class="scontrino-sep">--------------------------------</div>
+      <div class="scontrino-meta">
+        <div><b>Tavolo</b> ${escComanda(o.tavolo)}</div>
+        <div><b>Codice</b> #${escComanda(o.codice || '')}</div>
+        <div><b>Ora</b> ${escComanda(ora)}</div>
+        <div><b>Stato</b> ${escComanda(labelStato(o.stato || 'nuovo'))}</div>
+      </div>
+      <div class="scontrino-sep">--------------------------------</div>
+      <div class="scontrino-items">${rows}</div>
+      ${noteOrdine}
+      <div class="scontrino-sep">--------------------------------</div>
+      <div class="scontrino-tot">Totale ${formatPrice(totale)}</div>
+      <div class="scontrino-foot">*** MenuPro ***</div>
+    </div>`;
+}
+
+/**
+ * Stampa le comande attive (non chiuse).
+ * Preferisce ordini nuovo / in_preparazione / pronto; se nessuno, prova quelli aperti dal dettaglio.
+ */
+async function stampaComandeAttive(soloOrdineId) {
+  if (!currentRistorante) {
+    toast('Nessun ristorante selezionato');
+    return;
+  }
+  let ordini = Array.isArray(currentRistorante.ordini) ? currentRistorante.ordini.slice() : [];
+
+  // Se lista vuota, tenta reload leggero
+  if (!ordini.length && typeof loadRistoranteFull === 'function') {
+    try {
+      await loadRistoranteFull(currentRistorante.id);
+      ordini = Array.isArray(currentRistorante.ordini) ? currentRistorante.ordini.slice() : [];
+    } catch (e) {}
+  }
+
+  if (soloOrdineId) {
+    ordini = ordini.filter(o => String(o.id) === String(soloOrdineId));
+  } else {
+    const attivi = ordini.filter(o => {
+      const st = o.stato || '';
+      return st === 'nuovo' || st === 'in_preparazione' || st === 'pronto';
+    });
+    // se non ci sono "attivi", stampa anche consegnati non chiusi
+    if (attivi.length) {
+      ordini = attivi;
+    } else {
+      ordini = ordini.filter(o => (o.stato || '') !== 'chiuso');
+    }
+  }
+
+  // Assicura items: se mancano, prova a caricarli da ordine_riga
+  if (typeof sb !== 'undefined' && sb) {
+    for (const o of ordini) {
+      if (o.items && o.items.length) continue;
+      try {
+        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
+        if (righe && righe.length) {
+          o.items = righe.map(r => ({
+            nome: r.piatto || r.nome || 'Piatto',
+            qty: r.qty_piatti || r.qty || 1,
+            prezzo: r.prezzo_pagato != null
+              ? (Number(r.prezzo_pagato) / (r.qty_piatti || r.qty || 1))
+              : (Number(r.prezzo) || 0),
+            note: r.note || r.note_riga || ''
+          }));
+        }
+      } catch (e) {}
+    }
+  }
+
+  ordini = ordini.filter(o => (o.items && o.items.length) || (o.note && String(o.note).trim()));
+  if (!ordini.length) {
+    toast('Nessuna comanda da stampare');
+    return;
+  }
+
+  // Ordina: tavolo poi ora
+  ordini.sort((a, b) => {
+    const ta = Number(a.tavolo) || 0;
+    const tb = Number(b.tavolo) || 0;
+    if (ta !== tb) return ta - tb;
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  });
+
+  const html = ordini.map(buildComandaHtml).join('');
+  stampaAreaHtml(html);
+  toast(`Stampa di ${ordini.length} comanda${ordini.length === 1 ? '' : 'e'}`);
+}
+
+document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
+  stampaComandeAttive().catch(err => {
+    console.error(err);
+    toast('Errore stampa comande');
+  });
+});
+
+window.stampaComandaSingola = function(ordineId) {
+  stampaComandeAttive(ordineId).catch(err => {
+    console.error(err);
+    toast('Errore stampa comanda');
+  });
+};
 
 function stampaAreaHtml(html) {
   let area = document.getElementById('print-area');
