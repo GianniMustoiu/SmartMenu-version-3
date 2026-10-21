@@ -2,7 +2,7 @@
 // MenuPro – Versione collegata a Supabase
 // =====================================================
 
-const BUILD = 'build-2026-10-19-pagamenti-v5';
+const BUILD = 'build-2026-10-21-cassa-v12';
 console.info('[MenuPro]', BUILD);
 const cfg = window.MENUPRO_CONFIG || {};
 let sb = null;
@@ -107,7 +107,7 @@ const UI_I18N = {
   it: {
     cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste (es. togli formaggio)',
     notePh: 'Allergie, modifiche, richieste speciali...',
-    paga: 'Metodo di pagamento', invia: 'Conferma ordine', menu: 'Menu', aggiungi: 'Aggiungi',
+    paga: 'Pagamento', pagaCassa: 'In cassa', invia: 'Conferma ordine', menu: 'Menu', aggiungi: 'Aggiungi',
     scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo',
     carta: 'Carta', cassa: 'Pago in cassa', indietro: 'Indietro',
     ricevuta: 'Ordine ricevuto', pagamento: 'Pagamento', codice: 'Codice',
@@ -124,7 +124,7 @@ const UI_I18N = {
     pagamentoLabel: 'Pagamento', intestatario: 'Intestatario', numCarta: 'Numero carta',
     scadenza: 'Scadenza', cvv: 'CVV', pagaOra: 'Paga', pagaCon: 'Paga con',
     paySecure: 'I dati restano sul tuo dispositivo: salviamo solo il tipo di circuito, non il numero della carta.',
-    payDemo: 'Modalità demo: nessun addebito reale.', payWallet: 'Pagamento con wallet. Conferma per simulare l’autorizzazione (demo).',
+    payDemo: 'Pagamento in cassa al banco.', payWallet: 'Pagamento in cassa.',
     less1min: 'meno di 1 min', minSuffix: ' min', scaduta: 'scaduta',
     sessioneScadTitle: 'Sessione scaduta: riscansione il QR sul tavolo',
     ordineInviato: 'Ordine inviato!', carrelloVuoto: 'Il carrello è vuoto',
@@ -168,7 +168,7 @@ const UI_I18N = {
     pagamentoLabel: 'Payment', intestatario: 'Cardholder', numCarta: 'Card number',
     scadenza: 'Expiry', cvv: 'CVV', pagaOra: 'Pay', pagaCon: 'Pay with',
     paySecure: 'Data stays on your device: we only save the card type, not the number.',
-    payDemo: 'Demo mode: no real charge.', payWallet: 'Wallet payment. Confirm to simulate authorization (demo).',
+    payDemo: 'Pay at the counter.', payWallet: 'Pay at the counter.',
     less1min: 'less than 1 min', minSuffix: ' min', scaduta: 'expired',
     sessioneScadTitle: 'Session expired: scan the table QR again',
     ordineInviato: 'Order sent!', carrelloVuoto: 'Cart is empty',
@@ -212,7 +212,7 @@ const UI_I18N = {
     pagamentoLabel: 'Pago', intestatario: 'Titular', numCarta: 'Número de tarjeta',
     scadenza: 'Caducidad', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar con',
     paySecure: 'Los datos permanecen en tu dispositivo: solo guardamos el tipo de tarjeta.',
-    payDemo: 'Modo demo: sin cargo real.', payWallet: 'Pago con wallet. Confirma para simular (demo).',
+    payDemo: 'Pago en caja.', payWallet: 'Pago en caja.',
     less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'caducada',
     sessioneScadTitle: 'Sesión caducada: escanea de nuevo el QR',
     ordineInviato: '¡Pedido enviado!', carrelloVuoto: 'El carrito está vacío',
@@ -256,7 +256,7 @@ const UI_I18N = {
     pagamentoLabel: 'Zahlung', intestatario: 'Karteninhaber', numCarta: 'Kartennummer',
     scadenza: 'Gültig bis', cvv: 'CVV', pagaOra: 'Bezahlen', pagaCon: 'Bezahlen mit',
     paySecure: 'Daten bleiben auf Ihrem Gerät: wir speichern nur den Kartentyp.',
-    payDemo: 'Demo-Modus: keine echte Abbuchung.', payWallet: 'Wallet-Zahlung. Bestätigen zur Simulation (Demo).',
+    payDemo: 'Zahlung an der Kasse.', payWallet: 'Zahlung an der Kasse.',
     less1min: 'weniger als 1 Min.', minSuffix: ' Min.', scaduta: 'abgelaufen',
     sessioneScadTitle: 'Sitzung abgelaufen: QR erneut scannen',
     ordineInviato: 'Bestellung gesendet!', carrelloVuoto: 'Warenkorb ist leer',
@@ -300,7 +300,7 @@ const UI_I18N = {
     pagamentoLabel: 'Paiement', intestatario: 'Titulaire', numCarta: 'Numéro de carte',
     scadenza: 'Expiration', cvv: 'CVV', pagaOra: 'Payer', pagaCon: 'Payer avec',
     paySecure: 'Les données restent sur votre appareil : nous enregistrons seulement le type de carte.',
-    payDemo: 'Mode démo : aucun débit réel.', payWallet: 'Paiement wallet. Confirmez pour simuler (démo).',
+    payDemo: 'Paiement au comptoir.', payWallet: 'Paiement au comptoir.',
     less1min: 'moins d’1 min', minSuffix: ' min', scaduta: 'expirée',
     sessioneScadTitle: 'Session expirée : rescanez le QR',
     ordineInviato: 'Commande envoyée !', carrelloVuoto: 'Le panier est vide',
@@ -344,7 +344,7 @@ const UI_I18N = {
     pagamentoLabel: 'Pagamento', intestatario: 'Titular', numCarta: 'Número do cartão',
     scadenza: 'Validade', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar com',
     paySecure: 'Os dados ficam no seu dispositivo: só guardamos o tipo de cartão.',
-    payDemo: 'Modo demo: sem cobrança real.', payWallet: 'Pagamento com wallet. Confirme para simular (demo).',
+    payDemo: 'Pagamento no balcão.', payWallet: 'Pagamento no balcão.',
     less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'expirada',
     sessioneScadTitle: 'Sessão expirada: leia o QR novamente',
     ordineInviato: 'Pedido enviado!', carrelloVuoto: 'O carrinho está vazio',
@@ -388,7 +388,7 @@ const UI_I18N = {
     pagamentoLabel: '支付', intestatario: '持卡人', numCarta: '卡号',
     scadenza: '有效期', cvv: 'CVV', pagaOra: '支付', pagaCon: '使用',
     paySecure: '数据仅保存在您的设备上：我们只记录卡类型，不保存卡号。',
-    payDemo: '演示模式：不会真实扣款。', payWallet: '钱包支付。确认以模拟授权（演示）。',
+    payDemo: '到柜台付款。', payWallet: '到柜台付款。',
     less1min: '不到 1 分钟', minSuffix: ' 分钟', scaduta: '已过期',
     sessioneScadTitle: '会话已过期：请重新扫码',
     ordineInviato: '订单已提交！', carrelloVuoto: '购物车是空的',
@@ -776,32 +776,19 @@ async function refreshCircuitiUI() {
 // valori colonna: 'online' | 'banco' | 'entrambi'   ->   radio: 'carta' | 'cassa'
 // =====================================================
 function metodiAccettati(r) {
-  const v = (r && r.pagamenti_accettati) || 'entrambi';
-  return { carta: v === 'online' || v === 'entrambi', cassa: v === 'banco' || v === 'entrambi' };
+  // Solo pagamento in cassa (nessun pagamento online nell'app)
+  return { carta: false, cassa: true };
 }
 
 function applyPaymentOptions() {
-  const m = metodiAccettati(currentRistorante);
-  console.info('[MenuPro] pagamenti_accettati =', currentRistorante && currentRistorante.pagamenti_accettati);
-  let checkedHidden = false;
-  $$('input[name="pagamento"]').forEach(inp => {
-    const ok = !!m[inp.value];
-    const label = inp.closest('label');
-    if (label) {
-      label.classList.toggle('hidden', !ok);
-      // inline + !important: vince anche su "display:flex !important" del CSS, senza dipendere da style.css
-      if (ok) label.style.removeProperty('display');
-      else label.style.setProperty('display', 'none', 'important');
-    }
-    if (!ok && inp.checked) checkedHidden = true;
+  const cassa = document.querySelector('input[name="pagamento"][value="cassa"]');
+  if (cassa) cassa.checked = true;
+  const wrap = document.getElementById('circuito-wrap');
+  if (wrap) wrap.classList.add('hidden');
+  document.querySelectorAll('input[name="pagamento"][value="carta"]').forEach(el => {
+    const lab = el.closest('label');
+    if (lab) lab.classList.add('hidden');
   });
-  // se il metodo selezionato non è più ammesso, seleziona il primo disponibile
-  if (checkedHidden || !document.querySelector('input[name="pagamento"]:checked')) {
-    const first = [...$$('input[name="pagamento"]')].find(i => m[i.value]);
-    if (first) first.checked = true;
-  }
-  toggleCircuitoVisibility();
-  refreshCircuitiUI();
 }
 
 // =====================================================
@@ -1693,7 +1680,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   $('#n_tavoli').value = 8;
   if ($('#n_casse')) $('#n_casse').value = 1;
   if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = true;
-  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'entrambi';
+  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'banco';
   if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = '';
   if ($('#id_piano')) $('#id_piano').value = 'standard';
   applyPianoCasseLimits();
@@ -1859,7 +1846,7 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     email,
     password: password || undefined,
     id_piano: normalizzaPiano($('#id_piano').value),
-    pagamenti_accettati: $('#metodi_pagamento')?.value || 'entrambi',
+    pagamenti_accettati: 'banco',
     punti_scadenza_mesi: scadenzaMesi,
     scadenza: $('#scadenza').value || null,
     sale,
@@ -2042,7 +2029,7 @@ window.editRistorante = async function(id) {
   $('#password').required = false;
   $('#toggle-pass i').className = 'fas fa-eye';
   $('#id_piano').value = normalizzaPiano(r.id_piano);
-  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = r.pagamenti_accettati || 'entrambi';
+  if ($('#metodi_pagamento')) $('#metodi_pagamento').value = 'banco';
   if ($('#punti_scadenza_mesi')) {
     $('#punti_scadenza_mesi').value =
       r.punti_scadenza_mesi != null && r.punti_scadenza_mesi !== '' ? r.punti_scadenza_mesi : '';
@@ -2367,53 +2354,9 @@ $('#btn-reset')?.addEventListener('click', async () => {
 });
 
 // DEMO UTENTE
-$('#btn-demo-utente')?.addEventListener('click', async () => {
-  const ristoranti = await loadRistoranti();
-  if (!ristoranti.length) { toast('Crea prima un ristorante'); return; }
-  const sel = $('#demo-ristorante');
-  sel.innerHTML = ristoranti.map(r => `<option value="${r.id}">${r.nome}</option>`).join('');
-  $('#modal-demo-utente').classList.remove('hidden');
-});
+/* demo utente rimosso */
 
-$('#btn-avvia-demo')?.addEventListener('click', async () => {
-  const ristId = $('#demo-ristorante').value;
-  const tavolo = parseInt($('#demo-tavolo').value) || 1;
-  const r = await loadRistoranteFull(ristId);
-  if (!r) return;
-  currentUser = { role: 'cliente', ristoranteId: ristId, tavolo };
-  currentRistorante = r;
-  cart = [];
-  lastOrdineId = null;
-  $('#modal-demo-utente').classList.add('hidden');
-  $('#app-admin').classList.add('hidden');
-  $('#app-cliente').classList.remove('hidden');
-  $('#cliente-rist-nome').textContent = r.nome;
-  $('#cliente-tavolo-num').textContent = tavolo;
-  document.body.classList.add('cliente-night');
-  if ($('#cliente-auth-rist-nome')) $('#cliente-auth-rist-nome').textContent = r.nome || 'Benvenuto';
-  if ($('#cliente-auth-tavolo')) $('#cliente-auth-tavolo').textContent = tavolo;
-  // Demo da admin: se fidelity attiva e non loggato → gate, altrimenti menu diretto
-  if (isFidelityEnabled(r)) {
-    await restoreLoyaltySession();
-    if (currentLoyalty) {
-      showClienteAuthGate(false);
-      showClienteView('menu');
-      renderClienteMenu();
-    } else {
-      showClienteAuthGate(true);
-      // fallback se gate assente
-      if (!document.getElementById('cliente-auth-gate')) {
-        showClienteView('menu');
-        renderClienteMenu();
-      }
-    }
-  } else {
-    clearLoyaltySession();
-    showClienteAuthGate(false);
-    showClienteView('menu');
-    renderClienteMenu();
-  }
-});
+/* avvia demo rimosso */
 
 // =====================================================
 // RISTORATORE
@@ -3794,7 +3737,7 @@ window.apriDettaglioOrdine = async function(ordineId) {
   } else if (o.stato === 'pronto') {
     actions = `<button class="btn btn-primary" onclick="cambiaStato('${o.id}','consegnato')"><i class="fas fa-hand-holding"></i> Consegnato</button>`;
   }
-  actions += `<button class="btn btn-secondary" onclick="apriFattura('${o.id}')"><i class="fas fa-file-invoice"></i> Fattura</button>`;
+  /* Fattura disattivata */
   const nextPag = { in_attesa: 'pagato', pagato: 'non_pagato', non_pagato: 'in_attesa' }[ps] || 'pagato';
   const pagBtnLabel = { pagato: 'Segna pagato', non_pagato: 'Segna non pagato', in_attesa: 'Segna in attesa' }[nextPag];
   actions += `<button class="btn btn-secondary" onclick="togglePagamento('${o.id}')"><i class="fas fa-money-bill-wave"></i> ${pagBtnLabel}</button>`;
@@ -4061,26 +4004,9 @@ window.showQR = function(tavolo) {
   $('#modal-qr').classList.remove('hidden');
 };
 
-$('#btn-demo-ristoratore')?.addEventListener('click', () => {
-  if ($('#demo-rist-email')) $('#demo-rist-email').value = '';
-  if ($('#demo-rist-password')) $('#demo-rist-password').value = '';
-  $('#modal-demo-ristoratore').classList.remove('hidden');
-});
+/* demo ristoratore rimosso */
 
-$('#btn-avvia-demo-rist')?.addEventListener('click', async () => {
-  const email = ($('#demo-rist-email')?.value || '').trim().toLowerCase();
-  const pass = ($('#demo-rist-password')?.value || '').trim();
-  if (!email || !pass) { toast('Inserisci email e password'); return; }
-  $('#modal-demo-ristoratore').classList.add('hidden');
-  // riusa il login normale
-  const ok = await doLogin(email, pass);
-  if (!ok) {
-    $('#app-admin').classList.add('hidden');
-    $('#login-screen').classList.remove('hidden');
-  } else {
-    $('#app-admin').classList.add('hidden');
-  }
-});
+/* avvia demo rist rimosso */
 
 $('#btn-nuovo-tavolo')?.addEventListener('click', () => {
   if (!currentRistorante) return;
@@ -4597,65 +4523,15 @@ $('#btn-invia-ordine')?.addEventListener('click', async () => {
   if (!assertQrSessionOrBlock()) return;
 
   const totaleEuro = cart.reduce((sum, c) => sum + (c.isPremio ? 0 : Number(c.prezzo) * c.qty), 0);
-
-  // Solo premi / totale 0 → niente pagamento
   if (totaleEuro <= 0) {
-    toast('Saldo €0 — non devi pagare. Invio ordine…');
-    await inviaOrdineFinale({ pagamento: 'cassa', circuito: null, gratis: true });
-    return;
+    toast('Ordine senza importo — invio in corso…');
   }
-
-  const pagamento = document.querySelector('input[name="pagamento"]:checked')?.value || 'carta';
-  if (!metodiAccettati(currentRistorante)[pagamento]) {
-    toast('Questo ristorante non accetta il pagamento selezionato');
-    applyPaymentOptions();
-    return;
-  }
-
-  if (pagamento === 'carta') {
-    const circ = document.querySelector('input[name="circuito"]:checked')?.value || selectedCircuito || 'visa';
-    selectedCircuito = circ;
-    openPagamentoUI(circ);
-    return;
-  }
-
-  await inviaOrdineFinale({ pagamento: 'cassa', circuito: null });
+  await inviaOrdineFinale({ pagamento: 'cassa', circuito: null, gratis: totaleEuro <= 0 });
 });
 
-function openPagamentoUI(circuitoId) {
-  const c = circuitiCatalog.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT.find(x => x.id === circuitoId) || CIRCUITI_DEFAULT[0];
-  selectedCircuito = c.id;
-  const totale = cart.reduce((s, x) => s + (x.isPremio ? 0 : Number(x.prezzo) * x.qty), 0);
-  if (totale <= 0) {
-    toast('Saldo €0 — non devi pagare. Invio ordine…');
-    inviaOrdineFinale({ pagamento: 'carta', circuito: circuitoId || null, gratis: true });
-    return;
-  }
-  const iconEl = $('#pay-circuito-icon');
-  if (iconEl) iconEl.className = c.icona || 'fas fa-credit-card';
-  if ($('#pay-circuito-nome')) $('#pay-circuito-nome').textContent = tUI('pagaCon') + ' ' + c.nome;
-  if ($('#pay-totale')) $('#pay-totale').textContent = formatPrice(totale);
-  if ($('#pay-btn-totale')) $('#pay-btn-totale').textContent = formatPrice(totale);
-
-  const isWallet = c.tipo === 'wallet';
-  $('#pay-form-carta')?.classList.toggle('hidden', isWallet);
-  $('#pay-form-wallet')?.classList.toggle('hidden', !isWallet);
-  if (isWallet) {
-    const wi = $('#pay-wallet-big-icon');
-    if (wi) wi.className = c.icona || 'fas fa-mobile-alt';
-    if ($('#pay-wallet-hint')) {
-      $('#pay-wallet-hint').textContent = c.id === 'apple_pay'
-        ? 'Conferma con Face ID / Touch ID sul tuo iPhone.'
-        : 'Conferma con Google Pay sul tuo dispositivo.';
-    }
-  } else {
-    // reset campi (restano solo in memoria, non vanno in DB)
-    if ($('#pay-intestatario')) $('#pay-intestatario').value = '';
-    if ($('#pay-numero')) $('#pay-numero').value = '';
-    if ($('#pay-scadenza')) $('#pay-scadenza').value = '';
-    if ($('#pay-cvv')) $('#pay-cvv').value = '';
-  }
-  showClienteView('pagamento');
+function openPagamentoUI() {
+  // Pagamento online disattivato: solo cassa
+  inviaOrdineFinale({ pagamento: 'cassa', circuito: null });
 }
 
 $('#btn-indietro-pagamento')?.addEventListener('click', () => {
@@ -4664,36 +4540,7 @@ $('#btn-indietro-pagamento')?.addEventListener('click', () => {
   applyPaymentOptions();
 });
 
-$('#btn-paga-ora')?.addEventListener('click', async () => {
-  if (!assertQrSessionOrBlock()) return;
-  const c = circuitiCatalog.find(x => x.id === selectedCircuito) || CIRCUITI_DEFAULT[0];
-  if (c.tipo !== 'wallet') {
-    const num = ($('#pay-numero')?.value || '').replace(/\s+/g, '');
-    const scad = ($('#pay-scadenza')?.value || '').trim();
-    const cvv = ($('#pay-cvv')?.value || '').trim();
-    const nome = ($('#pay-intestatario')?.value || '').trim();
-    if (nome.length < 2) { toast('Inserisci l\'intestatario'); return; }
-    if (num.length < 12) { toast('Numero carta non valido'); return; }
-    if (!/^\d{2}\/\d{2}$/.test(scad)) { toast('Scadenza nel formato MM/AA'); return; }
-    if (cvv.length < 3) { toast('CVV non valido'); return; }
-    // I valori restano solo in variabili locali e NON vengono inviati al database
-  }
-  const btn = $('#btn-paga-ora');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autorizzazione...'; }
-  // Demo: simula autorizzazione PSP (in produzione: Stripe/Adyen/…)
-  await new Promise(r => setTimeout(r, 700));
-  try {
-    await inviaOrdineFinale({ pagamento: 'carta', circuito: selectedCircuito });
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-lock"></i> Paga <span id="pay-btn-totale"></span>';
-      const tot = cart.length ? cart.reduce((s, x) => s + x.prezzo * x.qty, 0) : 0;
-      // dopo invio cart è vuoto: label già ok
-      if ($('#pay-btn-totale')) $('#pay-btn-totale').textContent = '';
-    }
-  }
-});
+/* pagamento carta rimosso */
 
 // Input helpers (solo UX, niente persistenza)
 document.addEventListener('input', (e) => {
@@ -4712,7 +4559,9 @@ document.addEventListener('change', (e) => {
   if (e.target && e.target.name === 'pagamento') toggleCircuitoVisibility();
 });
 
-async function inviaOrdineFinale({ pagamento, circuito }) {
+async function inviaOrdineFinale({ pagamento, circuito, gratis }) {
+  pagamento = 'cassa';
+  circuito = null;
   if (!cart.length) { toast('Il carrello è vuoto'); return; }
   if (!currentRistorante || !currentUser) {
     toast(tUI('sessioneNonValida'));
@@ -4736,16 +4585,11 @@ async function inviaOrdineFinale({ pagamento, circuito }) {
     }
   }
   const codice = 'ORD-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-  if (!metodiAccettati(currentRistorante)[pagamento]) {
-    toast('Questo ristorante non accetta il pagamento selezionato');
-    applyPaymentOptions();
-    return;
-  }
-  const gratis = !!(arguments[0] && arguments[0].gratis) || (cart.reduce((s,c)=>s+(c.isPremio?0:Number(c.prezzo)*c.qty),0) <= 0);
-  const stato_pagamento = gratis ? 'pagato' : defaultPagStato(pagamento);
+  const isGratis = !!gratis || totale <= 0;
+  const stato_pagamento = isGratis ? 'pagato' : 'in_attesa';
   const note = ($('#ordine-note')?.value || '').trim();
   const tavoloNum = currentUser.tavolo;
-  const circuitoPagamento = (pagamento === 'carta' && circuito) ? circuito : null;
+  const circuitoPagamento = null;
 
   // Schema nuovo: senza colonna items (usa ordine_riga). Schema vecchio: con items jsonb.
   const ordineBase = {
@@ -4860,7 +4704,7 @@ if (!navigator.onLine) {
     applyLoyaltyBar();
     toast('Premi riscattati: −' + riscatto.spesi + ' pt');
   }
-  if (currentLoyalty && pagamento === 'carta') simulaEmailRicevuta(currentLoyalty, { codice, totale });
+  if (currentLoyalty) { try { simulaEmailRicevuta(currentLoyalty, { codice, totale }); } catch (e) {} }
 
   $('#ricevuta-codice').textContent = codice;
   $('#ricevuta-rist').textContent = currentRistorante.nome;
@@ -5194,7 +5038,7 @@ function getQrExpiresAt(r, t) {
 
 function isQrSessionValid() {
   if (!currentUser || currentUser.role !== 'cliente') return true;
-  // demo admin senza fromQR: nessun limite
+  // admin senza fromQR: nessun limite sessione QR
   if (!currentUser.fromQR) return true;
   const exp = getQrExpiresAt(currentUser.ristoranteId, currentUser.tavolo);
   return exp > Date.now();
@@ -5533,93 +5377,7 @@ function scaricaRicevuta() {
   toast('Ricevuta scaricata');
 }
 
-$('#btn-scarica-ricevuta')?.addEventListener('click', scaricaRicevuta);
-
-// =====================================================
-// STAMPA COMANDE (ristoratore – tutte le comande attive)
-// =====================================================
-function buildComandaTicket(o) {
-  const items = (o.items || []).map(i =>
-    `<li><span class="cqty">${i.qty || 1}×</span> <span class="cname">${i.nome || i.piatto || 'Piatto'}</span></li>`
-  ).join('') || '<li>—</li>';
-  const pag = o.pagamento === 'cassa' ? 'CASSA' : (o.pagamento === 'carta' ? 'CARTA' : (o.pagamento || '—'));
-  const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
-  const nomeRist = (currentRistorante && currentRistorante.nome) ? currentRistorante.nome : '';
-  return `
-    <div class="comanda-ticket">
-      <div class="comanda-cut">✂ — — — taglia qui — — —</div>
-      <div class="comanda-body">
-        <div class="comanda-brand">${nomeRist}</div>
-        <div class="comanda-title">COMANDA</div>
-        <div class="comanda-head">
-          <span class="comanda-tavolo">Tavolo ${o.tavolo}</span>
-          <span class="comanda-codice">#${o.codice || ''}</span>
-        </div>
-        <div class="meta">
-          ${formatTime(o.createdAt || o.created_at)} · ${labelStato(o.stato)}
-        </div>
-        <div class="meta meta-pag">Pag: ${pag} (${labelPagamentoStato(ps)})</div>
-        <div class="comanda-sep">························</div>
-        <ul>${items}</ul>
-        ${o.note ? '<div class="note">Note: ' + o.note + '</div>' : ''}
-        <div class="comanda-sep">························</div>
-        <div class="tot">TOTALE ${formatPrice(o.totale || 0)}</div>
-      </div>
-    </div>`;
-}
-
-async function stampaComande() {
-  if (!currentRistorante) { toast('Nessun ristorante selezionato'); return; }
-  // ricarica dati freschi
-  currentRistorante = await loadRistoranteFull(currentRistorante.id);
-  const ordini = (currentRistorante.ordini || []).filter(o =>
-    o.stato === 'nuovo' || o.stato === 'in_preparazione' || o.stato === 'pronto'
-  );
-  if (!ordini.length) {
-    toast('Nessuna comanda da stampare');
-    return;
-  }
-
-  // assicura items se mancanti
-  for (const o of ordini) {
-    if (!(o.items && o.items.length) && sb) {
-      try {
-        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', o.id);
-        if (righe && righe.length) {
-          o.items = righe.map(row => ({
-            nome: row.piatto || row.nome || 'Piatto',
-            qty: row.qty_piatti || row.qty || 1,
-            prezzo: 0
-          }));
-        }
-      } catch (e) {}
-    }
-  }
-
-  let area = document.getElementById('print-area');
-  if (!area) {
-    area = document.createElement('div');
-    area.id = 'print-area';
-    document.body.appendChild(area);
-  }
-  // Una comanda = uno scontrino separato (tagliabile / page-break)
-  area.innerHTML = ordini.map(buildComandaTicket).join('');
-  area.classList.add('printing');
-  const cleanup = () => {
-    area.classList.remove('printing');
-    area.innerHTML = '';
-  };
-  window.addEventListener('afterprint', cleanup, { once: true });
-  setTimeout(() => {
-    window.print();
-    // fallback se afterprint non arriva
-    setTimeout(cleanup, 1500);
-  }, 100);
-}
-
-document.getElementById('btn-stampa-comande')?.addEventListener('click', () => {
-  stampaComande();
-});
+/* scarica ricevuta rimossa */
 
 // =====================================================
 // FATTURA (persona fisica / giuridica) – con scorporo IVA
@@ -5668,40 +5426,7 @@ function resetFatturaForm() {
   if ($('#fattura-stampa')) $('#fattura-stampa').checked = true;
 }
 
-window.apriFattura = function(ordineId) {
-  const o = (currentRistorante?.ordini || []).find(x => x.id === ordineId);
-  if (!o) { toast('Ordine non trovato'); return; }
-  const modal = document.getElementById('modal-fattura');
-  if (!modal) {
-    toast('Modulo fattura non disponibile. Aggiorna la pagina (hard refresh).');
-    console.error('modal-fattura assente nel DOM');
-    return;
-  }
-  _fatturaOrdineId = ordineId;
-  if ($('#fattura-ordine-id')) $('#fattura-ordine-id').value = ordineId;
-  if ($('#fattura-meta')) $('#fattura-meta').textContent =
-    `Ordine #${o.codice || ''} · Tavolo ${o.tavolo} · Totale ${formatPrice(o.totale || 0)}`;
-  resetFatturaForm();
-  if (o.fattura && typeof o.fattura === 'object') {
-    const f = o.fattura;
-    setFatturaTipo(f.tipo === 'pg' ? 'pg' : 'pf');
-    if (f.tipo === 'pg') {
-      if ($('#fat-ragione')) $('#fat-ragione').value = f.ragione_sociale || '';
-      if ($('#fat-indirizzo-pg')) $('#fat-indirizzo-pg').value = f.indirizzo || '';
-      if ($('#fat-piva')) $('#fat-piva').value = f.piva || '';
-      if ($('#fat-pec')) $('#fat-pec').value = f.pec || '';
-      if ($('#fat-sdi')) $('#fat-sdi').value = f.codice_destinatario || '';
-    } else {
-      if ($('#fat-nome')) $('#fat-nome').value = f.nome || '';
-      if ($('#fat-cognome')) $('#fat-cognome').value = f.cognome || '';
-      if ($('#fat-nascita')) $('#fat-nascita').value = f.data_nascita || '';
-      if ($('#fat-indirizzo-pf')) $('#fat-indirizzo-pf').value = f.indirizzo || '';
-      if ($('#fat-cf')) $('#fat-cf').value = f.cf || '';
-    }
-  }
-  $('#modal-ordine')?.classList.add('hidden');
-  $('#modal-fattura')?.classList.remove('hidden');
-};
+window.apriFattura = function(){ toast("Funzione non disponibile"); };
 
 function chiudiModalFattura() {
   $('#modal-fattura')?.classList.add('hidden');
@@ -6252,7 +5977,7 @@ async function confermaFattura() {
   toast(`Fattura n. ${numero} emessa per ${dati.intestazione}`);
 }
 
-$('#btn-fattura-ok')?.addEventListener('click', () => { confermaFattura(); });
+/* fattura rimossa */
 
 $('#fat-cf')?.addEventListener('input', (e) => {
   const pos = e.target.selectionStart;
