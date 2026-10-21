@@ -616,6 +616,7 @@ async function setMenuPubblicoId(r, menuId, { silent } = {}) {
   if (!silent) toast('Clienti QR: menu «' + nome + '»');
   // sincronizza eventuali select UI
   populateMenuPubblicoSelects();
+  try { updateMenuPubblicoBanner(); } catch (e) {}
 }
 
 function piattiDelMenu(r, menuId) {
@@ -2706,7 +2707,7 @@ $('#form-piatto')?.addEventListener('submit', async (e) => {
     allergeni,
     immagine,
     traduzioni,
-    id_menu: getCurrentMenuId(currentRistorante)
+    id_menu: ($('#piatto-menu')?.value || getCurrentMenuId(currentRistorante) || 'default')
   };
 
   async function savePiatto(payload) {
@@ -2749,15 +2750,21 @@ window.editPiatto = async function(id) {
   $('#piatto-nome').value = p.nome;
   $('#piatto-desc').value = p.descrizione || '';
   const sel = $('#piatto-categoria');
-  sel.innerHTML = (currentRistorante.categorie || []).map(c =>
-    `<option value="${c}" ${c === p.categoria ? 'selected' : ''}>${c}</option>`
-  ).join('');
+  if (sel) {
+    sel.innerHTML = (currentRistorante.categorie || []).map(c =>
+      `<option value="${c}" ${c === p.categoria ? 'selected' : ''}>${c}</option>`
+    ).join('');
+  }
   $('#piatto-prezzo').value = p.prezzo;
   if ($('#piatto-iva')) {
     const iv = (p.iva != null && p.iva !== '') ? String(p.iva) : '10';
     $('#piatto-iva').value = ['0','4','5','10','22'].includes(iv) ? iv : '10';
   }
-  ['en','es','de','fr','zh'].forEach(lang => {
+  populateMenuSwitcher();
+  if ($('#piatto-menu')) {
+    $('#piatto-menu').value = String(p.id_menu || getCurrentMenuId(currentRistorante) || 'default');
+  }
+  ['en','es','de','fr','pt','zh'].forEach(lang => {
     const tr = (p.traduzioni && p.traduzioni[lang]) || {};
     const n = $('#piatto-nome-' + lang);
     const d = $('#piatto-desc-' + lang);
@@ -6031,15 +6038,33 @@ $('#fat-sdi')?.addEventListener('input', (e) => {
 // =====================================================
 function populateMenuSwitcher() {
   const sel = document.getElementById('menu-switcher');
-  if (!sel || !currentRistorante) return;
+  if (!currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
-  // allinea menu in modifica al menu pubblico se non ancora scelto
   if (!currentMenuId) currentMenuId = getMenuPubblicoId(currentRistorante);
   const mid = String(getCurrentMenuId(currentRistorante));
-  sel.innerHTML = menus.map(m =>
-    `<option value="${m.id}" ${String(m.id) === mid ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
-  ).join('');
+  if (sel) {
+    sel.innerHTML = menus.map(m =>
+      `<option value="${m.id}" ${String(m.id) === mid ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
+    ).join('');
+  }
+  const piattoMenu = document.getElementById('piatto-menu');
+  if (piattoMenu) {
+    const cur = piattoMenu.value || mid;
+    piattoMenu.innerHTML = menus.map(m =>
+      `<option value="${m.id}" ${String(m.id) === String(cur) ? 'selected' : ''}>${m.nome || 'Menu'}</option>`
+    ).join('');
+  }
+  updateMenuPubblicoBanner();
   populateMenuPubblicoSelects();
+}
+
+function updateMenuPubblicoBanner() {
+  const el = document.getElementById('menu-pubblico-label');
+  if (!el || !currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  const pubId = String(getMenuPubblicoId(currentRistorante));
+  const m = menus.find(x => String(x.id) === pubId);
+  el.textContent = (m && m.nome) || pubId || '—';
 }
 
 function populateMenuPubblicoSelects() {
@@ -6151,6 +6176,31 @@ document.getElementById('btn-rinomina-menu')?.addEventListener('click', () => {
   if (inp) inp.value = m ? m.nome : '';
   document.getElementById('modal-menu-nome')?.classList.remove('hidden');
   setTimeout(() => inp?.focus(), 40);
+});
+
+document.getElementById('btn-elimina-menu')?.addEventListener('click', async () => {
+  if (!currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  if (menus.length <= 1) {
+    toast('Deve restare almeno un menu');
+    return;
+  }
+  const mid = String(getCurrentMenuId(currentRistorante));
+  const m = menus.find(x => String(x.id) === mid);
+  const nome = (m && m.nome) || mid;
+  const nPiatti = piattiDelMenu(currentRistorante, mid).length;
+  const msg = nPiatti
+    ? ('Eliminare il menu «' + nome + '»? I ' + nPiatti + ' piatti collegati non saranno più mostrati finché non li assegni a un altro menu.')
+    : ('Eliminare il menu «' + nome + '»?');
+  if (!confirm(msg)) return;
+  currentRistorante.menus = menus.filter(x => String(x.id) !== mid);
+  const next = currentRistorante.menus[0];
+  currentMenuId = next.id;
+  await salvaMenusSuDb();
+  await setMenuPubblicoId(currentRistorante, next.id, { silent: true });
+  populateMenuSwitcher();
+  document.getElementById('menu-switcher')?.dispatchEvent(new Event('change'));
+  toast('Menu eliminato. Pubblicato: «' + (next.nome || next.id) + '»');
 });
 
 document.getElementById('form-menu-nome')?.addEventListener('submit', async (e) => {
