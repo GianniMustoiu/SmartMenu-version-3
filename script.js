@@ -99,7 +99,7 @@ function updateRistSidebarAbbonamento(r) {
 }
 
 
-const LANGS = ['it', 'en', 'es', 'de', 'fr', 'zh'];
+const LANGS = ['it', 'en', 'es', 'de', 'fr', 'pt', 'zh'];
 let clienteLang = 'it';
 let currentMenuId = null;
 
@@ -107,92 +107,310 @@ const UI_I18N = {
   it: {
     cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste (es. togli formaggio)',
     notePh: 'Allergie, modifiche, richieste speciali...',
-    paga: 'Metodo di pagamento', invia: 'Invia ordine', menu: 'Menu', aggiungi: 'Aggiungi',
+    paga: 'Metodo di pagamento', invia: 'Conferma ordine', menu: 'Menu', aggiungi: 'Aggiungi',
     scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo',
     carta: 'Carta', cassa: 'Pago in cassa', indietro: 'Indietro',
-    ricevuta: 'Ricevuta ordine', pagamento: 'Pagamento', codice: 'Codice',
+    ricevuta: 'Ordine ricevuto', pagamento: 'Pagamento', codice: 'Codice',
     sessione: 'Sessione attiva · scade tra', sessioneScaduta: 'Sessione scaduta',
     sessioneHint: 'Per sicurezza puoi ordinare solo entro 30 minuti dalla scansione del QR.',
     riscansione: 'Inquadra di nuovo il codice QR sul tavolo per continuare.',
     ordiniValidi: 'Gli ordini già inviati restano validi: il ristorante li vede comunque.',
     tutti: 'Tutti', nessunPiatto: 'Nessun piatto disponibile.',
     aPunto: 'A che punto è il tuo ordine', tornaMenu: 'Torna al menu',
-    scaricaRicevuta: 'Scarica ricevuta'
+    scaricaRicevuta: 'Scarica ricevuta', aggiungiAltro: 'Aggiungi altro',
+    circuito: 'Circuito / wallet', circuitoHint: 'Scegli come pagare online. Non memorizziamo i dati della carta.',
+    ordinaAncora: 'Ordina ancora', aggiornaStato: 'Aggiorna stato', autoStato: 'Stato aggiornato automaticamente',
+    tuoiOrdini: 'I tuoi ordini a questo tavolo', nessunOrdine: 'Nessun ordine',
+    pagamentoLabel: 'Pagamento', intestatario: 'Intestatario', numCarta: 'Numero carta',
+    scadenza: 'Scadenza', cvv: 'CVV', pagaOra: 'Paga', pagaCon: 'Paga con',
+    paySecure: 'I dati restano sul tuo dispositivo: salviamo solo il tipo di circuito, non il numero della carta.',
+    payDemo: 'Modalità demo: nessun addebito reale.', payWallet: 'Pagamento con wallet. Conferma per simulare l’autorizzazione (demo).',
+    less1min: 'meno di 1 min', minSuffix: ' min', scaduta: 'scaduta',
+    sessioneScadTitle: 'Sessione scaduta: riscansione il QR sul tavolo',
+    ordineInviato: 'Ordine inviato!', carrelloVuoto: 'Il carrello è vuoto',
+    sessioneNonValida: 'Sessione cliente non valida. Riscansiona il QR.',
+    premio: 'Premio', puntiInsuff: 'Punti insufficienti',
+    authWelcome: 'Benvenuto', authHint: 'Accedi alla loyalty card per accumulare punti, oppure continua come ospite.',
+    authOspite: 'Continua come ospite', authLogin: 'Accedi', authRegister: 'Registrati e attiva card',
+    authBack: 'Indietro', authNome: 'Nome', authCognome: 'Cognome', authTel: 'Telefono',
+    authEmail: 'Email', authPassword: 'Password', authSubmitLogin: 'Accedi',
+    authSubmitReg: 'Crea account e attiva card', authTitleLogin: 'Accedi', authTitleReg: 'Registrati',
+    tabMenu: 'Menu', tabPremi: 'Premi',
+    ordineRicevuto: 'Ordine ricevuto', statoOrdine: 'Stato ordine',
+    st_nuovo: 'Nuovo', st_in_preparazione: 'In preparazione', st_pronto: 'Pronto',
+    st_consegnato: 'Consegnato', st_chiuso: 'Chiuso',
+    pag_pagato: 'Pagato', pag_in_attesa: 'In attesa', pag_non_pagato: 'Non pagato',
+    all_glutine: 'Glutine', all_latticini: 'Latticini', all_uova: 'Uova',
+    all_frutta_a_guscio: 'Frutta a guscio', all_pesce: 'Pesce', all_crostacei: 'Crostacei',
+    all_soia: 'Soia', all_sesamo: 'Sesamo',
+    cat_antipasti: 'Antipasti', cat_primi: 'Primi', cat_secondi: 'Secondi', cat_contorni: 'Contorni',
+    cat_dolci: 'Dolci', cat_bevande: 'Bevande', cat_pizze: 'Pizze', cat_insalate: 'Insalate',
+    cat_sfizi: 'Sfizi', cat_vini: 'Vini', cat_birre: 'Birre', cat_cocktail: 'Cocktail',
+    cat_caffetteria: 'Caffetteria', cat_aperitivi: 'Aperitivi', cat_dessert: 'Dessert'
   },
   en: {
     cart: 'Cart', stato: 'Order status', totale: 'Total', note: 'Notes / requests (e.g. no cheese)',
     notePh: 'Allergies, changes, special requests...',
-    paga: 'Payment method', invia: 'Place order', menu: 'Menu', aggiungi: 'Add',
+    paga: 'Payment method', invia: 'Confirm order', menu: 'Menu', aggiungi: 'Add',
     scelto: 'Your selection', vuoto: 'Your cart is empty.', tavolo: 'Table',
     carta: 'Card', cassa: 'Pay at counter', indietro: 'Back',
-    ricevuta: 'Order receipt', pagamento: 'Payment', codice: 'Code',
+    ricevuta: 'Order received', pagamento: 'Payment', codice: 'Code',
     sessione: 'Session active · expires in', sessioneScaduta: 'Session expired',
     sessioneHint: 'For security you can only order within 30 minutes of scanning the QR.',
     riscansione: 'Scan the table QR code again to continue.',
     ordiniValidi: 'Orders already sent remain valid: the restaurant still sees them.',
     tutti: 'All', nessunPiatto: 'No dishes available.',
     aPunto: 'Where is your order', tornaMenu: 'Back to menu',
-    scaricaRicevuta: 'Download receipt'
+    scaricaRicevuta: 'Download receipt', aggiungiAltro: 'Add more',
+    circuito: 'Card network / wallet', circuitoHint: 'Choose how to pay online. We never store card numbers.',
+    ordinaAncora: 'Order again', aggiornaStato: 'Refresh status', autoStato: 'Status updates automatically',
+    tuoiOrdini: 'Your orders at this table', nessunOrdine: 'No orders',
+    pagamentoLabel: 'Payment', intestatario: 'Cardholder', numCarta: 'Card number',
+    scadenza: 'Expiry', cvv: 'CVV', pagaOra: 'Pay', pagaCon: 'Pay with',
+    paySecure: 'Data stays on your device: we only save the card type, not the number.',
+    payDemo: 'Demo mode: no real charge.', payWallet: 'Wallet payment. Confirm to simulate authorization (demo).',
+    less1min: 'less than 1 min', minSuffix: ' min', scaduta: 'expired',
+    sessioneScadTitle: 'Session expired: scan the table QR again',
+    ordineInviato: 'Order sent!', carrelloVuoto: 'Cart is empty',
+    sessioneNonValida: 'Invalid client session. Scan the QR again.',
+    premio: 'Reward', puntiInsuff: 'Not enough points',
+    authWelcome: 'Welcome', authHint: 'Sign in to the loyalty card to earn points, or continue as guest.',
+    authOspite: 'Continue as guest', authLogin: 'Sign in', authRegister: 'Register and activate card',
+    authBack: 'Back', authNome: 'First name', authCognome: 'Last name', authTel: 'Phone',
+    authEmail: 'Email', authPassword: 'Password', authSubmitLogin: 'Sign in',
+    authSubmitReg: 'Create account and activate card', authTitleLogin: 'Sign in', authTitleReg: 'Register',
+    tabMenu: 'Menu', tabPremi: 'Rewards',
+    ordineRicevuto: 'Order received', statoOrdine: 'Order status',
+    st_nuovo: 'New', st_in_preparazione: 'Preparing', st_pronto: 'Ready',
+    st_consegnato: 'Delivered', st_chiuso: 'Closed',
+    pag_pagato: 'Paid', pag_in_attesa: 'Pending', pag_non_pagato: 'Unpaid',
+    all_glutine: 'Gluten', all_latticini: 'Dairy', all_uova: 'Eggs',
+    all_frutta_a_guscio: 'Tree nuts', all_pesce: 'Fish', all_crostacei: 'Crustaceans',
+    all_soia: 'Soy', all_sesamo: 'Sesame',
+    cat_antipasti: 'Starters', cat_primi: 'Pasta & first courses', cat_secondi: 'Main courses', cat_contorni: 'Sides',
+    cat_dolci: 'Desserts', cat_bevande: 'Drinks', cat_pizze: 'Pizzas', cat_insalate: 'Salads',
+    cat_sfizi: 'Snacks', cat_vini: 'Wines', cat_birre: 'Beers', cat_cocktail: 'Cocktails',
+    cat_caffetteria: 'Coffee', cat_aperitivi: 'Aperitifs', cat_dessert: 'Dessert'
   },
   es: {
     cart: 'Carrito', stato: 'Estado del pedido', totale: 'Total', note: 'Notas / peticiones (ej. sin queso)',
     notePh: 'Alergias, cambios, peticiones especiales...',
-    paga: 'Método de pago', invia: 'Enviar pedido', menu: 'Menú', aggiungi: 'Añadir',
+    paga: 'Método de pago', invia: 'Confirmar pedido', menu: 'Menú', aggiungi: 'Añadir',
     scelto: 'Tu selección', vuoto: 'El carrito está vacío.', tavolo: 'Mesa',
     carta: 'Tarjeta', cassa: 'Pago en caja', indietro: 'Atrás',
-    ricevuta: 'Recibo del pedido', pagamento: 'Pago', codice: 'Código',
+    ricevuta: 'Pedido recibido', pagamento: 'Pago', codice: 'Código',
     sessione: 'Sesión activa · caduca en', sessioneScaduta: 'Sesión caducada',
     sessioneHint: 'Por seguridad solo puedes pedir en los 30 minutos tras escanear el QR.',
     riscansione: 'Escanea de nuevo el código QR de la mesa para continuar.',
     ordiniValidi: 'Los pedidos ya enviados siguen siendo válidos.',
     tutti: 'Todos', nessunPiatto: 'No hay platos disponibles.',
     aPunto: 'Estado de tu pedido', tornaMenu: 'Volver al menú',
-    scaricaRicevuta: 'Descargar recibo'
+    scaricaRicevuta: 'Descargar recibo', aggiungiAltro: 'Añadir más',
+    circuito: 'Circuito / wallet', circuitoHint: 'Elige cómo pagar online. No guardamos el número de tarjeta.',
+    ordinaAncora: 'Pedir de nuevo', aggiornaStato: 'Actualizar estado', autoStato: 'Estado actualizado automáticamente',
+    tuoiOrdini: 'Tus pedidos en esta mesa', nessunOrdine: 'Ningún pedido',
+    pagamentoLabel: 'Pago', intestatario: 'Titular', numCarta: 'Número de tarjeta',
+    scadenza: 'Caducidad', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar con',
+    paySecure: 'Los datos permanecen en tu dispositivo: solo guardamos el tipo de tarjeta.',
+    payDemo: 'Modo demo: sin cargo real.', payWallet: 'Pago con wallet. Confirma para simular (demo).',
+    less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'caducada',
+    sessioneScadTitle: 'Sesión caducada: escanea de nuevo el QR',
+    ordineInviato: '¡Pedido enviado!', carrelloVuoto: 'El carrito está vacío',
+    sessioneNonValida: 'Sesión no válida. Escanea el QR de nuevo.',
+    premio: 'Premio', puntiInsuff: 'Puntos insuficientes',
+    authWelcome: 'Bienvenido', authHint: 'Accede a la tarjeta loyalty para sumar puntos, o continúa como invitado.',
+    authOspite: 'Continuar como invitado', authLogin: 'Iniciar sesión', authRegister: 'Registrarse y activar tarjeta',
+    authBack: 'Atrás', authNome: 'Nombre', authCognome: 'Apellido', authTel: 'Teléfono',
+    authEmail: 'Email', authPassword: 'Contraseña', authSubmitLogin: 'Entrar',
+    authSubmitReg: 'Crear cuenta y activar tarjeta', authTitleLogin: 'Iniciar sesión', authTitleReg: 'Registrarse',
+    tabMenu: 'Menú', tabPremi: 'Premios',
+    ordineRicevuto: 'Pedido recibido', statoOrdine: 'Estado del pedido',
+    st_nuovo: 'Nuevo', st_in_preparazione: 'En preparación', st_pronto: 'Listo',
+    st_consegnato: 'Entregado', st_chiuso: 'Cerrado',
+    pag_pagato: 'Pagado', pag_in_attesa: 'Pendiente', pag_non_pagato: 'No pagado',
+    all_glutine: 'Gluten', all_latticini: 'Lácteos', all_uova: 'Huevos',
+    all_frutta_a_guscio: 'Frutos secos', all_pesce: 'Pescado', all_crostacei: 'Crustáceos',
+    all_soia: 'Soja', all_sesamo: 'Sésamo',
+    cat_antipasti: 'Entrantes', cat_primi: 'Primeros', cat_secondi: 'Segundos', cat_contorni: 'Guarniciones',
+    cat_dolci: 'Postres', cat_bevande: 'Bebidas', cat_pizze: 'Pizzas', cat_insalate: 'Ensaladas',
+    cat_sfizi: 'Aperitivos', cat_vini: 'Vinos', cat_birre: 'Cervezas', cat_cocktail: 'Cócteles',
+    cat_caffetteria: 'Café', cat_aperitivi: 'Aperitivos', cat_dessert: 'Postre'
   },
   de: {
     cart: 'Warenkorb', stato: 'Bestellstatus', totale: 'Gesamt', note: 'Hinweise / Wünsche (z.B. ohne Käse)',
     notePh: 'Allergien, Änderungen, Sonderwünsche...',
-    paga: 'Zahlungsart', invia: 'Bestellung senden', menu: 'Menü', aggiungi: 'Hinzufügen',
+    paga: 'Zahlungsart', invia: 'Bestellung bestätigen', menu: 'Menü', aggiungi: 'Hinzufügen',
     scelto: 'Ihre Auswahl', vuoto: 'Der Warenkorb ist leer.', tavolo: 'Tisch',
     carta: 'Karte', cassa: 'An der Kasse zahlen', indietro: 'Zurück',
-    ricevuta: 'Bestellbeleg', pagamento: 'Zahlung', codice: 'Code',
+    ricevuta: 'Bestellung erhalten', pagamento: 'Zahlung', codice: 'Code',
     sessione: 'Sitzung aktiv · endet in', sessioneScaduta: 'Sitzung abgelaufen',
     sessioneHint: 'Aus Sicherheitsgründen können Sie nur 30 Minuten nach dem QR-Scan bestellen.',
     riscansione: 'Scannen Sie den QR-Code am Tisch erneut.',
     ordiniValidi: 'Bereits gesendete Bestellungen bleiben gültig.',
     tutti: 'Alle', nessunPiatto: 'Keine Gerichte verfügbar.',
     aPunto: 'Status Ihrer Bestellung', tornaMenu: 'Zurück zum Menü',
-    scaricaRicevuta: 'Beleg herunterladen'
+    scaricaRicevuta: 'Beleg herunterladen', aggiungiAltro: 'Mehr hinzufügen',
+    circuito: 'Kartennetz / Wallet', circuitoHint: 'Wählen Sie die Online-Zahlung. Wir speichern keine Kartendaten.',
+    ordinaAncora: 'Erneut bestellen', aggiornaStato: 'Status aktualisieren', autoStato: 'Status wird automatisch aktualisiert',
+    tuoiOrdini: 'Ihre Bestellungen an diesem Tisch', nessunOrdine: 'Keine Bestellungen',
+    pagamentoLabel: 'Zahlung', intestatario: 'Karteninhaber', numCarta: 'Kartennummer',
+    scadenza: 'Gültig bis', cvv: 'CVV', pagaOra: 'Bezahlen', pagaCon: 'Bezahlen mit',
+    paySecure: 'Daten bleiben auf Ihrem Gerät: wir speichern nur den Kartentyp.',
+    payDemo: 'Demo-Modus: keine echte Abbuchung.', payWallet: 'Wallet-Zahlung. Bestätigen zur Simulation (Demo).',
+    less1min: 'weniger als 1 Min.', minSuffix: ' Min.', scaduta: 'abgelaufen',
+    sessioneScadTitle: 'Sitzung abgelaufen: QR erneut scannen',
+    ordineInviato: 'Bestellung gesendet!', carrelloVuoto: 'Warenkorb ist leer',
+    sessioneNonValida: 'Ungültige Sitzung. QR erneut scannen.',
+    premio: 'Prämie', puntiInsuff: 'Nicht genug Punkte',
+    authWelcome: 'Willkommen', authHint: 'Melden Sie sich bei der Loyalty-Karte an oder fahren Sie als Gast fort.',
+    authOspite: 'Als Gast fortfahren', authLogin: 'Anmelden', authRegister: 'Registrieren und Karte aktivieren',
+    authBack: 'Zurück', authNome: 'Vorname', authCognome: 'Nachname', authTel: 'Telefon',
+    authEmail: 'E-Mail', authPassword: 'Passwort', authSubmitLogin: 'Anmelden',
+    authSubmitReg: 'Konto erstellen und Karte aktivieren', authTitleLogin: 'Anmelden', authTitleReg: 'Registrieren',
+    tabMenu: 'Menü', tabPremi: 'Prämien',
+    ordineRicevuto: 'Bestellung erhalten', statoOrdine: 'Bestellstatus',
+    st_nuovo: 'Neu', st_in_preparazione: 'In Zubereitung', st_pronto: 'Fertig',
+    st_consegnato: 'Zugestellt', st_chiuso: 'Geschlossen',
+    pag_pagato: 'Bezahlt', pag_in_attesa: 'Ausstehend', pag_non_pagato: 'Nicht bezahlt',
+    all_glutine: 'Gluten', all_latticini: 'Milchprodukte', all_uova: 'Eier',
+    all_frutta_a_guscio: 'Schalenfrüchte', all_pesce: 'Fisch', all_crostacei: 'Krebstiere',
+    all_soia: 'Soja', all_sesamo: 'Sesam',
+    cat_antipasti: 'Vorspeisen', cat_primi: 'Erste Gänge', cat_secondi: 'Hauptgerichte', cat_contorni: 'Beilagen',
+    cat_dolci: 'Desserts', cat_bevande: 'Getränke', cat_pizze: 'Pizzen', cat_insalate: 'Salate',
+    cat_sfizi: 'Snacks', cat_vini: 'Weine', cat_birre: 'Biere', cat_cocktail: 'Cocktails',
+    cat_caffetteria: 'Kaffee', cat_aperitivi: 'Aperitif', cat_dessert: 'Dessert'
   },
   fr: {
     cart: 'Panier', stato: 'État de la commande', totale: 'Total', note: 'Notes / demandes (ex. sans fromage)',
     notePh: 'Allergies, modifications, demandes spéciales...',
-    paga: 'Mode de paiement', invia: 'Envoyer la commande', menu: 'Menu', aggiungi: 'Ajouter',
+    paga: 'Mode de paiement', invia: 'Confirmer la commande', menu: 'Menu', aggiungi: 'Ajouter',
     scelto: 'Votre sélection', vuoto: 'Le panier est vide.', tavolo: 'Table',
     carta: 'Carte', cassa: 'Payer au comptoir', indietro: 'Retour',
-    ricevuta: 'Reçu de commande', pagamento: 'Paiement', codice: 'Code',
+    ricevuta: 'Commande reçue', pagamento: 'Paiement', codice: 'Code',
     sessione: 'Session active · expire dans', sessioneScaduta: 'Session expirée',
     sessioneHint: 'Pour votre sécurité, commande possible uniquement dans les 30 minutes après le QR.',
     riscansione: 'Scannez à nouveau le QR de la table pour continuer.',
     ordiniValidi: 'Les commandes déjà envoyées restent valides.',
     tutti: 'Tous', nessunPiatto: 'Aucun plat disponible.',
     aPunto: 'Où en est votre commande', tornaMenu: 'Retour au menu',
-    scaricaRicevuta: 'Télécharger le reçu'
+    scaricaRicevuta: 'Télécharger le reçu', aggiungiAltro: 'Ajouter autre chose',
+    circuito: 'Réseau / wallet', circuitoHint: 'Choisissez le paiement en ligne. Nous ne stockons pas le numéro de carte.',
+    ordinaAncora: 'Commander à nouveau', aggiornaStato: 'Actualiser le statut', autoStato: 'Statut mis à jour automatiquement',
+    tuoiOrdini: 'Vos commandes à cette table', nessunOrdine: 'Aucune commande',
+    pagamentoLabel: 'Paiement', intestatario: 'Titulaire', numCarta: 'Numéro de carte',
+    scadenza: 'Expiration', cvv: 'CVV', pagaOra: 'Payer', pagaCon: 'Payer avec',
+    paySecure: 'Les données restent sur votre appareil : nous enregistrons seulement le type de carte.',
+    payDemo: 'Mode démo : aucun débit réel.', payWallet: 'Paiement wallet. Confirmez pour simuler (démo).',
+    less1min: 'moins d’1 min', minSuffix: ' min', scaduta: 'expirée',
+    sessioneScadTitle: 'Session expirée : rescanez le QR',
+    ordineInviato: 'Commande envoyée !', carrelloVuoto: 'Le panier est vide',
+    sessioneNonValida: 'Session invalide. Rescanez le QR.',
+    premio: 'Récompense', puntiInsuff: 'Points insuffisants',
+    authWelcome: 'Bienvenue', authHint: 'Connectez-vous à la carte fidélité pour gagner des points, ou continuez en invité.',
+    authOspite: 'Continuer en invité', authLogin: 'Connexion', authRegister: 'S’inscrire et activer la carte',
+    authBack: 'Retour', authNome: 'Prénom', authCognome: 'Nom', authTel: 'Téléphone',
+    authEmail: 'E-mail', authPassword: 'Mot de passe', authSubmitLogin: 'Se connecter',
+    authSubmitReg: 'Créer le compte et activer la carte', authTitleLogin: 'Connexion', authTitleReg: 'Inscription',
+    tabMenu: 'Menu', tabPremi: 'Récompenses',
+    ordineRicevuto: 'Commande reçue', statoOrdine: 'État de la commande',
+    st_nuovo: 'Nouveau', st_in_preparazione: 'En préparation', st_pronto: 'Prêt',
+    st_consegnato: 'Servi', st_chiuso: 'Clos',
+    pag_pagato: 'Payé', pag_in_attesa: 'En attente', pag_non_pagato: 'Non payé',
+    all_glutine: 'Gluten', all_latticini: 'Produits laitiers', all_uova: 'Œufs',
+    all_frutta_a_guscio: 'Fruits à coque', all_pesce: 'Poisson', all_crostacei: 'Crustacés',
+    all_soia: 'Soja', all_sesamo: 'Sésame',
+    cat_antipasti: 'Entrées', cat_primi: 'Plats de pâtes', cat_secondi: 'Plats principaux', cat_contorni: 'Accompagnements',
+    cat_dolci: 'Desserts', cat_bevande: 'Boissons', cat_pizze: 'Pizzas', cat_insalate: 'Salades',
+    cat_sfizi: 'Amuse-bouches', cat_vini: 'Vins', cat_birre: 'Bières', cat_cocktail: 'Cocktails',
+    cat_caffetteria: 'Café', cat_aperitivi: 'Apéritifs', cat_dessert: 'Dessert'
+  },
+  pt: {
+    cart: 'Carrinho', stato: 'Estado do pedido', totale: 'Total', note: 'Notas / pedidos (ex. sem queijo)',
+    notePh: 'Alergias, alterações, pedidos especiais...',
+    paga: 'Método de pagamento', invia: 'Confirmar pedido', menu: 'Menu', aggiungi: 'Adicionar',
+    scelto: 'A sua seleção', vuoto: 'O carrinho está vazio.', tavolo: 'Mesa',
+    carta: 'Cartão', cassa: 'Pagar no balcão', indietro: 'Voltar',
+    ricevuta: 'Pedido recebido', pagamento: 'Pagamento', codice: 'Código',
+    sessione: 'Sessão ativa · expira em', sessioneScaduta: 'Sessão expirada',
+    sessioneHint: 'Por segurança só pode pedir nos 30 minutos após ler o QR.',
+    riscansione: 'Leia novamente o código QR da mesa para continuar.',
+    ordiniValidi: 'Os pedidos já enviados continuam válidos.',
+    tutti: 'Todos', nessunPiatto: 'Nenhum prato disponível.',
+    aPunto: 'Onde está o seu pedido', tornaMenu: 'Voltar ao menu',
+    scaricaRicevuta: 'Descarregar recibo', aggiungiAltro: 'Adicionar mais',
+    circuito: 'Rede / wallet', circuitoHint: 'Escolha como pagar online. Não guardamos o número do cartão.',
+    ordinaAncora: 'Pedir de novo', aggiornaStato: 'Atualizar estado', autoStato: 'Estado atualizado automaticamente',
+    tuoiOrdini: 'Os seus pedidos nesta mesa', nessunOrdine: 'Nenhum pedido',
+    pagamentoLabel: 'Pagamento', intestatario: 'Titular', numCarta: 'Número do cartão',
+    scadenza: 'Validade', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar com',
+    paySecure: 'Os dados ficam no seu dispositivo: só guardamos o tipo de cartão.',
+    payDemo: 'Modo demo: sem cobrança real.', payWallet: 'Pagamento com wallet. Confirme para simular (demo).',
+    less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'expirada',
+    sessioneScadTitle: 'Sessão expirada: leia o QR novamente',
+    ordineInviato: 'Pedido enviado!', carrelloVuoto: 'O carrinho está vazio',
+    sessioneNonValida: 'Sessão inválida. Leia o QR novamente.',
+    premio: 'Prémio', puntiInsuff: 'Pontos insuficientes',
+    authWelcome: 'Bem-vindo', authHint: 'Inicie sessão no cartão de fidelidade para ganhar pontos, ou continue como convidado.',
+    authOspite: 'Continuar como convidado', authLogin: 'Entrar', authRegister: 'Registar e ativar cartão',
+    authBack: 'Voltar', authNome: 'Nome', authCognome: 'Apelido', authTel: 'Telefone',
+    authEmail: 'Email', authPassword: 'Palavra-passe', authSubmitLogin: 'Entrar',
+    authSubmitReg: 'Criar conta e ativar cartão', authTitleLogin: 'Entrar', authTitleReg: 'Registar',
+    tabMenu: 'Menu', tabPremi: 'Prémios',
+    ordineRicevuto: 'Pedido recebido', statoOrdine: 'Estado do pedido',
+    st_nuovo: 'Novo', st_in_preparazione: 'Em preparação', st_pronto: 'Pronto',
+    st_consegnato: 'Entregue', st_chiuso: 'Fechado',
+    pag_pagato: 'Pago', pag_in_attesa: 'Pendente', pag_non_pagato: 'Não pago',
+    all_glutine: 'Glúten', all_latticini: 'Laticínios', all_uova: 'Ovos',
+    all_frutta_a_guscio: 'Frutos de casca rija', all_pesce: 'Peixe', all_crostacei: 'Crustáceos',
+    all_soia: 'Soja', all_sesamo: 'Sésamo',
+    cat_antipasti: 'Entradas', cat_primi: 'Pratos de massa', cat_secondi: 'Pratos principais', cat_contorni: 'Acompanhamentos',
+    cat_dolci: 'Sobremesas', cat_bevande: 'Bebidas', cat_pizze: 'Pizzas', cat_insalate: 'Saladas',
+    cat_sfizi: 'Petiscos', cat_vini: 'Vinhos', cat_birre: 'Cervejas', cat_cocktail: 'Cocktails',
+    cat_caffetteria: 'Café', cat_aperitivi: 'Aperitivos', cat_dessert: 'Sobremesa'
   },
   zh: {
     cart: '购物车', stato: '订单状态', totale: '合计', note: '备注 / 要求（例如不要芝士）',
     notePh: '过敏、修改、特殊要求...',
-    paga: '支付方式', invia: '提交订单', menu: '菜单', aggiungi: '添加',
+    paga: '支付方式', invia: '确认订单', menu: '菜单', aggiungi: '添加',
     scelto: '已选菜品', vuoto: '购物车是空的。', tavolo: '桌号',
     carta: '银行卡', cassa: '到柜台付款', indietro: '返回',
-    ricevuta: '订单收据', pagamento: '支付', codice: '编号',
+    ricevuta: '订单已接收', pagamento: '支付', codice: '编号',
     sessione: '会话有效 · 剩余', sessioneScaduta: '会话已过期',
     sessioneHint: '为安全起见，扫码后 30 分钟内可下单。',
     riscansione: '请重新扫描桌上的二维码继续。',
     ordiniValidi: '已提交的订单仍然有效。',
     tutti: '全部', nessunPiatto: '暂无菜品。',
     aPunto: '订单进度', tornaMenu: '返回菜单',
-    scaricaRicevuta: '下载收据'
+    scaricaRicevuta: '下载收据', aggiungiAltro: '继续点餐',
+    circuito: '卡组织 / 钱包', circuitoHint: '选择在线支付方式。我们不会保存卡号。',
+    ordinaAncora: '再点一单', aggiornaStato: '刷新状态', autoStato: '状态自动更新',
+    tuoiOrdini: '本桌订单', nessunOrdine: '暂无订单',
+    pagamentoLabel: '支付', intestatario: '持卡人', numCarta: '卡号',
+    scadenza: '有效期', cvv: 'CVV', pagaOra: '支付', pagaCon: '使用',
+    paySecure: '数据仅保存在您的设备上：我们只记录卡类型，不保存卡号。',
+    payDemo: '演示模式：不会真实扣款。', payWallet: '钱包支付。确认以模拟授权（演示）。',
+    less1min: '不到 1 分钟', minSuffix: ' 分钟', scaduta: '已过期',
+    sessioneScadTitle: '会话已过期：请重新扫码',
+    ordineInviato: '订单已提交！', carrelloVuoto: '购物车是空的',
+    sessioneNonValida: '会话无效，请重新扫描二维码。',
+    premio: '奖励', puntiInsuff: '积分不足',
+    authWelcome: '欢迎', authHint: '登录会员卡赚取积分，或以访客身份继续。',
+    authOspite: '以访客身份继续', authLogin: '登录', authRegister: '注册并开通会员卡',
+    authBack: '返回', authNome: '名', authCognome: '姓', authTel: '电话',
+    authEmail: '邮箱', authPassword: '密码', authSubmitLogin: '登录',
+    authSubmitReg: '创建账户并开通会员卡', authTitleLogin: '登录', authTitleReg: '注册',
+    tabMenu: '菜单', tabPremi: '奖励',
+    ordineRicevuto: '订单已接收', statoOrdine: '订单状态',
+    st_nuovo: '新订单', st_in_preparazione: '制作中', st_pronto: '已就绪',
+    st_consegnato: '已送达', st_chiuso: '已关闭',
+    pag_pagato: '已支付', pag_in_attesa: '待支付', pag_non_pagato: '未支付',
+    all_glutine: '麸质', all_latticini: '乳制品', all_uova: '鸡蛋',
+    all_frutta_a_guscio: '坚果', all_pesce: '鱼', all_crostacei: '甲壳类',
+    all_soia: '大豆', all_sesamo: '芝麻',
+    cat_antipasti: '开胃菜', cat_primi: '意面/第一道', cat_secondi: '主菜', cat_contorni: '配菜',
+    cat_dolci: '甜品', cat_bevande: '饮料', cat_pizze: '披萨', cat_insalate: '沙拉',
+    cat_sfizi: '小食', cat_vini: '葡萄酒', cat_birre: '啤酒', cat_cocktail: '鸡尾酒',
+    cat_caffetteria: '咖啡', cat_aperitivi: '开胃酒', cat_dessert: '甜品'
   }
 };
 
@@ -201,13 +419,126 @@ function tUI(key) {
   return pack[key] || UI_I18N.it[key] || key;
 }
 
+/** Allergeni: id DB → etichetta localizzata */
+function tAllergene(id) {
+  const k = 'all_' + String(id || '').toLowerCase().replace(/\s+/g, '_');
+  const t = tUI(k);
+  return t === k ? String(id || '') : t;
+}
+
+function formatAllergeni(list) {
+  if (!list || !list.length) return '';
+  return list.map(tAllergene).join(', ');
+}
+
+/** Categorie comuni IT → chiave i18n */
+const CAT_I18N_KEYS = {
+  antipasti: 'cat_antipasti', primi: 'cat_primi', secondi: 'cat_secondi', contorni: 'cat_contorni',
+  dolci: 'cat_dolci', bevande: 'cat_bevande', pizze: 'cat_pizze', pizza: 'cat_pizze',
+  insalate: 'cat_insalate', sfizi: 'cat_sfizi', vini: 'cat_vini', birre: 'cat_birre',
+  cocktail: 'cat_cocktail', caffetteria: 'cat_caffetteria', aperitivi: 'cat_aperitivi', dessert: 'cat_dessert'
+};
+
+function tCategoria(nome) {
+  if (!nome) return '';
+  if (clienteLang === 'it') return nome;
+  const key = CAT_I18N_KEYS[String(nome).toLowerCase().trim()];
+  if (key) {
+    const t = tUI(key);
+    if (t !== key) return t;
+  }
+  // fallback cache traduzione automatica
+  return translateCached(nome, 'cat:' + nome) || nome;
+}
+
 function piattoLabel(p, field) {
   // field: 'nome' | 'descrizione'
   if (!p) return '';
   if (clienteLang === 'it') return p[field] || '';
   const tr = p.traduzioni || {};
   const lang = tr[clienteLang] || {};
-  return lang[field] || p[field] || '';
+  if (lang[field]) return lang[field];
+  const base = p[field] || '';
+  if (!base) return '';
+  // usa cache traduzioni automatiche (popolata in background)
+  const cached = translateCached(base, 'p:' + (p.id || '') + ':' + field);
+  return cached || base;
+}
+
+/** Cache traduzioni automatiche it → altre lingue (localStorage) */
+function translateCacheKey(text, lang) {
+  return 'menupro_tr_' + lang + '_' + String(text || '').slice(0, 120);
+}
+function translateCached(text, _hint) {
+  if (!text || clienteLang === 'it') return text;
+  try {
+    const v = localStorage.getItem(translateCacheKey(text, clienteLang));
+    return v || null;
+  } catch (e) { return null; }
+}
+function setTranslateCache(text, lang, translated) {
+  if (!text || !translated || lang === 'it') return;
+  try { localStorage.setItem(translateCacheKey(text, lang), translated); } catch (e) {}
+}
+
+const _trQueue = new Set();
+let _trBusy = false;
+const MYMEMORY_LANG = { en: 'en', es: 'es', de: 'de', fr: 'fr', pt: 'pt', zh: 'zh-CN' };
+
+async function translateTextOnline(text, targetLang) {
+  if (!text || targetLang === 'it') return text;
+  const pair = 'it|' + (MYMEMORY_LANG[targetLang] || targetLang);
+  try {
+    const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(String(text).slice(0, 450)) + '&langpair=' + pair;
+    const res = await fetch(url);
+    if (!res.ok) return text;
+    const j = await res.json();
+    const out = j && j.responseData && j.responseData.translatedText;
+    if (out && typeof out === 'string' && !/MYMEMORY WARNING/i.test(out)) {
+      setTranslateCache(text, targetLang, out);
+      return out;
+    }
+  } catch (e) {}
+  return text;
+}
+
+async function ensureMenuTranslations() {
+  if (!currentRistorante || clienteLang === 'it' || !navigator.onLine) return;
+  const pubId = getMenuPubblicoId(currentRistorante);
+  const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
+  const tasks = [];
+  for (const p of menu) {
+    for (const field of ['nome', 'descrizione']) {
+      const base = p[field];
+      if (!base) continue;
+      const tr = (p.traduzioni || {})[clienteLang] || {};
+      if (tr[field]) continue;
+      if (translateCached(base, 'p:' + p.id + ':' + field)) continue;
+      const key = base + '|' + field;
+      if (_trQueue.has(key)) continue;
+      _trQueue.add(key);
+      tasks.push({ p, field, base });
+    }
+    const cat = p.categoria;
+    if (cat && !CAT_I18N_KEYS[String(cat).toLowerCase().trim()] && !translateCached(cat, 'cat:' + cat)) {
+      const key = 'cat|' + cat;
+      if (!_trQueue.has(key)) {
+        _trQueue.add(key);
+        tasks.push({ cat: true, base: cat });
+      }
+    }
+  }
+  if (!tasks.length) return;
+  // max 8 richieste per ciclo per non saturare
+  const batch = tasks.slice(0, 8);
+  for (const t of batch) {
+    await translateTextOnline(t.base, clienteLang);
+    await new Promise(r => setTimeout(r, 120));
+  }
+  // ridisegna se siamo ancora sulla vista menu
+  if (!$('#cliente-menu-view')?.classList.contains('hidden')) {
+    renderClienteMenu(true);
+  }
 }
 
 function menusStorageKey(rid) {
@@ -2053,9 +2384,25 @@ $('#btn-avvia-demo')?.addEventListener('click', async () => {
 // RISTORATORE
 // =====================================================
 function labelStato(s) {
+  const key = 'st_' + s;
+  if (currentUser && currentUser.role === 'cliente') {
+    const t = tUI(key);
+    if (t !== key) return t;
+  }
   return { nuovo: 'Nuovo', in_preparazione: 'In preparazione', pronto: 'Pronto', consegnato: 'Consegnato', chiuso: 'Chiuso' }[s] || s;
 }
+function labelPagamentoCliente(metodo) {
+  return metodo === 'cassa' ? tUI('cassa') : tUI('carta');
+}
+function labelPagStatoCliente(s) {
+  const key = 'pag_' + (s || 'in_attesa');
+  const t = tUI(key);
+  return t !== key ? t : (s || '');
+}
 function labelPagamentoStato(s) {
+  if (currentUser && currentUser.role === 'cliente') {
+    return labelPagStatoCliente(s);
+  }
   return { pagato: 'Pagato', in_attesa: 'In attesa', non_pagato: 'Non pagato' }[s] || s || 'In attesa';
 }
 function defaultPagStato(metodo) {
@@ -3890,8 +4237,9 @@ document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
   showClienteView('premi');
 });
 
-function renderClienteMenu() {
+function renderClienteMenu(skipTranslate) {
   if (!currentRistorante) return;
+  applyClienteChromeI18n();
   const pubId = getMenuPubblicoId(currentRistorante);
   const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
   // Ordine categorie come in gestione menu (posizione DB), non casuale
@@ -3903,8 +4251,9 @@ function renderClienteMenu() {
   ];
   const cats = ['tutti', ...orderedCats];
   const catEl = $('#cliente-categorie');
+  if (!catEl) return;
   catEl.innerHTML = cats.map(c =>
-    `<button class="cat-chip ${c === menuFilterCat ? 'active' : ''}" data-cat="${c}">${c === 'tutti' ? 'Tutti' : c}</button>`
+    `<button class="cat-chip ${c === menuFilterCat ? 'active' : ''}" data-cat="${c}">${c === 'tutti' ? tUI('tutti') : tCategoria(c)}</button>`
   ).join('');
   catEl.querySelectorAll('.cat-chip').forEach(chip => {
     chip.addEventListener('click', () => { menuFilterCat = chip.dataset.cat; renderClienteMenu(); });
@@ -3926,7 +4275,8 @@ function renderClienteMenu() {
   list.innerHTML = filtered.map(p => {
     const inCart = cart.find(c => c.id === p.id);
     const qty = inCart ? inCart.qty : 0;
-    const all = (p.allergeni || []).length ? `<div class="allergeni-tags">⚠ ${(p.allergeni).join(', ')}</div>` : '';
+    const allTxt = formatAllergeni(p.allergeni);
+    const all = allTxt ? `<div class="allergeni-tags">⚠ ${allTxt}</div>` : '';
     const nome = piattoLabel(p, 'nome') || p.nome;
     const desc = piattoLabel(p, 'descrizione');
     return `
@@ -3951,6 +4301,9 @@ function renderClienteMenu() {
     `;
     }).join('');
   applyClienteChromeI18n();
+  if (!skipTranslate && clienteLang !== 'it') {
+    ensureMenuTranslations().catch(() => {});
+  }
 }
 
 function applyClienteChromeI18n() {
@@ -3970,7 +4323,6 @@ function applyClienteChromeI18n() {
   const noteTa = $('#ordine-note');
   if (noteTa) noteTa.placeholder = tUI('notePh');
 
-  // payment option labels
   document.querySelectorAll('input[name="pagamento"]').forEach(inp => {
     const lab = inp.closest('label');
     if (!lab) return;
@@ -3982,23 +4334,28 @@ function applyClienteChromeI18n() {
 
   const invia = $('#btn-invia-ordine');
   if (invia) invia.innerHTML = `<i class="fas fa-paper-plane"></i> ${tUI('invia')}`;
+  const tornaMenu = $('#btn-torna-menu');
+  if (tornaMenu) tornaMenu.textContent = tUI('aggiungiAltro');
+
+  const circLab = document.querySelector('#circuito-wrap > label');
+  if (circLab) circLab.textContent = tUI('circuito');
+  const circSmall = document.querySelector('#circuito-wrap small');
+  if (circSmall) circSmall.textContent = tUI('circuitoHint');
 
   const tavoloNum = $('#cliente-tavolo-num')?.textContent || '';
   const tavoloP = document.querySelector('.cliente-header p');
   if (tavoloP) tavoloP.innerHTML = `${tUI('tavolo')} <strong id="cliente-tavolo-num">${tavoloNum}</strong>`;
 
-  // empty cart message if present
   const cartItems = $('#carrello-items');
   if (cartItems && !(cart && cart.length) && cartItems.querySelector('p')) {
     cartItems.innerHTML = `<p style="color:var(--muted);text-align:center">${tUI('vuoto')}</p>`;
   }
 
-  // category chips "tutti"
   document.querySelectorAll('#cliente-categorie .cat-chip').forEach(chip => {
     if (chip.dataset.cat === 'tutti') chip.textContent = tUI('tutti');
+    else if (chip.dataset.cat) chip.textContent = tCategoria(chip.dataset.cat);
   });
 
-  // session banner
   const banner = document.getElementById('qr-session-banner');
   if (banner) {
     const timer = document.getElementById('qr-session-timer');
@@ -4015,18 +4372,83 @@ function applyClienteChromeI18n() {
     if (ps[2]) ps[2].textContent = tUI('ordiniValidi');
   }
 
-  // ricevuta / stato headings
-  const ricH = document.querySelector('#cliente-ricevuta-view h2, .ricevuta-header h2');
-  // leave dynamic codes
+  const ricH = document.querySelector('#cliente-ricevuta-view .ricevuta-header h2');
+  if (ricH) ricH.textContent = tUI('ordineRicevuto');
   const statoH = document.querySelector('#cliente-stato-view h2');
   if (statoH) statoH.textContent = tUI('aPunto');
   const torna = $('#btn-torna-da-stato');
   if (torna) torna.textContent = tUI('tornaMenu');
   const scarica = $('#btn-scarica-ricevuta');
   if (scarica) scarica.innerHTML = `<i class="fas fa-download"></i> ${tUI('scaricaRicevuta')}`;
+  const nuovoOrd = $('#btn-nuovo-ordine');
+  if (nuovoOrd) nuovoOrd.innerHTML = `<i class="fas fa-plus"></i> ${tUI('ordinaAncora')}`;
+  const aggSt = $('#btn-aggiorna-stato');
+  if (aggSt) aggSt.innerHTML = `<i class="fas fa-sync"></i> ${tUI('aggiornaStato')}`;
+  const autoHint = document.querySelector('.auto-status-hint');
+  if (autoHint) autoHint.innerHTML = `<i class="fas fa-sync fa-spin" style="margin-right:6px"></i> ${tUI('autoStato')}`;
+  const tuoiLab = document.querySelector('#cliente-ricevuta-view .ricevuta-header label');
+  if (tuoiLab) tuoiLab.textContent = tUI('tuoiOrdini');
+
+  // payment form labels
+  const payLabels = {
+    'pay-intestatario': 'intestatario',
+    'pay-numero': 'numCarta',
+    'pay-scadenza': 'scadenza',
+    'pay-cvv': 'cvv'
+  };
+  Object.entries(payLabels).forEach(([id, key]) => {
+    const inp = document.getElementById(id);
+    const lab = inp && inp.closest('.form-group') && inp.closest('.form-group').querySelector('label');
+    if (lab) lab.textContent = tUI(key);
+  });
+  const paySecure = document.querySelector('#pay-form-carta .pay-secure-note');
+  if (paySecure) paySecure.innerHTML = `<i class="fas fa-lock"></i> ${tUI('paySecure')}`;
+  const payDemo = document.querySelector('.pay-demo-hint');
+  if (payDemo) payDemo.textContent = tUI('payDemo');
+  const payWalletNote = document.querySelector('#pay-form-wallet .pay-secure-note');
+  if (payWalletNote) payWalletNote.innerHTML = `<i class="fas fa-lock"></i> ${tUI('payWallet')}`;
+  const btnPaga = $('#btn-paga-ora');
+  if (btnPaga) {
+    const span = document.getElementById('pay-btn-totale');
+    const tot = span ? span.textContent : '';
+    btnPaga.innerHTML = `<i class="fas fa-lock"></i> ${tUI('pagaOra')} <span id="pay-btn-totale">${tot}</span>`;
+  }
+
+  // tabs
+  const tabMenu = document.getElementById('tab-cliente-menu');
+  if (tabMenu) tabMenu.innerHTML = `<i class="fas fa-utensils"></i> ${tUI('tabMenu')}`;
+  const tabPremi = document.getElementById('tab-cliente-premi');
+  if (tabPremi) tabPremi.innerHTML = `<i class="fas fa-gift"></i> ${tUI('tabPremi')}`;
+
+  // auth gate
+  const authHint = document.querySelector('#cliente-auth-gate .cliente-auth-card > p');
+  if (authHint) authHint.textContent = tUI('authHint');
+  const btnOspite = document.getElementById('btn-auth-ospite');
+  if (btnOspite) btnOspite.innerHTML = `<i class="fas fa-user"></i> ${tUI('authOspite')}`;
+  const btnLogin = document.getElementById('btn-auth-login');
+  if (btnLogin) btnLogin.innerHTML = `<i class="fas fa-sign-in-alt"></i> ${tUI('authLogin')}`;
+  const btnReg = document.getElementById('btn-auth-register');
+  if (btnReg) btnReg.innerHTML = `<i class="fas fa-id-card"></i> ${tUI('authRegister')}`;
+  const btnAuthBack = document.getElementById('btn-auth-back');
+  if (btnAuthBack) btnAuthBack.innerHTML = `<i class="fas fa-arrow-left"></i> ${tUI('authBack')}`;
+  const mode = document.getElementById('auth-mode')?.value || 'login';
+  const formTitle = document.getElementById('cliente-auth-form-title');
+  if (formTitle) formTitle.textContent = mode === 'register' ? tUI('authTitleReg') : tUI('authTitleLogin');
+  const btnSubmit = document.getElementById('btn-auth-submit');
+  if (btnSubmit) btnSubmit.textContent = mode === 'register' ? tUI('authSubmitReg') : tUI('authSubmitLogin');
+  const mapAuthLab = [
+    ['auth-nome', 'authNome'], ['auth-cognome', 'authCognome'], ['auth-tel', 'authTel'],
+    ['auth-email', 'authEmail'], ['auth-password', 'authPassword']
+  ];
+  mapAuthLab.forEach(([id, key]) => {
+    const inp = document.getElementById(id);
+    const lab = inp && inp.closest('.form-group') && inp.closest('.form-group').querySelector('label');
+    if (lab) lab.textContent = tUI(key) + (id === 'auth-tel' ? '' : (id.includes('email') || id.includes('password') || id.includes('nome') || id.includes('cognome') ? ' *' : ''));
+  });
+
   const indietro = document.querySelectorAll('.btn-back');
   indietro.forEach(b => {
-    if (b.id === 'btn-indietro-pagamento' || b.id === 'btn-torna-menu' || b.id === 'btn-indietro-stato') {
+    if (b.id === 'btn-indietro-pagamento' || b.id === 'btn-indietro-stato') {
       b.innerHTML = `<i class="fas fa-arrow-left"></i> ${tUI('indietro')}`;
     }
   });
@@ -4060,7 +4482,7 @@ window.changeQty = function(id, delta) {
   const p = (currentRistorante.menu || []).find(x => String(x.id) === String(id));
   if (!p) return;
   if (!item && delta > 0) {
-    cart.push({ id: p.id, nome: p.nome, prezzo: p.prezzo, iva: (p.iva != null ? p.iva : 10), qty: 1 });
+    cart.push({ id: p.id, nome: piattoLabel(p, 'nome') || p.nome, prezzo: p.prezzo, iva: (p.iva != null ? p.iva : 10), qty: 1 });
   } else if (item) {
     item.qty += delta;
     if (item.qty <= 0) cart = cart.filter(c => String(c.id) !== String(id));
@@ -4082,20 +4504,27 @@ $('#btn-torna-menu')?.addEventListener('click', () => {
 
 function renderCarrello() {
   applyPaymentOptions();
+  applyClienteChromeI18n();
   const el = $('#carrello-items');
+  if (!el) return;
   if (!cart.length) {
     el.innerHTML = '<p style="color:var(--muted);text-align:center">' + tUI('vuoto') + '</p>';
     $('#carrello-totale').textContent = formatPrice(0);
     return;
   }
   el.innerHTML = cart.map(c => {
+    let nome = c.nome;
+    if (!c.isPremio && currentRistorante) {
+      const p = (currentRistorante.menu || []).find(x => String(x.id) === String(c.id));
+      if (p) nome = piattoLabel(p, 'nome') || p.nome || c.nome;
+    }
     const sub = c.isPremio
-      ? (`Premio · ${Number(c.punti) || 0} pt × ${c.qty} = ${(Number(c.punti)||0)*(c.qty||1)} pt`)
+      ? (`${tUI('premio')} · ${Number(c.punti) || 0} pt × ${c.qty} = ${(Number(c.punti)||0)*(c.qty||1)} pt`)
       : (`${formatPrice(c.prezzo)} × ${c.qty}`);
     return `
     <div class="carrello-item">
       <div>
-        <strong>${c.nome}</strong><br>
+        <strong>${nome}</strong><br>
         <small>${sub}</small>
       </div>
       <div class="menu-item-actions">
@@ -4111,9 +4540,9 @@ function renderCarrello() {
 }
 
 $('#btn-invia-ordine')?.addEventListener('click', async () => {
-  if (!cart.length) { toast('Il carrello è vuoto'); return; }
+  if (!cart.length) { toast(tUI('carrelloVuoto')); return; }
   if (!currentRistorante || !currentUser) {
-    toast('Sessione cliente non valida. Riscansiona il QR.');
+    toast(tUI('sessioneNonValida'));
     return;
   }
   if (!assertQrSessionOrBlock()) return;
@@ -4155,7 +4584,7 @@ function openPagamentoUI(circuitoId) {
   }
   const iconEl = $('#pay-circuito-icon');
   if (iconEl) iconEl.className = c.icona || 'fas fa-credit-card';
-  if ($('#pay-circuito-nome')) $('#pay-circuito-nome').textContent = 'Paga con ' + c.nome;
+  if ($('#pay-circuito-nome')) $('#pay-circuito-nome').textContent = tUI('pagaCon') + ' ' + c.nome;
   if ($('#pay-totale')) $('#pay-totale').textContent = formatPrice(totale);
   if ($('#pay-btn-totale')) $('#pay-btn-totale').textContent = formatPrice(totale);
 
@@ -4237,7 +4666,7 @@ document.addEventListener('change', (e) => {
 async function inviaOrdineFinale({ pagamento, circuito }) {
   if (!cart.length) { toast('Il carrello è vuoto'); return; }
   if (!currentRistorante || !currentUser) {
-    toast('Sessione cliente non valida. Riscansiona il QR.');
+    toast(tUI('sessioneNonValida'));
     return;
   }
   if (!sb) {
@@ -4389,19 +4818,26 @@ if (!navigator.onLine) {
   $('#ricevuta-tavolo').textContent = currentUser.tavolo;
   $('#ricevuta-ora').textContent = formatTime(inserted.created_at);
   $('#ricevuta-pagamento').textContent = pagamento === 'cassa'
-    ? 'Pago in cassa'
-    : ('Carta' + (circuitoPagamento ? ' · ' + labelCircuito(circuitoPagamento) : ''));
+    ? tUI('cassa')
+    : (tUI('carta') + (circuitoPagamento ? ' · ' + labelCircuito(circuitoPagamento) : ''));
   $('#ricevuta-totale').textContent = formatPrice(totale);
-  $('#ricevuta-stato').textContent = 'Nuovo';
+  $('#ricevuta-stato').textContent = labelStato('nuovo');
   $('#ricevuta-stato').className = 'badge-stato nuovo';
   if ($('#ricevuta-pag-stato')) {
     $('#ricevuta-pag-stato').textContent = labelPagamentoStato(stato_pagamento);
     $('#ricevuta-pag-stato').className = 'badge-pag ' + stato_pagamento;
   }
-  const itemsHtml = cart.map(i => `
-    <div class="r-item"><span>${i.qty}× ${i.nome}</span><span>${formatPrice(i.prezzo * i.qty)}</span></div>
-  `).join('');
+  const itemsHtml = cart.map(i => {
+    let nome = i.nome;
+    if (!i.isPremio && currentRistorante) {
+      const p = (currentRistorante.menu || []).find(x => String(x.id) === String(i.id));
+      if (p) nome = piattoLabel(p, 'nome') || p.nome || i.nome;
+    }
+    const priceBit = i.isPremio ? (tUI('premio') + ' · ' + (i.punti || 0) + ' pt') : formatPrice(Number(i.prezzo) * i.qty);
+    return `<div class="r-item"><span>${i.qty}× ${nome}</span><span>${priceBit}</span></div>`;
+  }).join('');
   $('#ricevuta-items').innerHTML = itemsHtml;
+  applyClienteChromeI18n();
 
   // Salva dati ricevuta per download (solo pagamento carta online)
   window._ultimaRicevuta = {
@@ -4427,7 +4863,7 @@ if (!navigator.onLine) {
   showClienteView('ricevuta');
   $('#cliente-stato-btn').style.display = 'inline-flex';
   startOrdineStatusPolling();
-  toast('Ordine inviato!');
+  toast(tUI('ordineInviato'));
 }
 
 
@@ -4435,7 +4871,7 @@ function updateClienteOrdiniSelect() {
   const sel = $('#select-ordini-cliente');
   if (!sel) return;
   if (!sessionOrders.length) {
-    sel.innerHTML = '<option value="">Nessun ordine</option>';
+    sel.innerHTML = '<option value="">' + tUI('nessunOrdine') + '</option>';
     return;
   }
   sel.innerHTML = sessionOrders.map(o =>
@@ -4466,7 +4902,7 @@ async function loadClienteOrdineById(ordineId) {
   $('#ricevuta-rist').textContent = (currentRistorante && currentRistorante.nome) || '';
   $('#ricevuta-tavolo').textContent = o.tavolo;
   $('#ricevuta-ora').textContent = formatTime(o.created_at || o.createdAt);
-  $('#ricevuta-pagamento').textContent = o.pagamento === 'cassa' ? 'Pago in cassa' : 'Carta';
+  $('#ricevuta-pagamento').textContent = labelPagamentoCliente(o.pagamento);
   $('#ricevuta-totale').textContent = formatPrice(o.totale || 0);
   $('#ricevuta-stato').textContent = labelStato(o.stato);
   $('#ricevuta-stato').className = 'badge-stato ' + (o.stato || 'nuovo');
@@ -4736,8 +5172,8 @@ function updateQrSessionUI() {
   const min = minutiQrRimanenti();
   if (timerEl && min !== null) {
     timerEl.textContent = valid
-      ? (min <= 1 ? 'meno di 1 min' : min + ' min')
-      : 'scaduta';
+      ? (min <= 1 ? tUI('less1min') : min + tUI('minSuffix'))
+      : tUI('scaduta');
   }
   if (banner) {
     banner.classList.toggle('hidden', !valid);
@@ -4750,7 +5186,7 @@ function updateQrSessionUI() {
   const btn = document.getElementById('btn-invia-ordine');
   if (btn) {
     btn.disabled = !valid;
-    btn.title = valid ? '' : 'Sessione scaduta: riscansione il QR sul tavolo';
+    btn.title = valid ? '' : tUI('sessioneScadTitle');
   }
 }
 
@@ -5746,8 +6182,14 @@ document.getElementById('form-menu-nome')?.addEventListener('submit', async (e) 
 $('#cliente-lang')?.addEventListener('change', (e) => {
   clienteLang = e.target.value || 'it';
   try { localStorage.setItem('menupro_cliente_lang', clienteLang); } catch (err) {}
+  applyClienteChromeI18n();
   renderClienteMenu();
   if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
+  if (!$('#cliente-premi-view')?.classList.contains('hidden')) renderClientePremi();
+  if (!$('#cliente-ricevuta-view')?.classList.contains('hidden') || !$('#cliente-stato-view')?.classList.contains('hidden')) {
+    try { updateClienteOrdiniSelect(); } catch (err) {}
+  }
+  updateQrSessionUI();
 });
 
 // ripristina lingua cliente
@@ -6158,8 +6600,8 @@ function showClienteAuthForm(mode) {
   const formWrap = document.getElementById('cliente-auth-form');
   formWrap?.classList.remove('hidden');
   document.getElementById('auth-mode').value = mode;
-  document.getElementById('cliente-auth-form-title').textContent = mode === 'register' ? 'Registrati' : 'Accedi';
-  document.getElementById('btn-auth-submit').textContent = mode === 'register' ? 'Crea account e attiva card' : 'Accedi';
+  document.getElementById('cliente-auth-form-title').textContent = mode === 'register' ? tUI('authTitleReg') : tUI('authTitleLogin');
+  document.getElementById('btn-auth-submit').textContent = mode === 'register' ? tUI('authSubmitReg') : tUI('authSubmitLogin');
   document.getElementById('auth-register-fields')?.classList.toggle('hidden', mode !== 'register');
   document.getElementById('auth-nome').required = mode === 'register';
   document.getElementById('auth-cognome').required = mode === 'register';
