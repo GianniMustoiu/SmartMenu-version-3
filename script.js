@@ -5906,107 +5906,292 @@ function buildFatturaHtml(o, fat) {
   const totIva = Math.round(riep.reduce((s, x) => s + x.iva, 0) * 100) / 100;
   const totDoc = Math.round((totImponibile + totIva) * 100) / 100;
 
-  const linesHtml = righe.map(row => `
-    <tr>
-      <td>${row.nome}</td>
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const linesHtml = righe.map((row, i) => `
+    <tr class="${i % 2 ? 'alt' : ''}">
+      <td class="desc">${esc(row.nome)}</td>
       <td class="ctr">${row.qty}</td>
       <td class="num">${formatPrice(row.unitLordo)}</td>
       <td class="ctr">${row.aliquota}%</td>
       <td class="num">${formatPrice(row.imponibile)}</td>
       <td class="num">${formatPrice(row.iva)}</td>
+      <td class="num">${formatPrice(row.totLordo)}</td>
     </tr>`).join('');
 
   const riepHtml = riep.map(row => `
     <tr>
-      <td>${row.aliquota}%</td>
+      <td><span class="aliq-badge">${row.aliquota}%</span></td>
       <td class="num">${formatPrice(row.imponibile)}</td>
       <td class="num">${formatPrice(row.iva)}</td>
-    </tr>`).join('') || '<tr><td colspan="3">—</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="3" class="muted">Nessuna aliquota</td></tr>';
 
   let clienteHtml = '';
   if (fat.tipo === 'pf') {
     const dn = (fat.data_nascita || '').split('-').reverse().join('/');
     clienteHtml = `
-      <div><strong>${fat.nome} ${fat.cognome}</strong></div>
-      <div>C.F. ${fat.cf}</div>
-      <div>Data di nascita: ${dn}</div>
-      <div>${fat.indirizzo}</div>`;
+      <div class="party-name">${esc(fat.nome)} ${esc(fat.cognome)}</div>
+      <div class="party-line"><span class="k">C.F.</span> ${esc(fat.cf)}</div>
+      <div class="party-line"><span class="k">Nato/a il</span> ${esc(dn)}</div>
+      <div class="party-line"><span class="k">Indirizzo</span> ${esc(fat.indirizzo)}</div>`;
   } else {
     clienteHtml = `
-      <div><strong>${fat.ragione_sociale}</strong></div>
-      <div>P.IVA ${fat.piva}</div>
-      ${fat.pec ? `<div>PEC: ${fat.pec}</div>` : ''}
-      ${fat.codice_destinatario ? `<div>Codice destinatario: ${fat.codice_destinatario}</div>` : ''}
-      <div>${fat.indirizzo}</div>`;
+      <div class="party-name">${esc(fat.ragione_sociale)}</div>
+      <div class="party-line"><span class="k">P.IVA</span> ${esc(fat.piva)}</div>
+      ${fat.pec ? `<div class="party-line"><span class="k">PEC</span> ${esc(fat.pec)}</div>` : ''}
+      ${fat.codice_destinatario ? `<div class="party-line"><span class="k">Cod. SDI</span> ${esc(fat.codice_destinatario)}</div>` : ''}
+      <div class="party-line"><span class="k">Indirizzo</span> ${esc(fat.indirizzo)}</div>`;
   }
 
   const num = fat.numero != null ? fat.numero : '—';
   const dataEm = fat.data_emissione
     ? formatDataItLong(fat.data_emissione)
     : formatDataItLong(new Date());
+  const anno = (fat.data_emissione || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const numLabel = (typeof num === 'number' || /^\d+$/.test(String(num)))
+    ? String(num).padStart(4, '0') + '/' + anno
+    : String(num);
 
+  const pagLabel = o.pagamento === 'cassa' ? 'Contanti / cassa' : ('Carta' + (o.circuito_pagamento ? ' · ' + labelCircuito(o.circuito_pagamento) : ''));
+  const oraOrdine = o.created_at || o.createdAt ? formatTime(o.created_at || o.createdAt) : '—';
+
+  // Stili inline nel documento: affidabili in stampa (non dipendono dal tema scuro dell'app)
   return `
-    <div class="fattura-doc">
-      <div class="fd-top">
-        <div>
-          <p class="fd-doc-title">FATTURA</p>
-          <div style="font-size:12px;color:#555;margin-top:6px">Documento gestionale</div>
-        </div>
-        <div class="fd-doc-num">
-          <div>N. progressivo <strong>${num}</strong></div>
-          <div>Data di emissione: <strong>${dataEm}</strong></div>
-          <div>Rif. ordine: #${o.codice || '—'} · Tavolo ${o.tavolo}</div>
-        </div>
+<style>
+  #print-area, #print-area * { visibility: visible !important; }
+  #print-area {
+    position: absolute !important; left: 0; top: 0; width: 100%;
+    background: #fff !important; color: #0f172a !important; z-index: 99999;
+  }
+  .fattura-doc {
+    box-sizing: border-box;
+    width: 100%; max-width: 210mm; margin: 0 auto;
+    padding: 14mm 16mm 12mm;
+    background: #fff; color: #0f172a;
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt; line-height: 1.45;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .fd-accent {
+    height: 5px; border-radius: 3px;
+    background: linear-gradient(90deg, #1e40af 0%, #3b82f6 55%, #93c5fd 100%);
+    margin: 0 0 18px;
+  }
+  .fd-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 20px; margin-bottom: 20px; padding-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .fd-brand { min-width: 0; }
+  .fd-brand-name {
+    font-size: 18pt; font-weight: 750; letter-spacing: -0.02em;
+    color: #0f172a; margin: 0 0 4px;
+  }
+  .fd-brand-sub { font-size: 9pt; color: #64748b; margin: 0; }
+  .fd-brand-meta { font-size: 8.5pt; color: #475569; margin-top: 8px; line-height: 1.5; }
+  .fd-title-block { text-align: right; flex-shrink: 0; }
+  .fd-doc-badge {
+    display: inline-block; background: #1e40af; color: #fff;
+    font-size: 9pt; font-weight: 700; letter-spacing: 0.12em;
+    padding: 5px 12px; border-radius: 4px; margin-bottom: 10px;
+  }
+  .fd-doc-num {
+    font-size: 16pt; font-weight: 750; color: #0f172a; margin: 0 0 4px;
+  }
+  .fd-doc-meta { font-size: 9pt; color: #475569; line-height: 1.55; }
+  .fd-doc-meta strong { color: #0f172a; font-weight: 650; }
+  .fd-parties {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    margin-bottom: 18px;
+  }
+  .fd-party {
+    border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;
+    background: #f8fafc;
+  }
+  .fd-party-label {
+    font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #3b82f6; margin: 0 0 8px;
+  }
+  .party-name { font-size: 11pt; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+  .party-line { font-size: 9pt; color: #334155; margin: 2px 0; }
+  .party-line .k { color: #94a3b8; font-weight: 600; margin-right: 4px; min-width: 4.5em; display: inline-block; }
+  .fd-ref {
+    display: flex; flex-wrap: wrap; gap: 8px 18px;
+    margin-bottom: 14px; padding: 8px 12px;
+    background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe;
+    font-size: 8.5pt; color: #1e3a8a;
+  }
+  .fd-ref span strong { color: #0f172a; }
+  table.fd-lines {
+    width: 100%; border-collapse: collapse; margin: 0 0 16px;
+    font-size: 9pt;
+  }
+  table.fd-lines thead th {
+    background: #1e3a8a; color: #fff; font-weight: 650;
+    font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 7px; border: none; text-align: left;
+  }
+  table.fd-lines thead th.ctr, table.fd-lines thead th.num { text-align: right; }
+  table.fd-lines thead th:first-child { border-radius: 6px 0 0 0; }
+  table.fd-lines thead th:last-child { border-radius: 0 6px 0 0; }
+  table.fd-lines tbody td {
+    padding: 8px 7px; border-bottom: 1px solid #e2e8f0;
+    vertical-align: top; color: #0f172a;
+  }
+  table.fd-lines tbody tr.alt td { background: #f8fafc; }
+  table.fd-lines .desc { font-weight: 550; }
+  table.fd-lines .ctr { text-align: center; }
+  table.fd-lines .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fd-bottom {
+    display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px;
+    align-items: start; margin-bottom: 18px;
+  }
+  table.fd-iva {
+    width: 100%; border-collapse: collapse; font-size: 9pt;
+    border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+  }
+  table.fd-iva thead th {
+    background: #f1f5f9; color: #475569; font-size: 7.5pt;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 7px 10px; text-align: left; font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  table.fd-iva thead th.num { text-align: right; }
+  table.fd-iva tbody td {
+    padding: 7px 10px; border-bottom: 1px solid #f1f5f9;
+  }
+  table.fd-iva tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .aliq-badge {
+    display: inline-block; background: #dbeafe; color: #1e40af;
+    font-weight: 700; font-size: 8pt; padding: 2px 8px; border-radius: 99px;
+  }
+  .fd-totali {
+    border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+    background: #fff;
+  }
+  .fd-totali .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 14px; font-size: 9.5pt; color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .fd-totali .row:last-child { border-bottom: none; }
+  .fd-totali .row span:last-child {
+    font-variant-numeric: tabular-nums; font-weight: 650; color: #0f172a;
+  }
+  .fd-totali .row.grand {
+    background: #1e3a8a; color: #fff; padding: 12px 14px;
+    font-size: 11pt; font-weight: 700;
+  }
+  .fd-totali .row.grand span:last-child { color: #fff; font-size: 13pt; }
+  .fd-note {
+    margin: 0; padding: 10px 12px; border-radius: 6px;
+    background: #f8fafc; border: 1px dashed #cbd5e1;
+    font-size: 7.5pt; color: #64748b; line-height: 1.5;
+  }
+  .fd-footer {
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 7.5pt; color: #94a3b8;
+  }
+  .fd-footer strong { color: #64748b; }
+  @media print {
+    @page { size: A4; margin: 10mm; }
+    body { background: #fff !important; }
+    .fattura-doc { max-width: none; padding: 0; }
+  }
+</style>
+<div class="fattura-doc">
+  <div class="fd-accent"></div>
+  <div class="fd-header">
+    <div class="fd-brand">
+      <p class="fd-brand-name">${esc(nomeRist)}</p>
+      <p class="fd-brand-sub">Cedente / prestatore</p>
+      <div class="fd-brand-meta">
+        ${titolare ? esc(titolare) + '<br>' : ''}
+        ${indCed ? esc(indCed) + '<br>' : (citta ? esc(citta) + '<br>' : '')}
+        ${pivaCed ? 'P.IVA ' + esc(pivaCed) + (pecCed ? ' · ' : '') : ''}
+        ${pecCed ? 'PEC ' + esc(pecCed) : ''}
       </div>
-      <div class="fd-grid">
-        <div class="fd-box">
-          <h3>Cedente / prestatore</h3>
-          <div><strong>${nomeRist}</strong></div>
-          ${titolare ? `<div>${titolare}</div>` : ''}
-          ${indCed ? `<div>${indCed}</div>` : (citta ? `<div>${citta}</div>` : '')}
-          ${pivaCed ? `<div>P.IVA ${pivaCed}</div>` : ''}
-          ${pecCed ? `<div>PEC: ${pecCed}</div>` : ''}
-        </div>
-        <div class="fd-box">
-          <h3>Cessionario / committente</h3>
-          ${clienteHtml}
-        </div>
+    </div>
+    <div class="fd-title-block">
+      <div class="fd-doc-badge">FATTURA</div>
+      <div class="fd-doc-num">n. ${esc(numLabel)}</div>
+      <div class="fd-doc-meta">
+        Data emissione: <strong>${esc(dataEm)}</strong><br>
+        Documento gestionale MenuPro
       </div>
-      <table class="fd-lines">
+    </div>
+  </div>
+
+  <div class="fd-parties">
+    <div class="fd-party">
+      <div class="fd-party-label">Cedente / prestatore</div>
+      <div class="party-name">${esc(nomeRist)}</div>
+      ${titolare ? `<div class="party-line"><span class="k">Titolare</span> ${esc(titolare)}</div>` : ''}
+      ${indCed ? `<div class="party-line"><span class="k">Sede</span> ${esc(indCed)}</div>` : (citta ? `<div class="party-line"><span class="k">Città</span> ${esc(citta)}</div>` : '')}
+      ${pivaCed ? `<div class="party-line"><span class="k">P.IVA</span> ${esc(pivaCed)}</div>` : ''}
+      ${pecCed ? `<div class="party-line"><span class="k">PEC</span> ${esc(pecCed)}</div>` : ''}
+    </div>
+    <div class="fd-party">
+      <div class="fd-party-label">Cessionario / committente</div>
+      ${clienteHtml}
+    </div>
+  </div>
+
+  <div class="fd-ref">
+    <span>Ordine <strong>#${esc(o.codice || '—')}</strong></span>
+    <span>Tavolo <strong>${esc(o.tavolo)}</strong></span>
+    <span>Data ordine <strong>${esc(oraOrdine)}</strong></span>
+    <span>Pagamento <strong>${esc(pagLabel)}</strong></span>
+  </div>
+
+  <table class="fd-lines">
+    <thead>
+      <tr>
+        <th>Descrizione</th>
+        <th class="ctr">Qtà</th>
+        <th class="num">Prezzo unit. (IVAi)</th>
+        <th class="ctr">Aliq.</th>
+        <th class="num">Imponibile</th>
+        <th class="num">IVA</th>
+        <th class="num">Totale</th>
+      </tr>
+    </thead>
+    <tbody>${linesHtml || '<tr><td colspan="7" class="muted">Nessuna riga</td></tr>'}</tbody>
+  </table>
+
+  <div class="fd-bottom">
+    <div class="fd-riepilogo">
+      <table class="fd-iva">
         <thead>
           <tr>
-            <th>Descrizione</th>
-            <th class="ctr">Qtà</th>
-            <th class="num">Prezzo (IVA incl.)</th>
-            <th class="ctr">Aliq.</th>
+            <th>Riepilogo IVA</th>
             <th class="num">Imponibile</th>
-            <th class="num">IVA</th>
+            <th class="num">Imposta</th>
           </tr>
         </thead>
-        <tbody>${linesHtml}</tbody>
+        <tbody>${riepHtml}</tbody>
       </table>
-      <div class="fd-bottom">
-        <div class="fd-riepilogo">
-          <table class="fd-iva">
-            <thead>
-              <tr><th>Riepilogo IVA</th><th class="num">Imponibile</th><th class="num">Imposta</th></tr>
-            </thead>
-            <tbody>${riepHtml}</tbody>
-          </table>
-        </div>
-        <div class="fd-totali">
-          <div class="row"><span>Totale imponibile</span><span>${formatPrice(totImponibile)}</span></div>
-          <div class="row"><span>Totale IVA</span><span>${formatPrice(totIva)}</span></div>
-          <div class="row grand"><span>Totale documento</span><span>${formatPrice(totDoc)}</span></div>
-        </div>
-      </div>
-      <p class="fd-note">
-        I prezzi di listino sono da intendersi IVA inclusa; l’imposta è stata scorporata per aliquota.
-        Documento emesso da MenuPro a scopo gestionale/informativo.
-        Non sostituisce la fattura elettronica trasmessa al Sistema di Interscambio (SdI)
-        né lo scontrino fiscale del registratore di cassa certificato, ove previsto.
-      </p>
-    </div>`;
+    </div>
+    <div class="fd-totali">
+      <div class="row"><span>Totale imponibile</span><span>${formatPrice(totImponibile)}</span></div>
+      <div class="row"><span>Totale IVA</span><span>${formatPrice(totIva)}</span></div>
+      <div class="row grand"><span>Totale documento</span><span>${formatPrice(totDoc)}</span></div>
+    </div>
+  </div>
+
+  <p class="fd-note">
+    I prezzi di listino sono da intendersi <strong>IVA inclusa</strong>; l’imposta è stata scorporata per aliquota ai sensi della normativa vigente.
+    Documento emesso da <strong>MenuPro</strong> a scopo gestionale e informativo.
+    Non sostituisce la fattura elettronica trasmessa al Sistema di Interscambio (SdI)
+    né lo scontrino fiscale del registratore di cassa certificato, ove previsto.
+  </p>
+  <div class="fd-footer">
+    <span>${esc(nomeRist)} · Fattura ${esc(numLabel)}</span>
+    <span>Generato con <strong>MenuPro</strong></span>
+  </div>
+</div>`;
 }
 
 async function confermaFattura() {
