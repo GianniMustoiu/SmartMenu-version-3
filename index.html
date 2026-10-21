@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Demo Completa</title>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -288,6 +288,28 @@
       </section>
 
       <section id="page-rist-menu" class="page hidden">
+        <div class="menu-multi-bar">
+          <div class="form-group" style="margin:0;min-width:200px;flex:1">
+            <label for="menu-switcher">Menu in gestione</label>
+            <select id="menu-switcher"></select>
+          </div>
+          <div class="menu-multi-actions">
+            <button type="button" id="btn-nuovo-menu" class="btn btn-secondary btn-sm" title="Crea un altro menu">
+              <i class="fas fa-plus"></i> Nuovo menu
+            </button>
+            <button type="button" id="btn-rinomina-menu" class="btn btn-secondary btn-sm" title="Rinomina menu corrente">
+              <i class="fas fa-edit"></i> Rinomina
+            </button>
+            <button type="button" id="btn-elimina-menu" class="btn btn-danger btn-sm" title="Elimina menu corrente">
+              <i class="fas fa-trash"></i> Elimina
+            </button>
+          </div>
+        </div>
+        <div id="menu-pubblico-banner" class="menu-pubblico-banner">
+          <i class="fas fa-qrcode"></i>
+          <span>I clienti dal QR vedono il menu: <strong id="menu-pubblico-label">—</strong></span>
+          <span class="menu-pubblico-hint">Cambiando il menu sopra, pubblichi quello selezionato ai tavoli.</span>
+        </div>
         <div class="toolbar">
           <div class="search-box">
             <i class="fas fa-search"></i>
@@ -891,6 +913,24 @@
             <input type="number" id="piatto-prezzo" required min="0" step="0.50" />
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>IVA (%) *</label>
+            <select id="piatto-iva" required>
+              <option value="4">4% — beni alimentari di base</option>
+              <option value="5">5% — alcuni generi alimentari</option>
+              <option value="10" selected>10% — ristorazione (standard)</option>
+              <option value="22">22% — ordinario</option>
+              <option value="0">0% — esente</option>
+            </select>
+            <small style="color:var(--muted);display:block;margin-top:4px">Usata in fattura per scorporo e riepilogo aliquote</small>
+          </div>
+          <div class="form-group">
+            <label>Menu di appartenenza *</label>
+            <select id="piatto-menu" required></select>
+            <small style="color:var(--muted);display:block;margin-top:4px">Il piatto compare solo nel menu scelto</small>
+          </div>
+        </div>
         <div class="form-group" style="padding:0 24px">
           <label>Allergeni</label>
           <div class="allergeni-grid" id="allergeni-grid">
@@ -1280,11 +1320,33 @@
     </div>
   </div>
 
+
+  <div id="modal-menu-nome" class="modal hidden">
+    <div class="modal-content" style="max-width:400px">
+      <div class="modal-header">
+        <h3 id="modal-menu-nome-title">Nuovo menu</h3>
+        <button class="close-modal" data-modal="modal-menu-nome">&times;</button>
+      </div>
+      <form id="form-menu-nome">
+        <input type="hidden" id="menu-nome-mode" value="new" />
+        <div class="form-group" style="padding:16px 24px">
+          <label>Nome menu *</label>
+          <input type="text" id="menu-nome-input" required maxlength="60" placeholder="es. Menu pranzo, Menu cena, Carta vini..." />
+          <small style="color:var(--muted);display:block;margin-top:6px">I piatti di ogni menu restano separati. Pubblica un menu selezionandolo in Gestione Menu.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal" data-modal="modal-menu-nome">Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=8"></script>
-  <script src="script.js?v=8"></script>
+  <script src="config.js?v=9"></script>
+  <script src="script.js?v=9"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
