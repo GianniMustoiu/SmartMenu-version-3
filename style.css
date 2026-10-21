@@ -1078,18 +1078,15 @@ html.qr-entry #network-status {
 }
 .fattura-tipo-btn.active { background: var(--primary); color: #fff; }
 
+/* Anteprima a schermo (stampa usa stili inline in buildFatturaHtml) */
 .fattura-doc {
-  max-width: 720px; margin: 0 auto; padding: 24px;
-  font-family: system-ui, sans-serif; color: #111; background: #fff;
+  max-width: 210mm; margin: 0 auto; padding: 28px 32px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #0f172a; background: #fff;
   font-size: 13px; line-height: 1.45;
+  border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
 }
-.fattura-doc h1 { font-size: 20px; margin: 0 0 8px; }
-.fattura-doc table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-.fattura-doc th, .fattura-doc td { border-bottom: 1px solid #ddd; padding: 6px 4px; text-align: left; }
-.fattura-doc th { font-size: 11px; text-transform: uppercase; color: #555; }
-.fattura-doc .right { text-align: right; }
-.fattura-doc .totals { margin-top: 12px; }
-.fattura-doc .muted { color: #666; font-size: 11px; }
 @media print {
-  .fattura-doc { box-shadow: none; }
+  .fattura-doc { box-shadow: none; border: none; border-radius: 0; }
 }
