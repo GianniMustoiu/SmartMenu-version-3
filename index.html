@@ -13,8 +13,8 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MenuPro</title>
-  <link rel="stylesheet" href="style.css?v=11" />
+  <title>MenuPro – Gestione ristorante</title>
+  <link rel="stylesheet" href="style.css?v=12" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -59,12 +59,6 @@
         <a href="#" class="nav-item" data-page="impostazioni"><i class="fas fa-cog"></i> <span>Impostazioni</span></a>
       </nav>
       <div class="sidebar-footer">
-        <button id="btn-demo-utente" class="btn btn-primary btn-sm" style="width:100%;margin-bottom:8px">
-          <i class="fas fa-user"></i> Entra nell'area cliente
-        </button>
-        <button id="btn-demo-ristoratore" class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:10px">
-          <i class="fas fa-store"></i> Entra nell'area ristoratore
-        </button>
         <div style="display:flex;gap:12px">
           <button class="btn-icon theme-toggle" title="Tema chiaro/scuro"><i class="fas fa-sun"></i></button>
           <button class="btn-icon logout-btn" title="Esci"><i class="fas fa-sign-out-alt"></i></button>
@@ -204,7 +198,7 @@
       <section id="page-impostazioni" class="page hidden">
         <div class="settings-card">
           <h3>Impostazioni</h3>
-          <p>I dati di questa demo restano solo su questo browser. Puoi cancellarli quando vuoi.</p>
+          <p>I dati locali restano su questo browser. Puoi cancellarli quando vuoi.</p>
           <button id="btn-reset" class="btn btn-danger"><i class="fas fa-trash"></i> Cancella tutti i dati</button>
         </div>
       </section>
@@ -647,67 +641,18 @@
           <textarea id="ordine-note" rows="2" placeholder="Allergie, modifiche, richieste speciali..."></textarea>
         </div>
         <div class="form-group">
-          <label>Metodo di pagamento</label>
           <div class="payment-options">
-            <label class="payment-opt"><input type="radio" name="pagamento" value="carta" checked /> <i class="fas fa-credit-card"></i> Carta</label>
-            <label class="payment-opt"><input type="radio" name="pagamento" value="cassa" /> <i class="fas fa-cash-register"></i> Pago in cassa</label>
+            <label class="payment-opt" style="cursor:default;opacity:1">
+              <input type="radio" name="pagamento" value="cassa" checked style="pointer-events:none" />
+              <i class="fas fa-cash-register"></i> Pagamento in cassa
+            </label>
           </div>
+          <small style="color:var(--muted);display:block;margin-top:8px">L’ordine viene inviato in cucina. Pagherai al banco al momento del conto.</small>
         </div>
-        <div id="circuito-wrap" class="form-group">
-          <label>Circuito / wallet</label>
-          <div id="circuito-options" class="circuito-options">
-            <!-- riempito da JS -->
-          </div>
-          <small style="color:var(--muted);display:block;margin-top:6px">Scegli come pagare online. Non memorizziamo i dati della carta.</small>
-        </div>
-        <button id="btn-invia-ordine" class="btn btn-primary btn-block"><i class="fas fa-paper-plane"></i> Conferma ordine</button>
+        <button id="btn-invia-ordine" class="btn btn-primary btn-block"><i class="fas fa-paper-plane"></i> Invia ordine</button>
         <button id="btn-torna-menu" class="btn btn-secondary btn-block" style="margin-top:10px">Aggiungi altro</button>
       </section>
 
-      <section id="cliente-pagamento-view" class="hidden">
-        <button type="button" id="btn-indietro-pagamento" class="btn-back">
-          <i class="fas fa-arrow-left"></i> Indietro
-        </button>
-        <div class="pay-card">
-          <div class="pay-card-header">
-            <i id="pay-circuito-icon" class="fab fa-cc-visa"></i>
-            <h2 id="pay-circuito-nome">Pagamento</h2>
-            <p>Totale da pagare: <strong id="pay-totale">€0,00</strong></p>
-          </div>
-          <div id="pay-form-carta" class="pay-form">
-            <p class="pay-secure-note"><i class="fas fa-lock"></i> I dati restano sul tuo dispositivo: salviamo solo il tipo di circuito (es. Visa), non il numero della carta.</p>
-            <div class="form-group">
-              <label>Intestatario</label>
-              <input type="text" id="pay-intestatario" placeholder="Mario Rossi" autocomplete="cc-name" />
-            </div>
-            <div class="form-group">
-              <label>Numero carta</label>
-              <input type="text" id="pay-numero" inputmode="numeric" placeholder="ACCT-000035" maxlength="23" autocomplete="cc-number" />
-            </div>
-            <div class="form-row" style="padding:0;gap:12px">
-              <div class="form-group" style="flex:1">
-                <label>Scadenza</label>
-                <input type="text" id="pay-scadenza" placeholder="MM/AA" maxlength="5" autocomplete="cc-exp" />
-              </div>
-              <div class="form-group" style="flex:1">
-                <label>CVV</label>
-                <input type="password" id="pay-cvv" inputmode="numeric" placeholder="•••" maxlength="4" autocomplete="cc-csc" />
-              </div>
-            </div>
-          </div>
-          <div id="pay-form-wallet" class="pay-form hidden">
-            <p class="pay-secure-note"><i class="fas fa-lock"></i> Pagamento con wallet. Conferma per simulare l’autorizzazione (demo).</p>
-            <div class="wallet-mock">
-              <i id="pay-wallet-big-icon" class="fab fa-apple-pay"></i>
-              <p id="pay-wallet-hint">Usa il Face ID / impressione digitale sul tuo dispositivo.</p>
-            </div>
-          </div>
-          <button type="button" id="btn-paga-ora" class="btn btn-primary btn-block" style="margin-top:8px">
-            <i class="fas fa-lock"></i> Paga <span id="pay-btn-totale"></span>
-          </button>
-          <p class="pay-demo-hint">Modalità demo: nessun addebito reale. In produzione collega Stripe o un PSP certificato.</p>
-        </div>
-      </section>
       <section id="cliente-ricevuta-view" class="hidden">
         <div class="ricevuta-card">
           <div class="ricevuta-header">
@@ -722,7 +667,7 @@
           <div class="ricevuta-info">
             <p><strong id="ricevuta-rist"></strong></p>
             <p>Tavolo <span id="ricevuta-tavolo"></span> · <span id="ricevuta-ora"></span></p>
-            <p>Pagamento: <span id="ricevuta-pagamento"></span></p>
+            <p>Pagamento: <span id="ricevuta-pagamento">In cassa</span></p>
           </div>
           <div id="ricevuta-items" class="ricevuta-items"></div>
           <div class="ricevuta-totale">
@@ -740,9 +685,6 @@
           </p>
           <button id="btn-aggiorna-stato" class="btn btn-secondary btn-block" style="margin-top:10px;display:none">
             <i class="fas fa-sync"></i> Aggiorna stato
-          </button>
-          <button id="btn-scarica-ricevuta" class="btn btn-secondary btn-block hidden" style="margin-top:10px">
-            <i class="fas fa-download"></i> Scarica ricevuta
           </button>
           <button id="btn-nuovo-ordine" class="btn btn-primary btn-block" style="margin-top:10px">
             <i class="fas fa-plus"></i> Ordina ancora
@@ -828,19 +770,7 @@
             <input type="email" id="pec_rist" maxlength="120" placeholder="nome@pec.it" autocomplete="off" />
           </div>
         </div>
-        <div class="form-group" style="padding:0 24px;margin-top:8px">
-          <label>Indirizzo di fatturazione</label>
-          <input type="text" id="indirizzo_fatturazione" maxlength="200" placeholder="Via, n. civico, CAP, città" />
-        </div>
-        <div class="form-group" style="padding:0 24px;margin-top:8px">
-          <label>Pagamenti accettati</label>
-          <select id="metodi_pagamento">
-            <option value="entrambi">Online e al banco</option>
-            <option value="online">Solo online (carta)</option>
-            <option value="banco">Solo al banco (in cassa)</option>
-          </select>
-          <small style="color:var(--muted)">Il cliente vedrà solo i metodi abilitati quando conferma l'ordine</small>
-        </div>
+        <input type="hidden" id="metodi_pagamento" value="banco" />
         <div class="form-group" style="padding:0 24px;margin-top:8px">
           <label class="check-label inline-check">
             <input type="checkbox" id="fidelity_enabled" checked />
@@ -923,7 +853,7 @@
               <option value="22">22% — ordinario</option>
               <option value="0">0% — esente</option>
             </select>
-            <small style="color:var(--muted);display:block;margin-top:4px">Usata in fattura per scorporo e riepilogo aliquote</small>
+            <small style="color:var(--muted);display:block;margin-top:4px">Aliquota IVA del piatto (gestione interna)</small>
           </div>
           <div class="form-group">
             <label>Menu di appartenenza *</label>
@@ -1000,47 +930,6 @@
       </div>
     </div>
   </div>
-
-  <div id="modal-demo-utente" class="modal hidden">
-    <div class="modal-content" style="max-width:420px">
-      <div class="modal-header">
-        <h3>Entra nell'area cliente</h3>
-        <button class="close-modal" data-modal="modal-demo-utente">&times;</button>
-      </div>
-      <div style="padding:20px 24px">
-        <div class="form-group">
-          <label>Ristorante</label>
-          <select id="demo-ristorante"></select>
-        </div>
-        <div class="form-group">
-          <label>Numero tavolo</label>
-          <input type="number" id="demo-tavolo" min="1" value="1" />
-        </div>
-        <button id="btn-avvia-demo" class="btn btn-primary btn-block"><i class="fas fa-utensils"></i> Entra al tavolo</button>
-      </div>
-    </div>
-  </div>
-
-    <div id="modal-demo-ristoratore" class="modal hidden">
-    <div class="modal-content" style="max-width:420px">
-      <div class="modal-header">
-        <h3>Entra nell'area ristoratore</h3>
-        <button class="close-modal" data-modal="modal-demo-ristoratore">&times;</button>
-      </div>
-      <div style="padding:20px 24px">
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="demo-rist-email" placeholder="email@ristorante.it" />
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="demo-rist-password" placeholder="Password" />
-        </div>
-        <button id="btn-avvia-demo-rist" class="btn btn-primary btn-block"><i class="fas fa-store"></i> Entra</button>
-      </div>
-    </div>
-  </div>
-
   <div id="modal-tavolo-edit" class="modal hidden">
     <div class="modal-content" style="max-width:420px">
       <div class="modal-header">
@@ -1344,89 +1233,14 @@
 
 
   <!-- Modal Fattura -->
-  <div id="modal-fattura" class="modal hidden">
-    <div class="modal-content" style="max-width:520px">
-      <div class="modal-header">
-        <h3><i class="fas fa-file-invoice" style="color:var(--primary);margin-right:8px"></i> Emitti fattura</h3>
-        <button type="button" class="close-modal" data-modal="modal-fattura" id="btn-fattura-x">&times;</button>
-      </div>
-      <div style="padding:8px 24px 0">
-        <input type="hidden" id="fattura-ordine-id" />
-        <p id="fattura-meta" style="color:var(--muted);font-size:13px;margin:0 0 14px"></p>
-        <div class="fattura-tipo-tabs">
-          <button type="button" class="fattura-tipo-btn active" data-tipo="pf">Persona fisica</button>
-          <button type="button" class="fattura-tipo-btn" data-tipo="pg">Persona giuridica</button>
-        </div>
-        <div id="fattura-pf">
-          <div class="form-row" style="padding:12px 0 0">
-            <div class="form-group">
-              <label>Nome *</label>
-              <input type="text" id="fat-nome" maxlength="80" autocomplete="given-name" />
-            </div>
-            <div class="form-group">
-              <label>Cognome *</label>
-              <input type="text" id="fat-cognome" maxlength="80" autocomplete="family-name" />
-            </div>
-          </div>
-          <div class="form-group" style="padding:0">
-            <label>Data di nascita *</label>
-            <input type="date" id="fat-nascita" />
-          </div>
-          <div class="form-group" style="padding:0">
-            <label>Indirizzo di fatturazione *</label>
-            <input type="text" id="fat-indirizzo-pf" maxlength="200" placeholder="Via, n., CAP, città" />
-          </div>
-          <div class="form-group" style="padding:0">
-            <label>Codice fiscale *</label>
-            <input type="text" id="fat-cf" maxlength="16" placeholder="16 caratteri" style="text-transform:uppercase" />
-          </div>
-        </div>
-        <div id="fattura-pg" class="hidden">
-          <div class="form-group" style="padding:12px 0 0">
-            <label>Ragione sociale *</label>
-            <input type="text" id="fat-ragione" maxlength="120" />
-          </div>
-          <div class="form-group" style="padding:0">
-            <label>Indirizzo di fatturazione *</label>
-            <input type="text" id="fat-indirizzo-pg" maxlength="200" placeholder="Via, n., CAP, città" />
-          </div>
-          <div class="form-row" style="padding:0">
-            <div class="form-group">
-              <label>Partita IVA *</label>
-              <input type="text" id="fat-piva" maxlength="11" placeholder="11 cifre" inputmode="numeric" />
-            </div>
-            <div class="form-group">
-              <label>Codice SDI</label>
-              <input type="text" id="fat-sdi" maxlength="7" placeholder="6-7 caratteri" style="text-transform:uppercase" />
-            </div>
-          </div>
-          <div class="form-group" style="padding:0">
-            <label>PEC</label>
-            <input type="email" id="fat-pec" maxlength="120" placeholder="nome@pec.it" />
-            <small style="color:var(--muted)">Obbligatoria PEC oppure codice SDI</small>
-          </div>
-        </div>
-        <div class="form-group" style="padding:8px 0 0">
-          <label class="check-label inline-check">
-            <input type="checkbox" id="fattura-stampa" checked />
-            <span>Stampa / anteprima dopo l'emissione</span>
-          </label>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btn-fattura-annulla">Annulla</button>
-        <button type="button" class="btn btn-primary" id="btn-fattura-ok">
-          <i class="fas fa-file-invoice"></i> Emitti fattura
-        </button>
-      </div>
-    </div>
-  </div>
+  
+  
 
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=11"></script>
-  <script src="script.js?v=11"></script>
+  <script src="config.js?v=12"></script>
+  <script src="script.js?v=12"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
