@@ -100,7 +100,7 @@ small { font-size: 12px; }
 .form-row { display: flex; gap: 14px; padding: 16px 24px 0; }
 .form-row .form-group { flex: 1; min-width: 0; }
 
-/* Tre campi numerici allineati sulla stessa riga (stesso livello input) */
+/* Campi numerici: 3 con fidelity ON, 2 allargati con fidelity OFF */
 .form-row-nums {
   align-items: flex-end;
 }
@@ -121,8 +121,11 @@ small { font-size: 12px; }
 .form-row-nums .form-group input {
   width: 100%;
 }
-.form-row-hint {
-  line-height: 1.4;
+.form-row-nums.row-nums-2 #wrap-punti-scadenza {
+  display: none !important;
+}
+.form-row-nums.row-nums-2 .form-group {
+  flex: 1 1 50%;
 }
 
 .password-wrap { position: relative; }
