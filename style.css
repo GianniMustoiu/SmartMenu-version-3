@@ -1060,3 +1060,36 @@ html.qr-entry #network-status {
 @media (max-width: 700px) {
   .menu-pubblico-hint { margin-left: 0; width: 100%; }
 }
+
+
+/* Fattura modal + print */
+.fattura-tipo-tabs {
+  display: inline-flex;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+  margin-bottom: 4px;
+}
+.fattura-tipo-btn {
+  background: none; border: none; color: var(--muted);
+  padding: 8px 14px; border-radius: 7px; cursor: pointer;
+  font-weight: 600; font-size: 13px;
+}
+.fattura-tipo-btn.active { background: var(--primary); color: #fff; }
+
+.fattura-doc {
+  max-width: 720px; margin: 0 auto; padding: 24px;
+  font-family: system-ui, sans-serif; color: #111; background: #fff;
+  font-size: 13px; line-height: 1.45;
+}
+.fattura-doc h1 { font-size: 20px; margin: 0 0 8px; }
+.fattura-doc table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.fattura-doc th, .fattura-doc td { border-bottom: 1px solid #ddd; padding: 6px 4px; text-align: left; }
+.fattura-doc th { font-size: 11px; text-transform: uppercase; color: #555; }
+.fattura-doc .right { text-align: right; }
+.fattura-doc .totals { margin-top: 12px; }
+.fattura-doc .muted { color: #666; font-size: 11px; }
+@media print {
+  .fattura-doc { box-shadow: none; }
+}
