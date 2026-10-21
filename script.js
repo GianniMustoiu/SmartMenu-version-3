@@ -1256,7 +1256,6 @@ $('#search-ristoranti')?.addEventListener('input', e => renderAdminTable(e.targe
 /** Limita il campo n_casse in base al piano selezionato (Standard = max 1). */
 function applyPianoCasseLimits() {
   const inp = $('#n_casse');
-  const hint = $('#n_casse_hint');
   if (!inp) return;
   const pianoId = normalizzaPiano($('#id_piano')?.value || 'standard');
   const maxC = maxCassePerPiano(pianoId);
@@ -1266,16 +1265,36 @@ function applyPianoCasseLimits() {
     const cur = parseInt(inp.value, 10);
     if (!Number.isFinite(cur) || cur < 0) inp.value = '0';
     else if (cur > maxC) inp.value = String(maxC);
-    if (hint) {
-      hint.textContent = `Piano Standard: massimo ${maxC} cassa · email tipo nomristorante@cassa1.it · pwd: cassa123`;
-    }
   } else {
     inp.max = '50';
     inp.min = '0';
-    if (hint) {
-      hint.textContent = 'Piano Pro: casse illimitate · email tipo nomristorante@cassa1.it · pwd: cassa123';
-    }
   }
+}
+
+/** Fidelity ON → 3 campi; OFF → nasconde scadenza punti e allarga gli altri 2. */
+function applyFidelityNumeriLayout() {
+  const on = $('#fidelity_enabled')?.checked !== false;
+  const wrap = $('#wrap-punti-scadenza');
+  const row = $('#row-numeri-rist');
+  if (wrap) wrap.classList.toggle('hidden', !on);
+  if (row) row.classList.toggle('row-nums-2', !on);
+  if (!on) {
+    const p = $('#punti_scadenza_mesi');
+    if (p) p.value = '';
+  }
+}
+
+/** Blocca scadenza punti a max 36 (min 1 se valorizzato). */
+function clampPuntiScadenzaInput() {
+  const inp = $('#punti_scadenza_mesi');
+  if (!inp) return;
+  const raw = (inp.value || '').trim();
+  if (raw === '') return;
+  let n = parseInt(raw, 10);
+  if (!Number.isFinite(n)) { inp.value = ''; return; }
+  if (n < 1) n = 1;
+  if (n > 36) n = 36;
+  inp.value = String(n);
 }
 
 $('#id_piano')?.addEventListener('change', () => applyPianoCasseLimits());
@@ -1287,6 +1306,10 @@ $('#n_casse')?.addEventListener('input', () => {
     $('#n_casse').value = String(max);
   }
 });
+$('#fidelity_enabled')?.addEventListener('change', () => applyFidelityNumeriLayout());
+$('#punti_scadenza_mesi')?.addEventListener('input', clampPuntiScadenzaInput);
+$('#punti_scadenza_mesi')?.addEventListener('change', clampPuntiScadenzaInput);
+$('#punti_scadenza_mesi')?.addEventListener('blur', clampPuntiScadenzaInput);
 
 // Nuovo / Modifica ristorante
 $('#btn-nuovo')?.addEventListener('click', () => {
@@ -1308,6 +1331,7 @@ $('#btn-nuovo')?.addEventListener('click', () => {
   if ($('#punti_scadenza_mesi')) $('#punti_scadenza_mesi').value = '';
   if ($('#id_piano')) $('#id_piano').value = 'standard';
   applyPianoCasseLimits();
+  applyFidelityNumeriLayout();
   $('#modal-ristorante').classList.remove('hidden');
 });
 
@@ -1636,6 +1660,7 @@ window.editRistorante = async function(id) {
   if ($('#n_casse')) $('#n_casse').value = 0;
   if ($('#fidelity_enabled')) $('#fidelity_enabled').checked = r.fidelity_enabled !== false;
   applyPianoCasseLimits();
+  applyFidelityNumeriLayout();
   $('#modal-ristorante').classList.remove('hidden');
 };
 
