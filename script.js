@@ -1447,7 +1447,12 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     if (!data.password) delete data.password;
     const { error } = await sb.from('ristoranti').update(data).eq('id', id);
     if (error) {
-      toast('Errore aggiornamento ristorante: ' + error.message);
+      const msg = String(error.message || '');
+      if (/ristoranti_id_piano_check|id_piano/i.test(msg)) {
+        toast('Errore piano: esegui supabase-fixi-fix.sql in Supabase (id_piano standard/pro)');
+      } else {
+        toast('Errore aggiornamento ristorante: ' + msg);
+      }
       console.error(error);
       return;
     }
@@ -1514,7 +1519,12 @@ $('#form-ristorante')?.addEventListener('submit', async (e) => {
     }
 
     if (error) {
-      toast('Errore creazione ristorante: ' + error.message);
+      const msg = String(error.message || '');
+      if (/ristoranti_id_piano_check|id_piano/i.test(msg)) {
+        toast('Errore piano: esegui supabase-fixi-fix.sql in Supabase (id_piano standard/pro)');
+      } else {
+        toast('Errore creazione ristorante: ' + msg);
+      }
       console.error(error);
       return;
     }
