@@ -1342,3 +1342,109 @@ body.dark .loy-regolamento,
 [data-theme="dark"] .loy-regolamento {
   background: rgba(255,255,255,0.04);
 }
+
+
+/* Popup risposta assistenza */
+#assist-notify-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(2px);
+}
+#assist-notify-overlay.hidden { display: none; }
+.assist-notify-card {
+  margin-top: 48px;
+  max-width: 420px;
+  width: 100%;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  padding: 18px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: assistPop 0.25s ease;
+}
+@keyframes assistPop {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.assist-notify-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: color-mix(in srgb, var(--primary, #2563eb) 18%, transparent);
+  color: var(--primary, #2563eb);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.assist-notify-body strong { display: block; font-size: 15px; margin-bottom: 4px; }
+.assist-notify-body p {
+  margin: 0; font-size: 13px; color: var(--muted, #64748b);
+  line-height: 1.4; max-height: 3.6em; overflow: hidden;
+}
+.assist-notify-actions {
+  display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+}
+
+
+/* Recensione cliente */
+.cliente-recensione-box {
+  margin-top: 18px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  background: var(--bg-2, #f8fafc);
+  text-align: left;
+}
+.recensione-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recensione-title i { color: #f59e0b; }
+.recensione-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+.recensione-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0;
+}
+.recensione-label { font-size: 13px; font-weight: 600; }
+.star-rating {
+  display: flex;
+  gap: 4px;
+}
+.star-rating button {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  color: #cbd5e1;
+  transition: color 0.12s, transform 0.12s;
+}
+.star-rating button:hover,
+.star-rating button.is-on {
+  color: #f59e0b;
+}
+.star-rating button:hover { transform: scale(1.08); }
+.recensione-done {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #059669;
+  font-weight: 600;
+  text-align: center;
+}
