@@ -1,5 +1,6 @@
 // Vercel Serverless — avviso email ticket MenuPro
-// Env: RESEND_API_KEY, SUPPORT_EMAIL, NOTIFY_FROM
+// Env obbligatorie: RESEND_API_KEY, SUPPORT_EMAIL (tua email reale)
+// Opzionale: NOTIFY_FROM = MenuPro <onboarding@resend.dev>
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,32 +18,59 @@ module.exports = async function handler(req, res) {
     }
     if (!body || typeof body !== 'object') body = {};
 
-    // body.to ha priorità (es. email ristoratore); altrimenti SUPPORT_EMAIL admin
-    const to = (body.to || process.env.SUPPORT_EMAIL || '').trim();
+    // body.to = destinatario esplicito (es. ristoratore)
+    // altrimenti SUPPORT_EMAIL su Vercel (admin)
+    const explicitTo = (body.to || '').trim();
+    const adminTo = (process.env.SUPPORT_EMAIL || '').trim();
+    const to = explicitTo || adminTo;
+
     const subject = (body.subject || 'MenuPro — notifica').trim();
     const text = body.text || '';
+
     if (!to) {
-      res.status(200).json({ ok: true, emailed: false, reason: 'Nessun destinatario (to / SUPPORT_EMAIL)' });
+      res.status(200).json({
+        ok: true,
+        emailed: false,
+        reason: 'Nessun destinatario: imposta SUPPORT_EMAIL su Vercel'
+      });
       return;
     }
+
     const key = (process.env.RESEND_API_KEY || '').trim();
     if (!key) {
-      res.status(200).json({ ok: true, emailed: false, reason: 'RESEND_API_KEY assente' });
+      res.status(200).json({
+        ok: true,
+        emailed: false,
+        reason: 'RESEND_API_KEY assente su Vercel'
+      });
       return;
     }
+
     const from = (process.env.NOTIFY_FROM || 'MenuPro <onboarding@resend.dev>').trim();
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ from, to: [to], subject, text })
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
-      res.status(200).json({ ok: true, emailed: false, reason: j.message || j.error || ('HTTP ' + r.status), resend: j });
+      res.status(200).json({
+        ok: true,
+        emailed: false,
+        reason: j.message || j.error || ('Resend HTTP ' + r.status),
+        resend: j
+      });
       return;
     }
-    res.status(200).json({ ok: true, emailed: true, id: j.id || null });
+    res.status(200).json({ ok: true, emailed: true, id: j.id || null, to });
   } catch (e) {
-    res.status(200).json({ ok: true, emailed: false, reason: String((e && e.message) || e) });
+    res.status(200).json({
+      ok: true,
+      emailed: false,
+      reason: String((e && e.message) || e)
+    });
   }
 };
