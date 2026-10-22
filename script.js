@@ -1116,6 +1116,7 @@ async function renderRistAll() {
   else if (page === 'rist-tavoli') await renderTavoli();
   else if (page === 'rist-chiusura') await renderChiusuraFiscale();
   else if (page === 'rist-loyalty') await renderLoyaltyAdmin();
+  else if (page === 'rist-assistenza') renderAssistenzaPage();
   else await renderRistDashboard();
   setTimeout(() => {
     try {
@@ -1174,7 +1175,8 @@ async function enterAsRistoratore(r) {
   const titles = {
     'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
     'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
-    'rist-loyalty': 'Loyalty card', 'rist-chiusura': 'Chiusura fiscale'
+    'rist-loyalty': 'Loyalty card', 'rist-chiusura': 'Chiusura fiscale',
+    'rist-assistenza': 'FAQ & Assistenza'
   };
   if ($('#rist-page-title')) $('#rist-page-title').textContent = titles[page] || 'Panoramica';
 
@@ -1194,7 +1196,7 @@ async function enterAsRistoratore(r) {
 }
 
 /** Pagine permesse agli account cassa */
-const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura', 'rist-loyalty']);
+const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura', 'rist-loyalty', 'rist-assistenza']);
 
 function applyCassaNavRestrictions(isCassa) {
   $$('#app-ristoratore .nav-item').forEach(item => {
@@ -1430,11 +1432,12 @@ $$('#app-admin .nav-item').forEach(item => {
     $(`#page-${page}`).classList.remove('hidden');
     const titles = {
       dashboard: 'Panoramica', ristoranti: 'Ristoranti', abbonamenti: 'Abbonamenti',
-      'miei-incassi': 'I miei incassi', 'incassi-rist': 'Incassi ristoranti', impostazioni: 'Impostazioni'
+      'miei-incassi': 'I miei incassi', 'incassi-rist': 'Incassi ristoranti', richieste: 'Richieste', impostazioni: 'Impostazioni'
     };
     $('#admin-page-title').textContent = titles[page] || page;
     if (page === 'dashboard') await renderAdminDashboard();
     if (page === 'ristoranti') await renderAdminTable();
+    if (page === 'richieste') await renderAdminRichieste();
     if (page === 'abbonamenti') await renderAbbonamenti();
     if (page === 'miei-incassi') await renderMieiIncassi();
     if (page === 'incassi-rist') await populateIncassiSelect();
@@ -1462,7 +1465,8 @@ $$('#app-ristoratore .nav-item').forEach(item => {
       'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
       'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
       'rist-loyalty': 'Loyalty card',
-      'rist-chiusura': 'Chiusura fiscale'
+      'rist-chiusura': 'Chiusura fiscale',
+      'rist-assistenza': 'FAQ & Assistenza'
     };
     $('#rist-page-title').textContent = titles[page] || page;
     if (page === 'rist-dashboard') await renderRistDashboard();
@@ -1471,6 +1475,7 @@ $$('#app-ristoratore .nav-item').forEach(item => {
     if (page === 'rist-tavoli') await renderTavoli();
     if (page === 'rist-loyalty') await renderLoyaltyAdmin();
     if (page === 'rist-chiusura') await renderChiusuraFiscale();
+    if (page === 'rist-assistenza') renderAssistenzaPage();
   });
 });
 
@@ -7188,3 +7193,489 @@ document.getElementById('form-loy-cassa-reg')?.addEventListener('submit', async 
   document.getElementById('loy-cassa-q').value = email;
   document.getElementById('loy-cassa-q').dispatchEvent(new Event('input'));
 });
+
+// =====================================================
+
+// =====================================================
+// SUPPORTO TICKET (ristoratore + admin)
+// =====================================================
+const TICKET_STATI = {
+  nuovo: 'Nuovo',
+  in_gestione: 'In gestione',
+  feedback: 'Feedback',
+  chiuso: 'Chiuso'
+};
+
+let _supportSelectedId = null;
+let _supportRole = null; // 'ristoratore' | 'admin'
+let _supportPollTimer = null;
+let _supportTicketsCache = [];
+
+function supportLabelStato(s) {
+  return TICKET_STATI[s] || s || '—';
+}
+
+function genTicketNumero() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return 'TK-' + y + m + day + '-' + rnd;
+}
+
+function getSupportEmail() {
+  return ((window.MENUPRO_CONFIG || {}).SUPPORT_EMAIL || 'assistenza@menupro.it').trim();
+}
+function getManualPdfUrl() {
+  return (window.MENUPRO_CONFIG || {}).MANUAL_PDF_URL || '/Manuale_MenuPro.pdf';
+}
+
+function formatSupportTime(iso) {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch (e) { return '—'; }
+}
+
+async function notifyTicketEmail({ subject, text }) {
+  try {
+    await fetch('/api/notify-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: getSupportEmail(),
+        subject,
+        text
+      })
+    });
+  } catch (e) {
+    console.warn('notify email skip', e);
+  }
+}
+
+async function uploadTicketAllegato(file) {
+  if (!file) return { url: null, nome: null };
+  const max = 10 * 1024 * 1024;
+  if (file.size > max) return { error: 'File troppo grande (max 10 MB)' };
+  const okTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+  if (file.type && !okTypes.includes(file.type)) {
+    return { error: 'Formato non supportato (usa JPG, PNG, WebP, GIF o PDF)' };
+  }
+  if (!sb) return { error: 'Database non collegato' };
+  const safe = String(file.name || 'allegato').replace(/[^\w.\-]+/g, '_').slice(0, 80);
+  const path = 'ticket/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + safe;
+  const { error } = await sb.storage.from('support-allegati').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: file.type || undefined
+  });
+  if (error) {
+    console.error(error);
+    return { error: 'Upload fallito: ' + (error.message || 'verifica bucket support-allegati') };
+  }
+  const { data } = sb.storage.from('support-allegati').getPublicUrl(path);
+  return { url: data && data.publicUrl, nome: file.name };
+}
+
+async function fetchTicketsForRist() {
+  if (!sb || !currentRistorante) return [];
+  const rid = String(currentRistorante.id);
+  let q = sb.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(80);
+  // filtra per ristorante o email account
+  const email = (currentUser && currentUser.email) || currentRistorante.email || '';
+  const { data, error } = await q;
+  if (error) {
+    console.warn(error);
+    toast('Impossibile caricare i ticket. Esegui lo script SQL support_schema.sql su Supabase.');
+    return [];
+  }
+  return (data || []).filter(t =>
+    String(t.id_ristorante || '') === rid ||
+    (email && String(t.email_richiedente || '').toLowerCase() === email.toLowerCase())
+  );
+}
+
+async function fetchAllTickets() {
+  if (!sb) return [];
+  const { data, error } = await sb.from('support_tickets')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(150);
+  if (error) {
+    console.warn(error);
+    toast('Impossibile caricare le richieste. Controlla la tabella support_tickets su Supabase.');
+    return [];
+  }
+  return data || [];
+}
+
+async function fetchMessages(ticketId) {
+  if (!sb || !ticketId) return [];
+  const { data, error } = await sb.from('support_messages')
+    .select('*')
+    .eq('id_ticket', ticketId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.warn(error);
+    return [];
+  }
+  return data || [];
+}
+
+function renderTicketListItems(list, selectedId, emptyMsg) {
+  if (!list.length) {
+    return '<div class="support-empty" style="padding:20px">' + emptyMsg + '</div>';
+  }
+  return list.map(t => `
+    <div class="support-ticket-item ${String(t.id) === String(selectedId) ? 'active' : ''}"
+         data-ticket-id="${t.id}">
+      <div class="tk-num">${t.numero || ''}</div>
+      <div class="tk-title">${(t.titolo || '').replace(/</g, '&lt;')}</div>
+      <div class="tk-meta">
+        <span class="badge-stato-ticket ${t.stato}">${supportLabelStato(t.stato)}</span>
+        <span>${formatSupportTime(t.created_at)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderChatMessages(msgs) {
+  if (!msgs.length) {
+    return '<div class="support-empty">Nessun messaggio ancora. Scrivi qui sotto.</div>';
+  }
+  return msgs.map(m => {
+    const ruolo = m.mittente_ruolo === 'admin' ? 'admin' : 'ristoratore';
+    const who = m.mittente_nome || (ruolo === 'admin' ? 'Assistenza MenuPro' : 'Tu');
+    return `<div class="support-msg ${ruolo}">
+      <div class="msg-who">${who.replace(/</g, '&lt;')}</div>
+      <div>${String(m.messaggio || '').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</div>
+      <div class="msg-time">${formatSupportTime(m.created_at)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function openTicketDetail(ticketId, role) {
+  _supportSelectedId = ticketId;
+  _supportRole = role;
+  const panelId = role === 'admin' ? 'admin-ticket-detail' : 'rist-ticket-detail';
+  const listId = role === 'admin' ? 'admin-tickets-list' : 'rist-tickets-list';
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  const ticket = _supportTicketsCache.find(t => String(t.id) === String(ticketId));
+  if (!ticket) {
+    panel.innerHTML = '<div class="support-empty">Ticket non trovato</div>';
+    return;
+  }
+
+  // highlight list
+  document.querySelectorAll('#' + listId + ' .support-ticket-item').forEach(el => {
+    el.classList.toggle('active', String(el.dataset.ticketId) === String(ticketId));
+  });
+
+  const msgs = await fetchMessages(ticketId);
+  const allegato = ticket.allegato_url
+    ? `<a class="support-attach-link" href="${ticket.allegato_url}" target="_blank" rel="noopener"><i class="fas fa-paperclip"></i> ${ticket.allegato_nome || 'Allegato'}</a>`
+    : '';
+
+  let adminControls = '';
+  if (role === 'admin') {
+    adminControls = `
+      <div class="support-admin-actions">
+        <label style="font-size:12px;color:var(--muted)">Stato</label>
+        <select id="admin-ticket-stato">
+          ${Object.keys(TICKET_STATI).map(k =>
+            `<option value="${k}" ${ticket.stato === k ? 'selected' : ''}>${TICKET_STATI[k]}</option>`
+          ).join('')}
+        </select>
+      </div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="support-detail-head">
+      <div style="min-width:0;flex:1">
+        <div class="tk-sub">${ticket.numero || ''} · <span class="badge-stato-ticket ${ticket.stato}">${supportLabelStato(ticket.stato)}</span></div>
+        <h3>${(ticket.titolo || '').replace(/</g, '&lt;')}</h3>
+        <div class="tk-sub">
+          ${(ticket.nome_locale || '—').replace(/</g, '&lt;')}
+          · ${(ticket.nome_richiedente || ticket.email_richiedente || '—').replace(/</g, '&lt;')}
+        </div>
+        <p style="margin:8px 0 0;font-size:13px;color:var(--muted);white-space:pre-wrap">${(ticket.descrizione || '').replace(/</g, '&lt;')}</p>
+        ${allegato}
+      </div>
+      ${adminControls}
+    </div>
+    <div class="support-messages" id="support-msg-box">${renderChatMessages(msgs)}</div>
+    <div class="support-compose">
+      <textarea id="support-msg-input" rows="2" placeholder="${ticket.stato === 'chiuso' && role === 'ristoratore' ? 'Ticket chiuso' : 'Scrivi un messaggio…'}" ${ticket.stato === 'chiuso' && role === 'ristoratore' ? 'disabled' : ''}></textarea>
+      <button type="button" class="btn btn-primary" id="support-msg-send" ${ticket.stato === 'chiuso' && role === 'ristoratore' ? 'disabled' : ''}>
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  `;
+
+  const box = document.getElementById('support-msg-box');
+  if (box) box.scrollTop = box.scrollHeight;
+
+  document.getElementById('support-msg-send')?.addEventListener('click', () => sendSupportMessage(role));
+  document.getElementById('support-msg-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendSupportMessage(role);
+    }
+  });
+
+  document.getElementById('admin-ticket-stato')?.addEventListener('change', async (e) => {
+    const nuovo = e.target.value;
+    const { error } = await sb.from('support_tickets')
+      .update({ stato: nuovo, updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+    if (error) { toast('Errore aggiornamento stato'); return; }
+    ticket.stato = nuovo;
+    toast('Stato: ' + supportLabelStato(nuovo));
+    if (role === 'admin') await renderAdminRichieste({ keepId: ticketId });
+    else await renderAssistenzaPage({ keepId: ticketId });
+  });
+
+  startSupportPoll(role);
+}
+
+async function sendSupportMessage(role) {
+  const input = document.getElementById('support-msg-input');
+  const text = (input?.value || '').trim();
+  if (!text || !_supportSelectedId || !sb) return;
+  const ticket = _supportTicketsCache.find(t => String(t.id) === String(_supportSelectedId));
+  if (!ticket) return;
+  if (ticket.stato === 'chiuso' && role === 'ristoratore') {
+    toast('Questo ticket è chiuso');
+    return;
+  }
+
+  const nome = role === 'admin'
+    ? ((currentUser && currentUser.email) || 'Admin MenuPro')
+    : ((currentRistorante && (currentRistorante.titolare || currentRistorante.nome)) || (currentUser && currentUser.email) || 'Ristoratore');
+
+  const { error } = await sb.from('support_messages').insert({
+    id_ticket: _supportSelectedId,
+    mittente_ruolo: role === 'admin' ? 'admin' : 'ristoratore',
+    mittente_nome: nome,
+    messaggio: text
+  });
+  if (error) {
+    toast('Invio fallito: ' + (error.message || ''));
+    return;
+  }
+
+  // auto stato
+  if (role === 'admin' && ticket.stato === 'nuovo') {
+    await sb.from('support_tickets').update({ stato: 'in_gestione', updated_at: new Date().toISOString() }).eq('id', _supportSelectedId);
+    ticket.stato = 'in_gestione';
+  }
+  if (role === 'admin' && ticket.stato === 'feedback') {
+    await sb.from('support_tickets').update({ stato: 'in_gestione', updated_at: new Date().toISOString() }).eq('id', _supportSelectedId);
+    ticket.stato = 'in_gestione';
+  }
+  if (role === 'ristoratore' && (ticket.stato === 'in_gestione' || ticket.stato === 'feedback')) {
+    // resta in gestione; admin può mettere feedback
+  }
+
+  if (input) input.value = '';
+
+  // notifica email all'altra parte (best effort)
+  if (role === 'ristoratore') {
+    notifyTicketEmail({
+      subject: `[MenuPro] Nuovo messaggio su ${ticket.numero}`,
+      text: `Il ristoratore ha scritto su ${ticket.numero} (${ticket.titolo})\n\n${text}\n\nApri MenuPro → Richieste.`
+    });
+  }
+
+  await openTicketDetail(_supportSelectedId, role);
+}
+
+function startSupportPoll(role) {
+  stopSupportPoll();
+  _supportPollTimer = setInterval(async () => {
+    if (!_supportSelectedId) return;
+    const panel = document.getElementById(role === 'admin' ? 'admin-ticket-detail' : 'rist-ticket-detail');
+    if (!panel || panel.querySelector('.support-empty') && !panel.querySelector('.support-messages')) return;
+    const box = document.getElementById('support-msg-box');
+    if (!box) return;
+    const msgs = await fetchMessages(_supportSelectedId);
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    box.innerHTML = renderChatMessages(msgs);
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }, 8000);
+}
+
+function stopSupportPoll() {
+  if (_supportPollTimer) {
+    clearInterval(_supportPollTimer);
+    _supportPollTimer = null;
+  }
+}
+
+function bindTicketListClicks(listEl, role) {
+  if (!listEl || listEl.dataset.bound) return;
+  listEl.dataset.bound = '1';
+  listEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.support-ticket-item');
+    if (!item) return;
+    openTicketDetail(item.dataset.ticketId, role);
+  });
+}
+
+async function renderAssistenzaPage(opts = {}) {
+  const url = getManualPdfUrl();
+  const a1 = document.getElementById('link-manuale-pdf');
+  const a2 = document.getElementById('link-manuale-download');
+  const iframe = document.getElementById('manuale-iframe');
+  if (a1) a1.href = url;
+  if (a2) a2.href = url;
+  if (iframe) iframe.src = url;
+
+  const list = await fetchTicketsForRist();
+  _supportTicketsCache = list;
+  const el = document.getElementById('rist-tickets-list');
+  if (el) {
+    el.innerHTML = renderTicketListItems(list, opts.keepId || _supportSelectedId, 'Nessun ticket ancora. Aprine uno con il modulo qui sopra.');
+    bindTicketListClicks(el, 'ristoratore');
+  }
+  if (opts.keepId) await openTicketDetail(opts.keepId, 'ristoratore');
+}
+
+async function renderAdminRichieste(opts = {}) {
+  let list = await fetchAllTickets();
+  const q = ($('#search-richieste')?.value || '').trim().toLowerCase();
+  const st = $('#filter-richieste-stato')?.value || '';
+  if (st) list = list.filter(t => t.stato === st);
+  if (q) {
+    list = list.filter(t =>
+      [t.numero, t.titolo, t.nome_locale, t.nome_richiedente, t.email_richiedente]
+        .some(x => String(x || '').toLowerCase().includes(q))
+    );
+  }
+  _supportTicketsCache = list;
+
+  const nuovi = (await fetchAllTickets()).filter(t => t.stato === 'nuovo').length;
+  const badge = document.getElementById('badge-richieste');
+  if (badge) {
+    if (nuovi > 0) {
+      badge.textContent = String(nuovi);
+      badge.classList.remove('hidden');
+    } else badge.classList.add('hidden');
+  }
+
+  const el = document.getElementById('admin-tickets-list');
+  if (el) {
+    el.innerHTML = renderTicketListItems(list, opts.keepId || _supportSelectedId, 'Nessuna richiesta.');
+    bindTicketListClicks(el, 'admin');
+  }
+  if (opts.keepId) await openTicketDetail(opts.keepId, 'admin');
+}
+
+// submit nuovo ticket
+document.getElementById('form-nuovo-ticket')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!sb) { toast('Database non collegato'); return; }
+  if (!currentRistorante) { toast('Nessun ristorante selezionato'); return; }
+
+  const titolo = ($('#ticket-titolo')?.value || '').trim();
+  const descrizione = ($('#ticket-descrizione')?.value || '').trim();
+  if (titolo.length < 3) { toast('Inserisci un titolo'); return; }
+  if (descrizione.length < 10) { toast('Descrivi meglio il problema'); return; }
+
+  const btn = $('#btn-invia-ticket');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Invio…'; }
+
+  try {
+    const file = $('#ticket-allegato')?.files?.[0] || null;
+    let allegato_url = null, allegato_nome = null;
+    if (file) {
+      const up = await uploadTicketAllegato(file);
+      if (up.error) { toast(up.error); return; }
+      allegato_url = up.url;
+      allegato_nome = up.nome;
+    }
+
+    const numero = genTicketNumero();
+    const nomeRich = (currentRistorante.titolare || currentUser?.email || currentRistorante.nome || 'Ristoratore');
+    const row = {
+      numero,
+      titolo,
+      descrizione,
+      stato: 'nuovo',
+      id_ristorante: String(currentRistorante.id),
+      nome_locale: currentRistorante.nome || '',
+      nome_richiedente: nomeRich,
+      email_richiedente: currentUser?.email || currentRistorante.email || '',
+      allegato_url,
+      allegato_nome
+    };
+
+    const { data, error } = await sb.from('support_tickets').insert(row).select().single();
+    if (error) {
+      toast('Errore salvataggio: ' + (error.message || 'crea le tabelle con support_schema.sql'));
+      console.error(error);
+      return;
+    }
+
+    // primo messaggio = descrizione
+    await sb.from('support_messages').insert({
+      id_ticket: data.id,
+      mittente_ruolo: 'ristoratore',
+      mittente_nome: nomeRich,
+      messaggio: descrizione + (allegato_url ? '\n\n[Allegato: ' + (allegato_nome || 'file') + ']' : '')
+    });
+
+    await notifyTicketEmail({
+      subject: `[MenuPro] Nuovo ticket ${numero} — ${currentRistorante.nome || ''}`,
+      text:
+        `Nuovo ticket di assistenza\n` +
+        `Numero: ${numero}\n` +
+        `Locale: ${currentRistorante.nome || ''}\n` +
+        `Richiedente: ${nomeRich}\n` +
+        `Email: ${row.email_richiedente}\n` +
+        `Titolo: ${titolo}\n\n` +
+        `${descrizione}\n\n` +
+        `Apri MenuPro → Admin → Richieste per rispondere in chat.`
+    });
+
+    if ($('#ticket-titolo')) $('#ticket-titolo').value = '';
+    if ($('#ticket-descrizione')) $('#ticket-descrizione').value = '';
+    if ($('#ticket-allegato')) $('#ticket-allegato').value = '';
+    toast('Ticket ' + numero + ' inviato');
+    await renderAssistenzaPage({ keepId: data.id });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Invia ticket';
+    }
+  }
+});
+
+document.getElementById('btn-refresh-richieste')?.addEventListener('click', () => {
+  renderAdminRichieste({ keepId: _supportSelectedId });
+});
+document.getElementById('search-richieste')?.addEventListener('input', () => {
+  clearTimeout(window._richiesteSearchT);
+  window._richiesteSearchT = setTimeout(() => renderAdminRichieste(), 200);
+});
+document.getElementById('filter-richieste-stato')?.addEventListener('change', () => renderAdminRichieste());
+
+// badge admin all'ingresso
+async function refreshRichiesteBadge() {
+  if (!sb || !currentUser || currentUser.role !== 'admin') return;
+  try {
+    const { count } = await sb.from('support_tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('stato', 'nuovo');
+    const badge = document.getElementById('badge-richieste');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = String(count);
+      badge.classList.remove('hidden');
+    } else badge.classList.add('hidden');
+  } catch (e) {}
+}
