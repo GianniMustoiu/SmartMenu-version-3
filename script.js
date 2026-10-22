@@ -1145,6 +1145,7 @@ async function switchRistorante(id) {
   try { updateRistSidebarAbbonamento(currentRistorante); } catch (e) {}
   await renderRistAll();
   startOrdiniWatch();
+  startAssistenzaWatch();
   toast('Locale: ' + (r.nome || ''));
 }
 
@@ -1191,7 +1192,7 @@ async function enterAsRistoratore(r) {
   try { localStorage.setItem(lastRistKey(r.email), rid); } catch (e) {}
   applyCassaNavRestrictions(false);
   populateRistSwitcher().catch(() => {});
-  renderRistAll().then(() => startOrdiniWatch()).catch(() => startOrdiniWatch());
+  renderRistAll().then(() => { startOrdiniWatch(); startAssistenzaWatch(); }).catch(() => { startOrdiniWatch(); startAssistenzaWatch(); });
   return true;
 }
 
@@ -1264,7 +1265,7 @@ async function enterAsCassa(u) {
   $('#rist-nome-sidebar').textContent = (r.nome || 'Ristorante') + ' · Cassa';
   try { updateRistSidebarAbbonamento(r); } catch (e) {}
   applyCassaNavRestrictions(true);
-  renderOrdiniKanban({ force: true }).then(() => startOrdiniWatch()).catch(() => startOrdiniWatch());
+  renderOrdiniKanban({ force: true }).then(() => { startOrdiniWatch(); startAssistenzaWatch(); }).catch(() => { startOrdiniWatch(); startAssistenzaWatch(); });
   return true;
 }
 
@@ -2926,6 +2927,7 @@ function startOrdiniWatch() {
 }
 
 function stopOrdiniWatch() {
+
   if (_ordiniPoll) { clearInterval(_ordiniPoll); _ordiniPoll = null; }
   try { if (_ordiniChannel && sb) sb.removeChannel(_ordiniChannel); } catch (e) {}
   _ordiniChannel = null;
@@ -4774,6 +4776,7 @@ if (!navigator.onLine) {
   }).join('');
   $('#ricevuta-items').innerHTML = itemsHtml;
   applyClienteChromeI18n();
+  try { prepareRecensioneBox(lastOrdineId || (inserted && inserted.id)); } catch (e) {}
 
   // Salva dati ricevuta per download (solo pagamento carta online)
   window._ultimaRicevuta = {
@@ -4869,6 +4872,7 @@ async function loadClienteOrdineById(ordineId) {
 
   showClienteView('ricevuta');
   startOrdineStatusPolling();
+  try { prepareRecensioneBox(ordineId); } catch (e) {}
 }
 
 document.addEventListener('change', (e) => {
@@ -7507,10 +7511,11 @@ async function uploadTicketAllegato(file) {
 async function fetchTicketsForRist() {
   if (!sb || !currentRistorante) return [];
   const rid = String(currentRistorante.id);
-  let q = sb.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(80);
-  // filtra per ristorante o email account
-  const email = (currentUser && currentUser.email) || currentRistorante.email || '';
-  const { data, error } = await q;
+  const email = ((currentUser && currentUser.email) || currentRistorante.email || '').toLowerCase();
+  const { data, error } = await sb.from('support_tickets')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
   if (error) {
     console.warn(error);
     toast('Impossibile caricare i ticket. Esegui lo script SQL support_schema.sql su Supabase.');
@@ -7518,8 +7523,20 @@ async function fetchTicketsForRist() {
   }
   return (data || []).filter(t =>
     String(t.id_ristorante || '') === rid ||
-    (email && String(t.email_richiedente || '').toLowerCase() === email.toLowerCase())
+    (email && String(t.email_richiedente || '').toLowerCase() === email)
   );
+}
+
+function filterTicketsVista(list, vista) {
+  const v = vista || 'attivi';
+  return (list || []).filter(t => {
+    const arch = !!t.archiviato;
+    if (v === 'archivio') return arch;
+    if (v === 'chiusi') return !arch && t.stato === 'chiuso';
+    if (v === 'tutti') return true;
+    // attivi: non archiviati e non chiusi
+    return !arch && t.stato !== 'chiuso';
+  });
 }
 
 async function fetchAllTickets() {
@@ -7559,7 +7576,7 @@ function renderTicketListItems(list, selectedId, emptyMsg) {
       <div class="tk-num">${t.numero || ''}</div>
       <div class="tk-title">${(t.titolo || '').replace(/</g, '&lt;')}</div>
       <div class="tk-meta">
-        <span class="badge-stato-ticket ${t.stato}">${supportLabelStato(t.stato)}</span>
+        <span class="badge-stato-ticket ${t.archiviato ? 'chiuso' : t.stato}">${t.archiviato ? 'Archivio' : supportLabelStato(t.stato)}</span>
         <span>${formatSupportTime(t.created_at)}</span>
       </div>
     </div>
@@ -7617,6 +7634,30 @@ async function openTicketDetail(ticketId, role) {
         </select>
       </div>`;
   }
+  if (role === 'ristoratore') {
+    if (ticket.archiviato) {
+      adminControls = `
+        <div class="support-admin-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-ticket-ripristina">
+            <i class="fas fa-box-open"></i> Ripristina da archivio
+          </button>
+        </div>`;
+    } else if (ticket.stato === 'chiuso') {
+      adminControls = `
+        <div class="support-admin-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-ticket-archivia">
+            <i class="fas fa-archive"></i> Archivia
+          </button>
+        </div>`;
+    } else {
+      adminControls = `
+        <div class="support-admin-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-ticket-chiudi">
+            <i class="fas fa-check"></i> Segna come chiuso
+          </button>
+        </div>`;
+    }
+  }
 
   panel.innerHTML = `
     <div class="support-detail-head">
@@ -7662,6 +7703,44 @@ async function openTicketDetail(ticketId, role) {
     toast('Stato: ' + supportLabelStato(nuovo));
     if (role === 'admin') await renderAdminRichieste({ keepId: ticketId });
     else await renderAssistenzaPage({ keepId: ticketId });
+  });
+
+  document.getElementById('btn-ticket-archivia')?.addEventListener('click', async () => {
+    if (!sb) return;
+    const { error } = await sb.from('support_tickets')
+      .update({ archiviato: true, stato: 'chiuso', updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+    if (error) {
+      toast('Archiviazione non riuscita. Esegui recensioni_e_archivio.sql su Supabase.');
+      console.warn(error);
+      return;
+    }
+    ticket.archiviato = true;
+    ticket.stato = 'chiuso';
+    toast('Ticket archiviato');
+    await renderAssistenzaPage({ keepId: ticketId });
+  });
+
+  document.getElementById('btn-ticket-ripristina')?.addEventListener('click', async () => {
+    if (!sb) return;
+    const { error } = await sb.from('support_tickets')
+      .update({ archiviato: false, updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+    if (error) { toast('Errore ripristino'); return; }
+    ticket.archiviato = false;
+    toast('Ticket ripristinato');
+    await renderAssistenzaPage({ keepId: ticketId });
+  });
+
+  document.getElementById('btn-ticket-chiudi')?.addEventListener('click', async () => {
+    if (!sb) return;
+    const { error } = await sb.from('support_tickets')
+      .update({ stato: 'chiuso', updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+    if (error) { toast('Errore chiusura'); return; }
+    ticket.stato = 'chiuso';
+    toast('Ticket chiuso');
+    await renderAssistenzaPage({ keepId: ticketId });
   });
 
   startSupportPoll(role);
@@ -7710,7 +7789,7 @@ async function sendSupportMessage(role) {
 
   // notifica email all'altra parte (best effort)
   if (role === 'ristoratore') {
-    notifyTicketEmail({
+    await notifyTicketEmail({
       subject: `[MenuPro] Nuovo messaggio su ${ticket.numero}`,
       text: `Il ristoratore ha scritto su ${ticket.numero} (${ticket.titolo})
 
@@ -7720,9 +7799,19 @@ Apri MenuPro → Richieste.`
     });
   }
   if (role === 'admin') {
-    const dest = (ticket.email_richiedente || '').trim();
-    if (dest) {
-      notifyTicketEmail({
+    // destinatario: email sul ticket, altrimenti prova email del ristorante
+    let dest = (ticket.email_richiedente || '').trim();
+    if (!dest && ticket.id_ristorante && sb) {
+      try {
+        const { data: r } = await sb.from('ristoranti').select('email').eq('id', ticket.id_ristorante).maybeSingle();
+        dest = (r && r.email || '').trim();
+      } catch (e) {}
+    }
+    if (!dest) {
+      console.warn('Nessuna email ristoratore sul ticket', ticket.numero);
+      toast('Messaggio salvato in chat (nessuna email sul ticket a cui scrivere)');
+    } else {
+      const j = await notifyTicketEmail({
         to: dest,
         subject: `[MenuPro] Risposta assistenza su ${ticket.numero}`,
         text:
@@ -7734,6 +7823,14 @@ Apri MenuPro → Richieste.`
 ` +
           `Apri MenuPro → FAQ & Assistenza → il tuo ticket per continuare la chat.`
       });
+      if (j && j.emailed) {
+        toast('Risposta inviata anche via email a ' + dest);
+      } else {
+        const reason = (j && j.reason) || 'sconosciuto';
+        console.warn('Email ristoratore fallita:', reason, j);
+        // Resend free: spesso rifiuta destinatari diversi dall'account
+        toast('Chat ok. Email al ristoratore non partita: ' + reason);
+      }
     }
   }
 
@@ -7781,15 +7878,26 @@ async function renderAssistenzaPage(opts = {}) {
   if (a2) a2.href = url;
   if (iframe) iframe.src = url;
 
-  const list = await fetchTicketsForRist();
-  _supportTicketsCache = list;
+  const all = await fetchTicketsForRist();
+  const vista = document.getElementById('filter-rist-ticket-archivio')?.value || 'attivi';
+  const list = filterTicketsVista(all, vista);
+  _supportTicketsCache = all; // cache completa per open detail
   const el = document.getElementById('rist-tickets-list');
   if (el) {
-    el.innerHTML = renderTicketListItems(list, opts.keepId || _supportSelectedId, 'Nessun ticket ancora. Aprine uno con il modulo qui sopra.');
+    const empty =
+      vista === 'archivio' ? 'Nessun ticket in archivio.' :
+      vista === 'chiusi' ? 'Nessun ticket chiuso.' :
+      'Nessun ticket ancora. Aprine uno con il modulo qui sopra.';
+    el.innerHTML = renderTicketListItems(list, opts.keepId || _supportSelectedId, empty);
     bindTicketListClicks(el, 'ristoratore');
   }
   if (opts.keepId) await openTicketDetail(opts.keepId, 'ristoratore');
 }
+
+document.getElementById('filter-rist-ticket-archivio')?.addEventListener('change', () => {
+  renderAssistenzaPage({ keepId: _supportSelectedId });
+});
+
 
 async function renderAdminRichieste(opts = {}) {
   let list = await fetchAllTickets();
@@ -8025,3 +8133,372 @@ window.apriStoricoPunti = async function(memberId) {
     hint.textContent = 'Fonte dati: ' + source;
   }
 };
+
+// =====================================================
+// AVVISO SONORO + POPUP: risposta assistenza (ristoratore)
+// =====================================================
+let _assistPoll = null;
+let _assistKnownMsgIds = null; // Set
+let _assistAudioUnlocked = false;
+const ASSIST_POLL_MS = 12000;
+const ASSIST_SEEN_KEY = 'menupro_assist_seen_msgs';
+
+function unlockAssistAudio() {
+  if (_assistAudioUnlocked) return;
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    const ctx = new C();
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+    const o = ctx.createOscillator();
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.01);
+    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 50);
+    _assistAudioUnlocked = true;
+  } catch (e) {}
+}
+document.addEventListener('click', unlockAssistAudio, { once: false, passive: true });
+document.addEventListener('touchstart', unlockAssistAudio, { once: false, passive: true });
+
+function beepAssistenza() {
+  try {
+    unlockAssistAudio();
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    const ctx = new C();
+    const play = (freq, start, dur) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.18, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      o.start(ctx.currentTime + start);
+      o.stop(ctx.currentTime + start + dur + 0.02);
+    };
+    // due toni "notifica"
+    play(660, 0, 0.18);
+    play(990, 0.22, 0.28);
+    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 800);
+  } catch (e) {}
+}
+
+function loadAssistSeenIds() {
+  try {
+    const raw = localStorage.getItem(ASSIST_SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch (e) { return new Set(); }
+}
+function saveAssistSeenIds(set) {
+  try {
+    const arr = [...set].slice(-300);
+    localStorage.setItem(ASSIST_SEEN_KEY, JSON.stringify(arr));
+  } catch (e) {}
+}
+
+function showAssistenzaPopup(ticketNumero, preview) {
+  let overlay = document.getElementById('assist-notify-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'assist-notify-overlay';
+    overlay.innerHTML = `
+      <div class="assist-notify-card" role="alertdialog" aria-live="assertive">
+        <div class="assist-notify-icon"><i class="fas fa-headset"></i></div>
+        <div class="assist-notify-body">
+          <strong>Risposta dall'assistenza MenuPro</strong>
+          <p id="assist-notify-text"></p>
+        </div>
+        <div class="assist-notify-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="assist-notify-open">Apri ticket</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="assist-notify-close">Chiudi</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#assist-notify-close')?.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+    });
+    overlay.querySelector('#assist-notify-open')?.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      const nav = document.querySelector('#app-ristoratore .nav-item[data-page="rist-assistenza"]');
+      if (nav) nav.click();
+      else {
+        document.querySelectorAll('#app-ristoratore .page').forEach(p => p.classList.add('hidden'));
+        document.getElementById('page-rist-assistenza')?.classList.remove('hidden');
+        try { renderAssistenzaPage(); } catch (e) {}
+      }
+    });
+  }
+  const p = document.getElementById('assist-notify-text');
+  if (p) {
+    p.textContent = (ticketNumero ? ticketNumero + ' — ' : '') + (preview || 'Hai un nuovo messaggio.');
+  }
+  overlay.classList.remove('hidden');
+}
+
+function avvisaRispostaAssistenza(items) {
+  if (!items || !items.length) return;
+  const n = items.length;
+  const first = items[0];
+  const preview = String(first.messaggio || '').replace(/\s+/g, ' ').slice(0, 120);
+  toast(n === 1
+    ? '🎧 Nuova risposta dall\'assistenza'
+    : '🎧 ' + n + ' nuove risposte dall\'assistenza');
+  beepAssistenza();
+  try { navigator.vibrate && navigator.vibrate([180, 80, 180, 80, 180]); } catch (e) {}
+  showAssistenzaPopup(first.numero || '', preview);
+  // badge su nav assistenza
+  let badge = document.getElementById('badge-assistenza');
+  if (!badge) {
+    const nav = document.querySelector('#app-ristoratore .nav-item[data-page="rist-assistenza"]');
+    if (nav) {
+      badge = document.createElement('span');
+      badge.id = 'badge-assistenza';
+      badge.className = 'nav-badge';
+      nav.appendChild(badge);
+    }
+  }
+  if (badge) {
+    const cur = parseInt(badge.textContent, 10) || 0;
+    badge.textContent = String(cur + n);
+    badge.classList.remove('hidden');
+  }
+  if (document.hidden) {
+    try {
+      if (!window._titoloOriginale) window._titoloOriginale = document.title;
+      document.title = '🎧 Assistenza – ' + window._titoloOriginale;
+    } catch (e) {}
+  }
+}
+
+async function checkAssistenzaUpdate() {
+  if (!sb || !currentUser || !currentRistorante) return;
+  if (currentUser.role !== 'ristoratore' && currentUser.role !== 'cassa') return;
+  if (!navigator.onLine) return;
+  try {
+    const rid = String(currentRistorante.id);
+    const email = ((currentUser && currentUser.email) || currentRistorante.email || '').toLowerCase();
+    // ticket del locale
+    const { data: tickets, error: e1 } = await sb.from('support_tickets')
+      .select('id,numero,id_ristorante,email_richiedente')
+      .order('created_at', { ascending: false })
+      .limit(40);
+    if (e1) return;
+    const mine = (tickets || []).filter(t =>
+      String(t.id_ristorante || '') === rid ||
+      (email && String(t.email_richiedente || '').toLowerCase() === email)
+    );
+    if (!mine.length) {
+      if (!_assistKnownMsgIds) _assistKnownMsgIds = loadAssistSeenIds();
+      return;
+    }
+    const ids = mine.map(t => t.id);
+    const byId = {};
+    mine.forEach(t => { byId[t.id] = t; });
+
+    const { data: msgs, error: e2 } = await sb.from('support_messages')
+      .select('id,id_ticket,mittente_ruolo,messaggio,created_at')
+      .in('id_ticket', ids)
+      .eq('mittente_ruolo', 'admin')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (e2) return;
+
+    const rows = msgs || [];
+    if (!_assistKnownMsgIds) {
+      // baseline: non notificare i messaggi già presenti
+      _assistKnownMsgIds = loadAssistSeenIds();
+      rows.forEach(m => _assistKnownMsgIds.add(String(m.id)));
+      saveAssistSeenIds(_assistKnownMsgIds);
+      return;
+    }
+
+    const nuovi = rows.filter(m => !_assistKnownMsgIds.has(String(m.id)));
+    if (nuovi.length) {
+      nuovi.forEach(m => _assistKnownMsgIds.add(String(m.id)));
+      saveAssistSeenIds(_assistKnownMsgIds);
+      const items = nuovi.map(m => ({
+        ...m,
+        numero: (byId[m.id_ticket] && byId[m.id_ticket].numero) || ''
+      }));
+      avvisaRispostaAssistenza(items);
+      // se è aperta la pagina assistenza, aggiorna lista
+      const page = document.getElementById('page-rist-assistenza');
+      if (page && !page.classList.contains('hidden')) {
+        try { await renderAssistenzaPage({ keepId: _supportSelectedId }); } catch (e) {}
+      }
+    }
+  } catch (e) {
+    console.warn('checkAssistenzaUpdate', e);
+  }
+}
+
+function stopAssistenzaWatch() {
+  if (_assistPoll) { clearInterval(_assistPoll); _assistPoll = null; }
+}
+
+function startAssistenzaWatch() {
+  stopAssistenzaWatch();
+  if (!currentUser || (currentUser.role !== 'ristoratore' && currentUser.role !== 'cassa')) return;
+  _assistKnownMsgIds = null;
+  checkAssistenzaUpdate();
+  _assistPoll = setInterval(checkAssistenzaUpdate, ASSIST_POLL_MS);
+}
+
+// azzera badge aprendo assistenza
+(function bindAssistBadgeClear() {
+  document.addEventListener('click', (e) => {
+    const nav = e.target.closest && e.target.closest('#app-ristoratore .nav-item[data-page="rist-assistenza"]');
+    if (!nav) return;
+    const badge = document.getElementById('badge-assistenza');
+    if (badge) { badge.textContent = '0'; badge.classList.add('hidden'); }
+    try {
+      if (window._titoloOriginale) document.title = window._titoloOriginale;
+    } catch (err) {}
+  });
+})();
+
+// =====================================================
+// RECENSIONI CLIENTE (stelle servizio + cibo)
+// =====================================================
+function recensioneStorageKey(ordineId) {
+  return 'menupro_recensione_' + String(ordineId || '');
+}
+
+function haGiaRecensito(ordineId) {
+  if (!ordineId) return false;
+  try { return localStorage.getItem(recensioneStorageKey(ordineId)) === '1'; } catch (e) { return false; }
+}
+
+function marcaRecensito(ordineId) {
+  try { localStorage.setItem(recensioneStorageKey(ordineId), '1'); } catch (e) {}
+}
+
+function buildStarsEl(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.dataset.value = '0';
+  el.innerHTML = [1, 2, 3, 4, 5].map(n =>
+    `<button type="button" data-star="${n}" aria-label="${n} stelle">★</button>`
+  ).join('');
+  el.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.star, 10);
+      el.dataset.value = String(v);
+      el.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('is-on', parseInt(b.dataset.star, 10) <= v);
+      });
+    });
+    btn.addEventListener('mouseenter', () => {
+      const v = parseInt(btn.dataset.star, 10);
+      el.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('is-on', parseInt(b.dataset.star, 10) <= v);
+      });
+    });
+  });
+  el.addEventListener('mouseleave', () => {
+    const v = parseInt(el.dataset.value, 10) || 0;
+    el.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('is-on', parseInt(b.dataset.star, 10) <= v);
+    });
+  });
+}
+
+function resetRecensioneUI() {
+  buildStarsEl('stars-servizio');
+  buildStarsEl('stars-cibo');
+  const note = document.getElementById('recensione-note');
+  if (note) note.value = '';
+  const done = document.getElementById('recensione-done');
+  const btn = document.getElementById('btn-invia-recensione');
+  const box = document.getElementById('cliente-recensione-box');
+  if (done) done.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
+  if (box) box.classList.remove('hidden');
+}
+
+function showRecensioneDone() {
+  const done = document.getElementById('recensione-done');
+  const btn = document.getElementById('btn-invia-recensione');
+  const formBits = document.querySelectorAll('#cliente-recensione-box .recensione-row, #cliente-recensione-box .form-group, #cliente-recensione-box .recensione-hint');
+  formBits.forEach(el => el.classList.add('hidden'));
+  if (btn) btn.classList.add('hidden');
+  if (done) done.classList.remove('hidden');
+}
+
+function prepareRecensioneBox(ordineId) {
+  const box = document.getElementById('cliente-recensione-box');
+  if (!box) return;
+  if (!ordineId || !currentRistorante) {
+    box.classList.add('hidden');
+    return;
+  }
+  if (haGiaRecensito(ordineId)) {
+    box.classList.remove('hidden');
+    showRecensioneDone();
+    return;
+  }
+  // reset visible form
+  document.querySelectorAll('#cliente-recensione-box .recensione-row, #cliente-recensione-box .form-group, #cliente-recensione-box .recensione-hint')
+    .forEach(el => el.classList.remove('hidden'));
+  resetRecensioneUI();
+  box.classList.remove('hidden');
+}
+
+document.getElementById('btn-invia-recensione')?.addEventListener('click', async () => {
+  const sServ = parseInt(document.getElementById('stars-servizio')?.dataset.value, 10) || 0;
+  const sCibo = parseInt(document.getElementById('stars-cibo')?.dataset.value, 10) || 0;
+  if (sServ < 1 || sCibo < 1) {
+    toast('Seleziona le stelle per servizio e cibo');
+    return;
+  }
+  if (!currentRistorante || !lastOrdineId) {
+    toast('Ordine non disponibile');
+    return;
+  }
+  if (haGiaRecensito(lastOrdineId)) {
+    showRecensioneDone();
+    return;
+  }
+  const note = (document.getElementById('recensione-note')?.value || '').trim();
+  const codice = document.getElementById('ricevuta-codice')?.textContent || '';
+  const tavolo = (currentUser && currentUser.tavolo) || '';
+
+  const row = {
+    id_ristorante: String(currentRistorante.id),
+    id_ordine: String(lastOrdineId),
+    codice_ordine: codice,
+    tavolo: String(tavolo),
+    stelle_servizio: sServ,
+    stelle_cibo: sCibo,
+    note: note || null
+  };
+
+  if (!sb) {
+    toast('Connessione assente: valutazione non salvata');
+    return;
+  }
+  const btn = document.getElementById('btn-invia-recensione');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Invio…'; }
+  try {
+    const { error } = await sb.from('recensioni').insert(row);
+    if (error) {
+      console.warn(error);
+      toast('Invio non riuscito. Esegui recensioni_e_archivio.sql su Supabase.');
+      return;
+    }
+    marcaRecensito(lastOrdineId);
+    showRecensioneDone();
+    toast('Grazie per la valutazione!');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Invia valutazione';
+    }
+  }
+});
+
+// hook after ricevuta is shown
+const _origPrepareRec = true;
+
+try { buildStarsEl('stars-servizio'); buildStarsEl('stars-cibo'); } catch (e) {}
