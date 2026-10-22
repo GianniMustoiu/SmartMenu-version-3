@@ -137,6 +137,15 @@ const UI_I18N = {
     authSubmitReg: 'Crea account e attiva card', authTitleLogin: 'Accedi', authTitleReg: 'Registrati',
     tabMenu: 'Menu', tabPremi: 'Premi',
     ordineRicevuto: 'Ordine ricevuto', statoOrdine: 'Stato ordine',
+    recTitle: 'Com\'è andata?',
+    recHint: 'Valuta servizio e cibo (1–5 stelle). Opzionale.',
+    recServizio: 'Servizio',
+    recCibo: 'Cibo',
+    recNote: 'Note (opzionale)',
+    recNotePh: 'Cosa ti è piaciuto o cosa migliorare…',
+    recInvia: 'Invia valutazione',
+    recGrazie: 'Grazie per la tua valutazione!',
+    recSeleziona: 'Seleziona le stelle per servizio e cibo',
     st_nuovo: 'Nuovo', st_in_preparazione: 'In preparazione', st_pronto: 'Pronto',
     st_consegnato: 'Consegnato', st_chiuso: 'Chiuso',
     pag_pagato: 'Pagato', pag_in_attesa: 'In attesa', pag_non_pagato: 'Non pagato',
@@ -181,6 +190,15 @@ const UI_I18N = {
     authSubmitReg: 'Create account and activate card', authTitleLogin: 'Sign in', authTitleReg: 'Register',
     tabMenu: 'Menu', tabPremi: 'Rewards',
     ordineRicevuto: 'Order received', statoOrdine: 'Order status',
+    recTitle: 'How was it?',
+    recHint: 'Rate service and food (1–5 stars). Optional.',
+    recServizio: 'Service',
+    recCibo: 'Food',
+    recNote: 'Notes (optional)',
+    recNotePh: 'What did you like or what could improve…',
+    recInvia: 'Submit review',
+    recGrazie: 'Thanks for your feedback!',
+    recSeleziona: 'Please select stars for service and food',
     st_nuovo: 'New', st_in_preparazione: 'Preparing', st_pronto: 'Ready',
     st_consegnato: 'Delivered', st_chiuso: 'Closed',
     pag_pagato: 'Paid', pag_in_attesa: 'Pending', pag_non_pagato: 'Unpaid',
@@ -225,6 +243,15 @@ const UI_I18N = {
     authSubmitReg: 'Crear cuenta y activar tarjeta', authTitleLogin: 'Iniciar sesión', authTitleReg: 'Registrarse',
     tabMenu: 'Menú', tabPremi: 'Premios',
     ordineRicevuto: 'Pedido recibido', statoOrdine: 'Estado del pedido',
+    recTitle: '¿Qué tal?',
+    recHint: 'Valora el servicio y la comida (1–5 estrellas). Opcional.',
+    recServizio: 'Servicio',
+    recCibo: 'Comida',
+    recNote: 'Notas (opcional)',
+    recNotePh: 'Qué te gustó o qué mejorar…',
+    recInvia: 'Enviar valoración',
+    recGrazie: '¡Gracias por tu valoración!',
+    recSeleziona: 'Selecciona las estrellas de servicio y comida',
     st_nuovo: 'Nuevo', st_in_preparazione: 'En preparación', st_pronto: 'Listo',
     st_consegnato: 'Entregado', st_chiuso: 'Cerrado',
     pag_pagato: 'Pagado', pag_in_attesa: 'Pendiente', pag_non_pagato: 'No pagado',
@@ -269,6 +296,15 @@ const UI_I18N = {
     authSubmitReg: 'Konto erstellen und Karte aktivieren', authTitleLogin: 'Anmelden', authTitleReg: 'Registrieren',
     tabMenu: 'Menü', tabPremi: 'Prämien',
     ordineRicevuto: 'Bestellung erhalten', statoOrdine: 'Bestellstatus',
+    recTitle: 'Wie war es?',
+    recHint: 'Bewerte Service und Essen (1–5 Sterne). Optional.',
+    recServizio: 'Service',
+    recCibo: 'Essen',
+    recNote: 'Notizen (optional)',
+    recNotePh: 'Was hat dir gefallen oder was verbessern…',
+    recInvia: 'Bewertung senden',
+    recGrazie: 'Danke für dein Feedback!',
+    recSeleziona: 'Bitte Sterne für Service und Essen wählen',
     st_nuovo: 'Neu', st_in_preparazione: 'In Zubereitung', st_pronto: 'Fertig',
     st_consegnato: 'Zugestellt', st_chiuso: 'Geschlossen',
     pag_pagato: 'Bezahlt', pag_in_attesa: 'Ausstehend', pag_non_pagato: 'Nicht bezahlt',
@@ -313,6 +349,15 @@ const UI_I18N = {
     authSubmitReg: 'Créer le compte et activer la carte', authTitleLogin: 'Connexion', authTitleReg: 'Inscription',
     tabMenu: 'Menu', tabPremi: 'Récompenses',
     ordineRicevuto: 'Commande reçue', statoOrdine: 'État de la commande',
+    recTitle: 'Comment c\'était ?',
+    recHint: 'Notez le service et la nourriture (1–5 étoiles). Facultatif.',
+    recServizio: 'Service',
+    recCibo: 'Nourriture',
+    recNote: 'Notes (facultatif)',
+    recNotePh: 'Ce qui vous a plu ou à améliorer…',
+    recInvia: 'Envoyer l\'avis',
+    recGrazie: 'Merci pour votre avis !',
+    recSeleziona: 'Sélectionnez les étoiles pour service et nourriture',
     st_nuovo: 'Nouveau', st_in_preparazione: 'En préparation', st_pronto: 'Prêt',
     st_consegnato: 'Servi', st_chiuso: 'Clos',
     pag_pagato: 'Payé', pag_in_attesa: 'En attente', pag_non_pagato: 'Non payé',
@@ -357,6 +402,15 @@ const UI_I18N = {
     authSubmitReg: 'Criar conta e ativar cartão', authTitleLogin: 'Entrar', authTitleReg: 'Registar',
     tabMenu: 'Menu', tabPremi: 'Prémios',
     ordineRicevuto: 'Pedido recebido', statoOrdine: 'Estado do pedido',
+    recTitle: 'Como foi?',
+    recHint: 'Avalie o serviço e a comida (1–5 estrelas). Opcional.',
+    recServizio: 'Serviço',
+    recCibo: 'Comida',
+    recNote: 'Notas (opcional)',
+    recNotePh: 'O que gostou ou o que melhorar…',
+    recInvia: 'Enviar avaliação',
+    recGrazie: 'Obrigado pela avaliação!',
+    recSeleziona: 'Selecione as estrelas de serviço e comida',
     st_nuovo: 'Novo', st_in_preparazione: 'Em preparação', st_pronto: 'Pronto',
     st_consegnato: 'Entregue', st_chiuso: 'Fechado',
     pag_pagato: 'Pago', pag_in_attesa: 'Pendente', pag_non_pagato: 'Não pago',
@@ -401,6 +455,15 @@ const UI_I18N = {
     authSubmitReg: '创建账户并开通会员卡', authTitleLogin: '登录', authTitleReg: '注册',
     tabMenu: '菜单', tabPremi: '奖励',
     ordineRicevuto: '订单已接收', statoOrdine: '订单状态',
+    recTitle: '感觉如何？',
+    recHint: '请为服务和菜品打分（1–5星）。可选。',
+    recServizio: '服务',
+    recCibo: '菜品',
+    recNote: '备注（可选）',
+    recNotePh: '喜欢什么或需要改进的地方…',
+    recInvia: '提交评价',
+    recGrazie: '感谢您的评价！',
+    recSeleziona: '请为服务和菜品选择星级',
     st_nuovo: '新订单', st_in_preparazione: '制作中', st_pronto: '已就绪',
     st_consegnato: '已送达', st_chiuso: '已关闭',
     pag_pagato: '已支付', pag_in_attesa: '待支付', pag_non_pagato: '未支付',
@@ -1117,6 +1180,7 @@ async function renderRistAll() {
   else if (page === 'rist-chiusura') await renderChiusuraFiscale();
   else if (page === 'rist-loyalty') await renderLoyaltyAdmin();
   else if (page === 'rist-assistenza') renderAssistenzaPage();
+  else if (page === 'rist-recensioni') renderRistRecensioni();
   else await renderRistDashboard();
   setTimeout(() => {
     try {
@@ -1177,7 +1241,7 @@ async function enterAsRistoratore(r) {
     'rist-dashboard': 'Panoramica', 'rist-menu': 'Gestione Menu',
     'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
     'rist-loyalty': 'Loyalty card', 'rist-chiusura': 'Chiusura fiscale',
-    'rist-assistenza': 'FAQ & Assistenza'
+    'rist-assistenza': 'FAQ & Assistenza', 'rist-recensioni': 'Recensioni'
   };
   if ($('#rist-page-title')) $('#rist-page-title').textContent = titles[page] || 'Panoramica';
 
@@ -1197,7 +1261,7 @@ async function enterAsRistoratore(r) {
 }
 
 /** Pagine permesse agli account cassa */
-const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura', 'rist-loyalty', 'rist-assistenza']);
+const CASSA_PAGES = new Set(['rist-ordini', 'rist-tavoli', 'rist-chiusura', 'rist-loyalty', 'rist-assistenza', 'rist-recensioni']);
 
 function applyCassaNavRestrictions(isCassa) {
   $$('#app-ristoratore .nav-item').forEach(item => {
@@ -1433,12 +1497,13 @@ $$('#app-admin .nav-item').forEach(item => {
     $(`#page-${page}`).classList.remove('hidden');
     const titles = {
       dashboard: 'Panoramica', ristoranti: 'Ristoranti', abbonamenti: 'Abbonamenti',
-      'miei-incassi': 'I miei incassi', 'incassi-rist': 'Incassi ristoranti', richieste: 'Richieste', impostazioni: 'Impostazioni'
+      'miei-incassi': 'I miei incassi', 'incassi-rist': 'Incassi ristoranti', richieste: 'Richieste', recensioni: 'Recensioni', impostazioni: 'Impostazioni'
     };
     $('#admin-page-title').textContent = titles[page] || page;
     if (page === 'dashboard') await renderAdminDashboard();
     if (page === 'ristoranti') await renderAdminTable();
     if (page === 'richieste') await renderAdminRichieste();
+    if (page === 'recensioni') await renderAdminRecensioni();
     if (page === 'abbonamenti') await renderAbbonamenti();
     if (page === 'miei-incassi') await renderMieiIncassi();
     if (page === 'incassi-rist') await populateIncassiSelect();
@@ -1467,7 +1532,7 @@ $$('#app-ristoratore .nav-item').forEach(item => {
       'rist-ordini': 'Ordini', 'rist-tavoli': 'Tavoli & QR',
       'rist-loyalty': 'Loyalty card',
       'rist-chiusura': 'Chiusura fiscale',
-      'rist-assistenza': 'FAQ & Assistenza'
+      'rist-assistenza': 'FAQ & Assistenza', 'rist-recensioni': 'Recensioni'
     };
     $('#rist-page-title').textContent = titles[page] || page;
     if (page === 'rist-dashboard') await renderRistDashboard();
@@ -1477,6 +1542,7 @@ $$('#app-ristoratore .nav-item').forEach(item => {
     if (page === 'rist-loyalty') await renderLoyaltyAdmin();
     if (page === 'rist-chiusura') await renderChiusuraFiscale();
     if (page === 'rist-assistenza') renderAssistenzaPage();
+  else if (page === 'rist-recensioni') renderRistRecensioni();
   });
 });
 
@@ -3739,7 +3805,7 @@ window.apriDettaglioOrdine = async function(ordineId) {
     <div class="ricevuta-items prep-list">${itemsHtml}</div>
     ${o.note ? `<p style="font-size:13px;color:var(--muted);margin:12px 0"><i class="fas fa-sticky-note"></i> ${o.note}</p>` : ''}
     <p style="font-size:13px;margin:8px 0">Metodo: <strong>${metodo}</strong></p>
-    <div class="ricevuta-totale"><span>Totale</span><strong>${formatPrice(o.totale)}</strong></div>
+    <div class="ricevuta-totale"><span>${typeof tUI === "function" ? tUI("totale") : "Totale"}</span><strong>${formatPrice(o.totale)}</strong></div>
   `;
   let actions = '';
   if (o.stato === 'nuovo') {
@@ -4363,6 +4429,26 @@ function applyClienteChromeI18n() {
 
   const ricH = document.querySelector('#cliente-ricevuta-view .ricevuta-header h2');
   if (ricH) ricH.textContent = tUI('ordineRicevuto');
+  const totRicLab = document.getElementById('ricevuta-totale-label')
+    || document.querySelector('#cliente-ricevuta-view .ricevuta-totale > span');
+  if (totRicLab) totRicLab.textContent = tUI('totale');
+  // Recensione box
+  const recTitle = document.querySelector('#cliente-recensione-box .recensione-title');
+  if (recTitle) recTitle.innerHTML = '<i class="fas fa-star"></i> ' + tUI('recTitle');
+  const recHint = document.querySelector('#cliente-recensione-box .recensione-hint');
+  if (recHint) recHint.textContent = tUI('recHint');
+  const recRows = document.querySelectorAll('#cliente-recensione-box .recensione-row .recensione-label');
+  if (recRows[0]) recRows[0].textContent = tUI('recServizio');
+  if (recRows[1]) recRows[1].textContent = tUI('recCibo');
+  const recNoteLab = document.querySelector('#cliente-recensione-box .form-group label');
+  if (recNoteLab) recNoteLab.textContent = tUI('recNote');
+  const recNoteTa = document.getElementById('recensione-note');
+  if (recNoteTa) recNoteTa.placeholder = tUI('recNotePh');
+  const recBtn = document.getElementById('btn-invia-recensione');
+  if (recBtn && !recBtn.disabled) recBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ' + tUI('recInvia');
+  const recDone = document.getElementById('recensione-done');
+  if (recDone) recDone.textContent = tUI('recGrazie');
+
   const statoH = document.querySelector('#cliente-stato-view h2');
   if (statoH) statoH.textContent = tUI('aPunto');
   const torna = $('#btn-torna-da-stato');
@@ -8423,7 +8509,7 @@ function showRecensioneDone() {
   const formBits = document.querySelectorAll('#cliente-recensione-box .recensione-row, #cliente-recensione-box .form-group, #cliente-recensione-box .recensione-hint');
   formBits.forEach(el => el.classList.add('hidden'));
   if (btn) btn.classList.add('hidden');
-  if (done) done.classList.remove('hidden');
+  if (done) { done.textContent = tUI('recGrazie'); done.classList.remove('hidden'); }
 }
 
 function prepareRecensioneBox(ordineId) {
@@ -8449,7 +8535,7 @@ document.getElementById('btn-invia-recensione')?.addEventListener('click', async
   const sServ = parseInt(document.getElementById('stars-servizio')?.dataset.value, 10) || 0;
   const sCibo = parseInt(document.getElementById('stars-cibo')?.dataset.value, 10) || 0;
   if (sServ < 1 || sCibo < 1) {
-    toast('Seleziona le stelle per servizio e cibo');
+    toast(tUI('recSeleziona'));
     return;
   }
   if (!currentRistorante || !lastOrdineId) {
@@ -8489,7 +8575,7 @@ document.getElementById('btn-invia-recensione')?.addEventListener('click', async
     }
     marcaRecensito(lastOrdineId);
     showRecensioneDone();
-    toast('Grazie per la valutazione!');
+    toast(tUI('recGrazie'));
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -8502,3 +8588,119 @@ document.getElementById('btn-invia-recensione')?.addEventListener('click', async
 const _origPrepareRec = true;
 
 try { buildStarsEl('stars-servizio'); buildStarsEl('stars-cibo'); } catch (e) {}
+
+// =====================================================
+// RECENSIONI — liste admin / ristoratore
+// =====================================================
+function starsHtml(n) {
+  const v = Math.max(0, Math.min(5, Number(n) || 0));
+  let s = '';
+  for (let i = 1; i <= 5; i++) s += i <= v ? '★' : '☆';
+  return `<span style="color:#f59e0b;letter-spacing:1px">${s}</span> <small style="color:var(--muted)">${v}/5</small>`;
+}
+
+function avgStars(rows, field) {
+  if (!rows.length) return null;
+  const sum = rows.reduce((a, r) => a + (Number(r[field]) || 0), 0);
+  return Math.round((sum / rows.length) * 10) / 10;
+}
+
+async function fetchRecensioni({ idRistorante } = {}) {
+  if (!sb) return [];
+  let q = sb.from('recensioni').select('*').order('created_at', { ascending: false }).limit(200);
+  if (idRistorante) q = q.eq('id_ristorante', String(idRistorante));
+  const { data, error } = await q;
+  if (error) {
+    console.warn(error);
+    toast('Impossibile caricare le recensioni. Esegui recensioni_e_archivio.sql su Supabase.');
+    return [];
+  }
+  return data || [];
+}
+
+async function nomeLocaleById(id) {
+  if (!id || !sb) return id || '—';
+  try {
+    const { data } = await sb.from('ristoranti').select('nome').eq('id', id).maybeSingle();
+    return (data && data.nome) || id;
+  } catch (e) { return id; }
+}
+
+async function renderRistRecensioni() {
+  if (!currentRistorante) return;
+  const rows = await fetchRecensioni({ idRistorante: currentRistorante.id });
+  const ms = avgStars(rows, 'stelle_servizio');
+  const mc = avgStars(rows, 'stelle_cibo');
+  const elS = document.getElementById('rec-rist-media-serv');
+  const elC = document.getElementById('rec-rist-media-cibo');
+  const elN = document.getElementById('rec-rist-count');
+  if (elS) elS.textContent = ms != null ? ms.toFixed(1) + ' ★' : '—';
+  if (elC) elC.textContent = mc != null ? mc.toFixed(1) + ' ★' : '—';
+  if (elN) elN.textContent = String(rows.length);
+  const body = document.getElementById('recensioni-rist-body');
+  if (!body) return;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione ancora</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td style="white-space:nowrap;font-size:12px">${formatSupportTime ? formatSupportTime(r.created_at) : (r.created_at || '')}</td>
+      <td>${(r.tavolo || '—').toString().replace(/</g, '&lt;')}</td>
+      <td><code>${(r.codice_ordine || r.id_ordine || '—').toString().replace(/</g, '&lt;')}</code></td>
+      <td>${starsHtml(r.stelle_servizio)}</td>
+      <td>${starsHtml(r.stelle_cibo)}</td>
+      <td style="font-size:12px;max-width:240px">${(r.note || '—').toString().replace(/</g, '&lt;')}</td>
+    </tr>
+  `).join('');
+}
+
+async function renderAdminRecensioni() {
+  let rows = await fetchRecensioni({});
+  const q = (document.getElementById('search-recensioni-admin')?.value || '').trim().toLowerCase();
+  // resolve locale names cache
+  const ids = [...new Set(rows.map(r => r.id_ristorante).filter(Boolean))];
+  const nameMap = {};
+  await Promise.all(ids.map(async id => { nameMap[id] = await nomeLocaleById(id); }));
+  if (q) {
+    rows = rows.filter(r => {
+      const nome = (nameMap[r.id_ristorante] || '').toLowerCase();
+      return nome.includes(q) ||
+        String(r.tavolo || '').toLowerCase().includes(q) ||
+        String(r.note || '').toLowerCase().includes(q) ||
+        String(r.codice_ordine || '').toLowerCase().includes(q);
+    });
+  }
+  const ms = avgStars(rows, 'stelle_servizio');
+  const mc = avgStars(rows, 'stelle_cibo');
+  const elS = document.getElementById('rec-adm-media-serv');
+  const elC = document.getElementById('rec-adm-media-cibo');
+  const elN = document.getElementById('rec-adm-count');
+  if (elS) elS.textContent = ms != null ? ms.toFixed(1) + ' ★' : '—';
+  if (elC) elC.textContent = mc != null ? mc.toFixed(1) + ' ★' : '—';
+  if (elN) elN.textContent = String(rows.length);
+  const body = document.getElementById('recensioni-admin-body');
+  if (!body) return;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td style="white-space:nowrap;font-size:12px">${formatSupportTime ? formatSupportTime(r.created_at) : (r.created_at || '')}</td>
+      <td>${(nameMap[r.id_ristorante] || r.id_ristorante || '—').toString().replace(/</g, '&lt;')}</td>
+      <td>${(r.tavolo || '—').toString().replace(/</g, '&lt;')}</td>
+      <td><code>${(r.codice_ordine || '—').toString().replace(/</g, '&lt;')}</code></td>
+      <td>${starsHtml(r.stelle_servizio)}</td>
+      <td>${starsHtml(r.stelle_cibo)}</td>
+      <td style="font-size:12px;max-width:220px">${(r.note || '—').toString().replace(/</g, '&lt;')}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('btn-refresh-recensioni-rist')?.addEventListener('click', () => renderRistRecensioni());
+document.getElementById('btn-refresh-recensioni-admin')?.addEventListener('click', () => renderAdminRecensioni());
+document.getElementById('search-recensioni-admin')?.addEventListener('input', () => {
+  clearTimeout(window._recAdmT);
+  window._recAdmT = setTimeout(() => renderAdminRecensioni(), 200);
+});
