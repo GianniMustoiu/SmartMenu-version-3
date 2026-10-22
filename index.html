@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -419,11 +419,24 @@
                 <label>Punti</label>
                 <input type="number" id="loy-punti" min="0" step="1" value="1" />
               </div>
+              <div class="form-group" style="margin:0">
+                <label>Scadenza punti (mesi)</label>
+                <input type="number" id="loy-scadenza-mesi" min="0" max="36" step="1" placeholder="Vuoto = mai" />
+              </div>
             </div>
             <p id="loy-config-preview" style="color:var(--muted);font-size:13px;margin:0"></p>
-            <button type="button" id="btn-salva-loy-config" class="btn btn-primary btn-sm" style="align-self:flex-start">
-              <i class="fas fa-save"></i> Salva proporzione
-            </button>
+            <p id="loy-scadenza-info" style="color:var(--muted);font-size:13px;margin:4px 0 0"></p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <button type="button" id="btn-salva-loy-config" class="btn btn-primary btn-sm">
+                <i class="fas fa-save"></i> Salva regolamento
+              </button>
+              <button type="button" id="btn-loy-nuovo-periodo" class="btn btn-secondary btn-sm">
+                <i class="fas fa-calendar-plus"></i> Avvia nuovo periodo
+              </button>
+            </div>
+            <small style="color:var(--muted);margin-top:8px;display:block">
+              «Salva regolamento» aggiorna subito cosa vede il cliente. «Nuovo periodo» fissa le date di inizio/fine (es. dopo una scadenza, con nuove regole €/pt).
+            </small>
           </div>
         </div>
         <div class="recent-box" style="margin-bottom:18px">
@@ -646,9 +659,10 @@
           <h1 id="cliente-auth-rist-nome">Benvenuto</h1>
           <p>Tavolo <strong id="cliente-auth-tavolo">1</strong></p>
         </div>
-        <p style="color:var(--muted);text-align:center;margin-bottom:18px;font-size:14px">
+        <p style="color:var(--muted);text-align:center;margin-bottom:12px;font-size:14px">
           Accedi alla loyalty card per accumulare punti, oppure continua come ospite.
         </p>
+        <div id="loy-regolamento-gate" class="loy-regolamento-wrap"></div>
         <button type="button" id="btn-auth-ospite" class="btn btn-primary btn-block" style="margin-bottom:10px">
           <i class="fas fa-user"></i> Continua come ospite
         </button>
@@ -664,6 +678,7 @@
       <div class="cliente-auth-card">
         <button type="button" id="btn-auth-back" class="btn-back"><i class="fas fa-arrow-left"></i> Indietro</button>
         <h2 id="cliente-auth-form-title" style="margin-bottom:16px">Accedi</h2>
+        <div id="loy-regolamento-form" class="loy-regolamento-wrap"></div>
         <form id="form-cliente-auth">
           <input type="hidden" id="auth-mode" value="login" />
           <div id="auth-register-fields" class="hidden">
@@ -755,6 +770,7 @@
         </button>
       </div>
       <section id="cliente-menu-view">
+        <div id="loy-regolamento-menu" class="loy-regolamento-wrap"></div>
         <div class="cliente-categorie" id="cliente-categorie"></div>
         <div id="cliente-menu-list" class="cliente-menu-list"></div>
       </section>
@@ -1398,8 +1414,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=16"></script>
-  <script src="script.js?v=16"></script>
+  <script src="config.js?v=17"></script>
+  <script src="script.js?v=17"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
