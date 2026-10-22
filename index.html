@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=21" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -201,9 +201,21 @@
       
       <section id="page-recensioni" class="page hidden">
         <div class="toolbar" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="form-group" style="margin:0;min-width:200px">
+            <label style="font-size:11px">Locale</label>
+            <select id="filter-rec-locale" style="min-width:200px">
+              <option value="">Tutti i locali</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:200px">
+            <label style="font-size:11px">Ristoratore</label>
+            <select id="filter-rec-ristoratore" style="min-width:200px">
+              <option value="">Tutti i ristoratori</option>
+            </select>
+          </div>
           <div class="search-box" style="flex:1;min-width:180px">
             <i class="fas fa-search"></i>
-            <input type="text" id="search-recensioni-admin" placeholder="Cerca locale, tavolo, note…" />
+            <input type="text" id="search-recensioni-admin" placeholder="Filtra per nome locale o ristoratore…" />
           </div>
           <button type="button" id="btn-refresh-recensioni-admin" class="btn btn-secondary"><i class="fas fa-sync"></i> Aggiorna</button>
         </div>
@@ -216,7 +228,7 @@
           <table>
             <thead>
               <tr>
-                <th>Data</th><th>Locale</th><th>Tavolo</th><th>Ordine</th>
+                <th>Data</th><th>Locale</th><th>Ristoratore</th><th>Tavolo</th><th>Ordine</th>
                 <th>Servizio</th><th>Cibo</th><th>Note</th>
               </tr>
             </thead>
@@ -1489,8 +1501,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=20"></script>
-  <script src="script.js?v=20"></script>
+  <script src="config.js?v=21"></script>
+  <script src="script.js?v=21"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
