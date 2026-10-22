@@ -1306,3 +1306,39 @@ html.qr-entry #network-status {
   align-items: center;
 }
 .support-admin-actions select { font-size: 13px; max-width: 160px; }
+
+
+/* Regolamento loyalty cliente */
+.loy-regolamento-wrap { margin: 0 0 14px; }
+.loy-regolamento {
+  background: var(--bg-2, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text, #0f172a);
+}
+.loy-regolamento h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary, #2563eb);
+}
+.loy-regolamento ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.loy-regolamento li { margin: 4px 0; }
+.loy-reg-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+body.dark .loy-regolamento,
+[data-theme="dark"] .loy-regolamento {
+  background: rgba(255,255,255,0.04);
+}
