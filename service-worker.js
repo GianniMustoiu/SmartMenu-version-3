@@ -1,6 +1,6 @@
 // MenuPro – service worker
 // Regola d'oro: Supabase, /api e qualsiasi richiesta non-GET NON vengono mai toccati.
-const CACHE = 'menupro-v19';
+const CACHE = 'menupro-v20';
 const APP_FILES = ['/', '/index.html', '/style.css', '/script.js', '/config.js', '/Manuale_MenuPro.pdf'];
 const CDN_HOSTS = ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net'];
 
