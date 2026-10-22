@@ -1448,3 +1448,64 @@ body.dark .loy-regolamento,
   font-weight: 600;
   text-align: center;
 }
+
+
+/* Filtri recensioni admin — allineati in riga */
+.recensioni-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rec-filter-field {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 42px;
+  background: var(--bg-2, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 180px;
+  flex: 0 1 200px;
+}
+.rec-filter-field .rec-filter-icon {
+  width: 40px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #64748b);
+  flex-shrink: 0;
+  border-right: 1px solid var(--border, #e2e8f0);
+}
+.rec-filter-field select {
+  border: none !important;
+  background: transparent !important;
+  height: 42px;
+  padding: 0 12px;
+  min-width: 0;
+  width: 100%;
+  box-shadow: none !important;
+  outline: none;
+  font-size: 13px;
+}
+.recensioni-filters .rec-filter-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+  height: 42px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+.recensioni-filters .rec-filter-search input {
+  height: 100%;
+}
+.recensioni-filters .rec-filter-btn {
+  height: 42px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
