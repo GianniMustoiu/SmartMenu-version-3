@@ -1,3 +1,4 @@
+
 // =====================================================
 // MenuPro – Versione collegata a Supabase
 // =====================================================
@@ -8655,22 +8656,103 @@ async function renderRistRecensioni() {
   `).join('');
 }
 
+let _recensioniRistMeta = null; // cache { byId, localiOptions, ristoratoriOptions }
+
+async function loadRecensioniRistMeta() {
+  if (_recensioniRistMeta) return _recensioniRistMeta;
+  if (!sb) return { byId: {}, locali: [], ristoratori: [] };
+  const { data, error } = await sb.from('ristoranti').select('id,nome,titolare,email').order('nome');
+  if (error) {
+    console.warn(error);
+    return { byId: {}, locali: [], ristoratori: [] };
+  }
+  const rows = data || [];
+  const byId = {};
+  rows.forEach(r => { byId[String(r.id)] = r; });
+  // ristoratori unici: per email (stesso account = più locali), fallback titolare
+  const ristMap = new Map();
+  rows.forEach(r => {
+    const email = (r.email || '').trim().toLowerCase();
+    const tit = (r.titolare || '').trim();
+    const key = email || ('tit:' + tit.toLowerCase()) || String(r.id);
+    if (!ristMap.has(key)) {
+      ristMap.set(key, {
+        key,
+        label: tit || email || r.nome || key,
+        email,
+        titolare: tit,
+        ids: []
+      });
+    }
+    ristMap.get(key).ids.push(String(r.id));
+  });
+  _recensioniRistMeta = {
+    byId,
+    locali: rows.map(r => ({ id: String(r.id), nome: r.nome || r.id, titolare: r.titolare || '', email: r.email || '' })),
+    ristoratori: [...ristMap.values()].sort((a, b) => a.label.localeCompare(b.label, 'it'))
+  };
+  return _recensioniRistMeta;
+}
+
+function populateRecensioniAdminFilters(meta) {
+  const selLoc = document.getElementById('filter-rec-locale');
+  const selRis = document.getElementById('filter-rec-ristoratore');
+  if (selLoc && !selLoc.dataset.filled) {
+    const cur = selLoc.value;
+    selLoc.innerHTML = '<option value="">Tutti i locali</option>' +
+      meta.locali.map(l => `<option value="${l.id}">${(l.nome || '').replace(/</g, '&lt;')}${l.titolare ? ' · ' + String(l.titolare).replace(/</g, '&lt;') : ''}</option>`).join('');
+    if (cur) selLoc.value = cur;
+    selLoc.dataset.filled = '1';
+  }
+  if (selRis && !selRis.dataset.filled) {
+    const cur = selRis.value;
+    selRis.innerHTML = '<option value="">Tutti i ristoratori</option>' +
+      meta.ristoratori.map(r => {
+        const nLocali = r.ids.length;
+        const lab = (r.label || r.email || r.key).replace(/</g, '&lt;') +
+          (nLocali > 1 ? ` (${nLocali} locali)` : '');
+        return `<option value="${r.key.replace(/"/g, '')}">${lab}</option>`;
+      }).join('');
+    if (cur) selRis.value = cur;
+    selRis.dataset.filled = '1';
+  }
+}
+
 async function renderAdminRecensioni() {
+  const meta = await loadRecensioniRistMeta();
+  populateRecensioniAdminFilters(meta);
+
   let rows = await fetchRecensioni({});
+  const filterLoc = (document.getElementById('filter-rec-locale')?.value || '').trim();
+  const filterRis = (document.getElementById('filter-rec-ristoratore')?.value || '').trim();
   const q = (document.getElementById('search-recensioni-admin')?.value || '').trim().toLowerCase();
-  // resolve locale names cache
-  const ids = [...new Set(rows.map(r => r.id_ristorante).filter(Boolean))];
-  const nameMap = {};
-  await Promise.all(ids.map(async id => { nameMap[id] = await nomeLocaleById(id); }));
+
+  // filtro locale (select)
+  if (filterLoc) {
+    rows = rows.filter(r => String(r.id_ristorante) === filterLoc);
+  }
+
+  // filtro ristoratore (select): tutti i locali collegati a quella persona
+  if (filterRis) {
+    const rist = meta.ristoratori.find(x => x.key === filterRis);
+    const ids = new Set(rist ? rist.ids : []);
+    rows = rows.filter(r => ids.has(String(r.id_ristorante)));
+  }
+
+  // testo libero: nome locale O nome ristoratore (titolare/email)
   if (q) {
     rows = rows.filter(r => {
-      const nome = (nameMap[r.id_ristorante] || '').toLowerCase();
-      return nome.includes(q) ||
+      const info = meta.byId[String(r.id_ristorante)] || {};
+      const nomeLoc = String(info.nome || '').toLowerCase();
+      const tit = String(info.titolare || '').toLowerCase();
+      const em = String(info.email || '').toLowerCase();
+      return nomeLoc.includes(q) || tit.includes(q) || em.includes(q) ||
         String(r.tavolo || '').toLowerCase().includes(q) ||
         String(r.note || '').toLowerCase().includes(q) ||
         String(r.codice_ordine || '').toLowerCase().includes(q);
     });
   }
+
   const ms = avgStars(rows, 'stelle_servizio');
   const mc = avgStars(rows, 'stelle_cibo');
   const elS = document.getElementById('rec-adm-media-serv');
@@ -8682,25 +8764,48 @@ async function renderAdminRecensioni() {
   const body = document.getElementById('recensioni-admin-body');
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione con questi filtri</td></tr>';
     return;
   }
-  body.innerHTML = rows.map(r => `
+  body.innerHTML = rows.map(r => {
+    const info = meta.byId[String(r.id_ristorante)] || {};
+    const nomeLoc = (info.nome || r.id_ristorante || '—').toString().replace(/</g, '&lt;');
+    const nomeRis = (info.titolare || info.email || '—').toString().replace(/</g, '&lt;');
+    return `
     <tr>
       <td style="white-space:nowrap;font-size:12px">${formatSupportTime ? formatSupportTime(r.created_at) : (r.created_at || '')}</td>
-      <td>${(nameMap[r.id_ristorante] || r.id_ristorante || '—').toString().replace(/</g, '&lt;')}</td>
+      <td>${nomeLoc}</td>
+      <td style="font-size:12px">${nomeRis}</td>
       <td>${(r.tavolo || '—').toString().replace(/</g, '&lt;')}</td>
       <td><code>${(r.codice_ordine || '—').toString().replace(/</g, '&lt;')}</code></td>
       <td>${starsHtml(r.stelle_servizio)}</td>
       <td>${starsHtml(r.stelle_cibo)}</td>
       <td style="font-size:12px;max-width:220px">${(r.note || '—').toString().replace(/</g, '&lt;')}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 document.getElementById('btn-refresh-recensioni-rist')?.addEventListener('click', () => renderRistRecensioni());
-document.getElementById('btn-refresh-recensioni-admin')?.addEventListener('click', () => renderAdminRecensioni());
+document.getElementById('btn-refresh-recensioni-admin')?.addEventListener('click', () => {
+  _recensioniRistMeta = null; // forza reload filtri
+  const selLoc = document.getElementById('filter-rec-locale');
+  const selRis = document.getElementById('filter-rec-ristoratore');
+  if (selLoc) delete selLoc.dataset.filled;
+  if (selRis) delete selRis.dataset.filled;
+  renderAdminRecensioni();
+});
 document.getElementById('search-recensioni-admin')?.addEventListener('input', () => {
   clearTimeout(window._recAdmT);
   window._recAdmT = setTimeout(() => renderAdminRecensioni(), 200);
+});
+document.getElementById('filter-rec-locale')?.addEventListener('change', () => renderAdminRecensioni());
+document.getElementById('filter-rec-ristoratore')?.addEventListener('change', () => {
+  // scegliendo un ristoratore, se aveva un locale singolo selezionato fuori dal gruppo, reset locale
+  const filterRis = (document.getElementById('filter-rec-ristoratore')?.value || '').trim();
+  const selLoc = document.getElementById('filter-rec-locale');
+  if (filterRis && selLoc && selLoc.value && _recensioniRistMeta) {
+    const rist = _recensioniRistMeta.ristoratori.find(x => x.key === filterRis);
+    if (rist && !rist.ids.includes(selLoc.value)) selLoc.value = '';
+  }
+  renderAdminRecensioni();
 });
