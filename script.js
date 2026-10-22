@@ -2367,34 +2367,39 @@ $('#btn-reset')?.addEventListener('click', async () => {
 // RISTORATORE
 // =====================================================
 function labelStato(s) {
-  const key = 'st_' + s;
-  const useClientLang = (currentUser && currentUser.role === 'cliente')
-    || document.body.classList.contains('cliente-night')
-    || (clienteLang && clienteLang !== 'it');
-  if (useClientLang && clienteLang !== 'it') {
-    const t = tUI(key);
-    if (t !== key) return t;
-  }
-  // anche in italiano esplicito da pack
-  if (currentUser && currentUser.role === 'cliente') {
-    const t = tUI(key);
-    if (t !== key) return t;
-  }
-  return { nuovo: 'Nuovo', in_preparazione: 'In preparazione', pronto: 'Pronto', consegnato: 'Consegnato', chiuso: 'Chiuso' }[s] || s;
+  // normalizza eventuali valori inglesi/legacy dal DB
+  const map = {
+    new: 'nuovo', pending: 'in_attesa', preparing: 'in_preparazione',
+    ready: 'pronto', delivered: 'consegnato', closed: 'chiuso',
+    paid: 'pagato', unpaid: 'non_pagato'
+  };
+  let st = String(s || 'nuovo').toLowerCase().trim();
+  if (map[st]) st = map[st];
+  const key = 'st_' + st;
+  const t = tUI(key);
+  if (t && t !== key) return t;
+  return { nuovo: 'Nuovo', in_preparazione: 'In preparazione', pronto: 'Pronto', consegnato: 'Consegnato', chiuso: 'Chiuso' }[st] || st;
 }
 function labelPagamentoCliente(metodo) {
-  return metodo === 'cassa' ? tUI('cassa') : tUI('carta');
+  const m = String(metodo || 'cassa').toLowerCase();
+  if (m === 'cassa' || m === 'cash' || m === 'counter') return tUI('cassa');
+  return tUI('carta');
 }
 function labelPagStatoCliente(s) {
-  const key = 'pag_' + (s || 'in_attesa');
+  const map = { pending: 'in_attesa', paid: 'pagato', unpaid: 'non_pagato', new: 'in_attesa' };
+  let st = String(s || 'in_attesa').toLowerCase().trim();
+  if (map[st]) st = map[st];
+  const key = 'pag_' + st;
   const t = tUI(key);
-  return t !== key ? t : (s || '');
+  if (t && t !== key) return t;
+  return { pagato: 'Pagato', in_attesa: 'In attesa', non_pagato: 'Non pagato' }[st] || st;
 }
 function labelPagamentoStato(s) {
-  if (currentUser && currentUser.role === 'cliente') {
+  // lato cliente (e ovunque se c'è lingua attiva) usa sempre i pack i18n
+  if ((currentUser && currentUser.role === 'cliente') || (typeof clienteLang === 'string' && clienteLang)) {
     return labelPagStatoCliente(s);
   }
-  return { pagato: 'Pagato', in_attesa: 'In attesa', non_pagato: 'Non pagato' }[s] || s || 'In attesa';
+  return labelPagStatoCliente(s);
 }
 function defaultPagStato(metodo) {
   return metodo === 'carta' ? 'pagato' : 'in_attesa';
@@ -4219,6 +4224,7 @@ document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
 });
 
 function renderClienteMenu(skipTranslate) {
+  try { refreshRegolamentoClienteUI(); } catch (e) {}
   if (!currentRistorante) return;
   applyClienteChromeI18n();
   const pubId = getMenuPubblicoId(currentRistorante);
@@ -4369,6 +4375,37 @@ function applyClienteChromeI18n() {
   if (autoHint) autoHint.innerHTML = `<i class="fas fa-sync fa-spin" style="margin-right:6px"></i> ${tUI('autoStato')}`;
   const tuoiLab = document.querySelector('#cliente-ricevuta-view .ricevuta-header label');
   if (tuoiLab) tuoiLab.textContent = tUI('tuoiOrdini');
+
+  // Etichette statiche ricevuta (Stato ordine / Pagamento)
+  document.querySelectorAll('#cliente-ricevuta-view .ricevuta-stato').forEach((el, i) => {
+    const span = el.querySelector('span');
+    const spanHtml = span ? span.outerHTML : '';
+    if (i === 0) el.innerHTML = tUI('statoOrdine') + ': ' + spanHtml;
+    else el.innerHTML = tUI('pagamento') + ': ' + spanHtml;
+  });
+  document.querySelectorAll('#cliente-ricevuta-view .ricevuta-info p').forEach(p => {
+    const t = p.textContent || '';
+    if (/^Pagamento:/i.test(t) || /^Payment:/i.test(t)) {
+      const span = p.querySelector('span');
+      p.innerHTML = tUI('pagamento') + ': ' + (span ? span.outerHTML : '');
+    }
+  });
+  // rivalorizza badge stato/pagamento con lingua corrente
+  if ($('#ricevuta-stato') && $('#ricevuta-stato').textContent) {
+    const raw = ($('#ricevuta-stato').className || '').replace('badge-stato', '').trim().split(/\s+/)[0];
+    if (raw) $('#ricevuta-stato').textContent = labelStato(raw);
+  }
+  if ($('#ricevuta-pag-stato') && $('#ricevuta-pag-stato').textContent) {
+    const raw = ($('#ricevuta-pag-stato').className || '').replace('badge-pag', '').trim().split(/\s+/)[0];
+    if (raw) $('#ricevuta-pag-stato').textContent = labelPagamentoStato(raw);
+  }
+  if ($('#ricevuta-pagamento') && !$('#ricevuta-pagamento').querySelector('*')) {
+    // se testo semplice, riallinea a "cassa"
+    const cur = ($('#ricevuta-pagamento').textContent || '').toLowerCase();
+    if (cur.includes('cassa') || cur.includes('counter') || cur.includes('caja') || cur.includes('comptoir') || cur.includes('balcão') || cur.includes('柜台') || cur.includes('kasse')) {
+      $('#ricevuta-pagamento').textContent = tUI('cassa');
+    }
+  }
 
   // payment form labels
   const payLabels = {
@@ -6525,8 +6562,11 @@ async function loyaltyRimborsa(r) {
 }
 
 function scadenzaNota() {
-  const m = Number(currentRistorante && currentRistorante.punti_scadenza_mesi);
-  return m > 0 ? ' I punti scadono dopo ' + m + (m === 1 ? ' mese' : ' mesi') + ' dal momento in cui li guadagni.' : '';
+  const cfg = getLoyaltyConfig(currentRistorante || {});
+  const m = Number(cfg.scadenza_mesi) || Number(currentRistorante && currentRistorante.punti_scadenza_mesi) || 0;
+  if (m <= 0) return '';
+  if (cfg.periodo_fine) return ' I punti di questo periodo valgono fino al ' + formatDataLoy(cfg.periodo_fine) + '.';
+  return ' I punti scadono dopo ' + m + (m === 1 ? ' mese' : ' mesi') + '.';
 }
 
 function defaultLoyaltyConfig() {
@@ -6555,22 +6595,130 @@ function premioEsaurito(pr) {
 
 function getLoyaltyConfig(r) {
   const cfg = (r && r.loyalty_config) || null;
-  if (cfg && cfg.euro > 0) return { euro: Number(cfg.euro) || 1, punti: Number(cfg.punti) || 0 };
+  const mesiFallback = Number(r && r.punti_scadenza_mesi) || 0;
+  if (cfg && Number(cfg.euro) > 0) {
+    return {
+      euro: Number(cfg.euro) || 1,
+      punti: Number(cfg.punti) || 0,
+      scadenza_mesi: cfg.scadenza_mesi != null ? Number(cfg.scadenza_mesi) : mesiFallback,
+      periodo_inizio: cfg.periodo_inizio || null,
+      periodo_fine: cfg.periodo_fine || null
+    };
+  }
   try {
     const local = JSON.parse(localStorage.getItem('menupro_loy_cfg_' + (r && r.id)) || 'null');
-    if (local && local.euro > 0) return local;
+    if (local && local.euro > 0) {
+      return {
+        euro: Number(local.euro) || 1,
+        punti: Number(local.punti) || 0,
+        scadenza_mesi: local.scadenza_mesi != null ? Number(local.scadenza_mesi) : mesiFallback,
+        periodo_inizio: local.periodo_inizio || null,
+        periodo_fine: local.periodo_fine || null
+      };
+    }
   } catch (e) {}
-  return defaultLoyaltyConfig();
+  const d = defaultLoyaltyConfig();
+  return { ...d, scadenza_mesi: mesiFallback, periodo_inizio: null, periodo_fine: null };
+}
+
+function computePeriodoFine(inizioIso, mesi) {
+  const m = Number(mesi) || 0;
+  if (!m || !inizioIso) return null;
+  try {
+    const d = new Date(inizioIso);
+    if (isNaN(d.getTime())) return null;
+    d.setMonth(d.getMonth() + m);
+    return d.toISOString();
+  } catch (e) { return null; }
+}
+
+function formatDataLoy(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+  } catch (e) { return '—'; }
+}
+
+function isPeriodoScaduto(cfg) {
+  if (!cfg || !cfg.periodo_fine) return false;
+  try { return new Date(cfg.periodo_fine).getTime() < Date.now(); } catch (e) { return false; }
 }
 
 async function saveLoyaltyConfig(r, cfg) {
   if (!r) return;
-  r.loyalty_config = cfg;
-  try { localStorage.setItem('menupro_loy_cfg_' + r.id, JSON.stringify(cfg)); } catch (e) {}
-  if (sb) {
-    const { error } = await sb.from('ristoranti').update({ loyalty_config: cfg }).eq('id', r.id);
-    if (error) console.warn('loyalty_config non salvata:', error.message);
+  const full = {
+    euro: Number(cfg.euro) || 1,
+    punti: Number(cfg.punti) || 0,
+    scadenza_mesi: cfg.scadenza_mesi != null && cfg.scadenza_mesi !== '' ? Number(cfg.scadenza_mesi) : 0,
+    periodo_inizio: cfg.periodo_inizio || null,
+    periodo_fine: cfg.periodo_fine || null
+  };
+  if (full.scadenza_mesi > 0 && full.periodo_inizio && !full.periodo_fine) {
+    full.periodo_fine = computePeriodoFine(full.periodo_inizio, full.scadenza_mesi);
   }
+  r.loyalty_config = full;
+  if (full.scadenza_mesi > 0) r.punti_scadenza_mesi = full.scadenza_mesi;
+  try { localStorage.setItem('menupro_loy_cfg_' + r.id, JSON.stringify(full)); } catch (e) {}
+  if (sb) {
+    const payload = { loyalty_config: full };
+    if (full.scadenza_mesi >= 0) payload.punti_scadenza_mesi = full.scadenza_mesi || null;
+    const { error } = await sb.from('ristoranti').update(payload).eq('id', r.id);
+    if (error) {
+      console.warn('loyalty_config non salvata:', error.message);
+      // fallback solo config
+      await sb.from('ristoranti').update({ loyalty_config: full }).eq('id', r.id);
+    }
+  }
+}
+
+/** Testo regolamento loyalty (sempre aggiornato con i valori correnti) */
+
+function refreshRegolamentoClienteUI() {
+  try {
+    renderRegolamentoIn(document.getElementById('loy-regolamento-gate'));
+    renderRegolamentoIn(document.getElementById('loy-regolamento-form'));
+    renderRegolamentoIn(document.getElementById('loy-regolamento-menu'));
+  } catch (e) {}
+}
+
+function buildRegolamentoLoyaltyHtml(r) {
+  const rist = r || currentRistorante;
+  if (!rist || !isFidelityEnabled(rist)) return '';
+  const cfg = getLoyaltyConfig(rist);
+  const euro = cfg.euro;
+  const pt = cfg.punti;
+  const mesi = Number(cfg.scadenza_mesi) || 0;
+  const inizio = cfg.periodo_inizio ? formatDataLoy(cfg.periodo_inizio) : null;
+  const fine = cfg.periodo_fine ? formatDataLoy(cfg.periodo_fine) : null;
+  const scaduto = isPeriodoScaduto(cfg);
+
+  let scadTxt = '';
+  if (mesi > 0) {
+    scadTxt = fine
+      ? `I punti accumulati in questo periodo sono validi fino al <strong>${fine}</strong> (${mesi} mes${mesi === 1 ? 'e' : 'i'}).`
+      : `I punti scadono dopo <strong>${mesi}</strong> mes${mesi === 1 ? 'e' : 'i'} dal programma in corso.`;
+  } else {
+    scadTxt = 'I punti <strong>non scadono</strong> (nessuna data di fine impostata).';
+  }
+
+  return `
+    <div class="loy-regolamento">
+      <h4><i class="fas fa-scroll"></i> Regolamento loyalty card</h4>
+      <ul>
+        <li>Ogni <strong>€${euro}</strong> di spesa (ordini pagati e consegnati) ti fa guadagnare <strong>${pt} punt${pt === 1 ? 'o' : 'i'}</strong>.</li>
+        <li>Esempio: un conto da €${(euro * 3).toFixed(euro % 1 ? 1 : 0)} → <strong>${pt * 3} pt</strong>.</li>
+        <li>${scadTxt}</li>
+        <li>I premi si riscattano dal menu «Premi» quando hai abbastanza punti.</li>
+        <li>Il regolamento può essere aggiornato dal ristorante: valgono sempre le condizioni mostrate qui al momento dell'uso.</li>
+      </ul>
+      ${inizio ? `<p class="loy-reg-meta">Periodo corrente: dal ${inizio}${fine ? ' al ' + fine : ''}${scaduto ? ' · <span style="color:#dc2626">scaduto</span>' : ''}</p>` : ''}
+    </div>`;
+}
+
+function renderRegolamentoIn(el) {
+  if (!el) return;
+  el.innerHTML = buildRegolamentoLoyaltyHtml(currentRistorante);
+  el.classList.toggle('hidden', !el.innerHTML.trim());
 }
 
 function loadLoyaltyMembersLocal(ristId) {
@@ -6764,6 +6912,7 @@ async function savePremio(premio) {
 }
 
 function showClienteAuthGate(show) {
+  try { refreshRegolamentoClienteUI(); } catch (e) {}
   const gate = document.getElementById('cliente-auth-gate');
   const form = document.getElementById('cliente-auth-form');
   const content = document.querySelector('#app-cliente .cliente-content') || document.querySelector('.cliente-content');
@@ -6790,6 +6939,7 @@ function showClienteAuthGate(show) {
 }
 
 function showClienteAuthForm(mode) {
+  try { refreshRegolamentoClienteUI(); } catch (e) {}
   document.getElementById('cliente-auth-gate')?.classList.add('hidden');
   const formWrap = document.getElementById('cliente-auth-form');
   formWrap?.classList.remove('hidden');
@@ -6995,8 +7145,27 @@ async function renderLoyaltyAdmin() {
   const puntiEl = document.getElementById('loy-punti');
   if (euroEl) euroEl.value = cfg.euro;
   if (puntiEl) puntiEl.value = cfg.punti;
+  const mesiEl = document.getElementById('loy-scadenza-mesi');
+  if (mesiEl) mesiEl.value = cfg.scadenza_mesi > 0 ? cfg.scadenza_mesi : '';
   const prev = document.getElementById('loy-config-preview');
-  if (prev) prev.textContent = `Ogni €${cfg.euro} → ${cfg.punti} punti (es. conto da €30 → ${calcolaPuntiDaEuro(30, cfg)} pt)`;
+  if (prev) {
+    const fine = cfg.periodo_fine ? formatDataLoy(cfg.periodo_fine) : null;
+    const scadMsg = cfg.scadenza_mesi > 0
+      ? (fine ? ` · validi fino al ${fine}` : ` · scadono dopo ${cfg.scadenza_mesi} mesi`)
+      : ' · punti senza scadenza';
+    prev.textContent = `Ogni €${cfg.euro} → ${cfg.punti} punti (es. €30 → ${calcolaPuntiDaEuro(30, cfg)} pt)${scadMsg}`;
+  }
+  const scadInfo = document.getElementById('loy-scadenza-info');
+  if (scadInfo) {
+    if (cfg.periodo_inizio || cfg.periodo_fine) {
+      scadInfo.innerHTML = `Periodo: <strong>${formatDataLoy(cfg.periodo_inizio)}</strong> → <strong>${formatDataLoy(cfg.periodo_fine)}</strong>` +
+        (isPeriodoScaduto(cfg) ? ' <span class="badge badge-base">Scaduto — avvia un nuovo periodo</span>' : ' <span class="badge badge-pro">Attivo</span>');
+    } else if (cfg.scadenza_mesi > 0) {
+      scadInfo.textContent = `Durata periodo: ${cfg.scadenza_mesi} mesi (avvia un periodo per fissare le date)`;
+    } else {
+      scadInfo.textContent = 'Nessuna scadenza impostata';
+    }
+  }
 
   const premi = await loadPremi(currentRistorante.id);
   const isRist = currentUser && currentUser.role === 'ristoratore';
@@ -7054,8 +7223,39 @@ document.getElementById('btn-salva-loy-config')?.addEventListener('click', async
   if (currentUser && currentUser.role === 'cassa') { toast('Solo il ristoratore può modificare la proporzione'); return; }
   const euro = parseFloat(document.getElementById('loy-euro')?.value) || 1;
   const punti = parseInt(document.getElementById('loy-punti')?.value, 10) || 0;
-  await saveLoyaltyConfig(currentRistorante, { euro, punti });
-  toast('Proporzione salvata');
+  const rawM = (document.getElementById('loy-scadenza-mesi')?.value || '').trim();
+  const mesi = rawM === '' ? 0 : Math.min(36, Math.max(0, parseInt(rawM, 10) || 0));
+  const prev = getLoyaltyConfig(currentRistorante);
+  await saveLoyaltyConfig(currentRistorante, {
+    euro, punti,
+    scadenza_mesi: mesi,
+    periodo_inizio: prev.periodo_inizio,
+    periodo_fine: mesi > 0 && prev.periodo_inizio ? computePeriodoFine(prev.periodo_inizio, mesi) : (mesi > 0 ? prev.periodo_fine : null)
+  });
+  toast('Regolamento loyalty aggiornato');
+  renderLoyaltyAdmin();
+});
+
+document.getElementById('btn-loy-nuovo-periodo')?.addEventListener('click', async () => {
+  if (!currentRistorante) return;
+  if (currentUser && currentUser.role === 'cassa') { toast('Solo il ristoratore può avviare un nuovo periodo'); return; }
+  const euro = parseFloat(document.getElementById('loy-euro')?.value) || 1;
+  const punti = parseInt(document.getElementById('loy-punti')?.value, 10) || 0;
+  const rawM = (document.getElementById('loy-scadenza-mesi')?.value || '').trim();
+  const mesi = rawM === '' ? 0 : Math.min(36, Math.max(1, parseInt(rawM, 10) || 12));
+  const ok = confirm(
+    'Avviare un nuovo periodo loyalty?\n\n' +
+    `Regole: ogni €${euro} = ${punti} pt` +
+    (mesi ? `, validità ${mesi} mesi` : ', senza scadenza') +
+    '.\nIl regolamento lato cliente si aggiorna subito.'
+  );
+  if (!ok) return;
+  const inizio = new Date().toISOString();
+  const fine = mesi > 0 ? computePeriodoFine(inizio, mesi) : null;
+  await saveLoyaltyConfig(currentRistorante, {
+    euro, punti, scadenza_mesi: mesi, periodo_inizio: inizio, periodo_fine: fine
+  });
+  toast('Nuovo periodo loyalty avviato' + (fine ? ' · fino al ' + formatDataLoy(fine) : ''));
   renderLoyaltyAdmin();
 });
 
@@ -7254,13 +7454,13 @@ function formatSupportTime(iso) {
   } catch (e) { return '—'; }
 }
 
-async function notifyTicketEmail({ subject, text }) {
+async function notifyTicketEmail({ subject, text, to }) {
   try {
     const res = await fetch('/api/notify-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: getSupportEmail(),
+        to: (to || getSupportEmail() || '').trim(),
         subject,
         text
       })
@@ -7269,7 +7469,7 @@ async function notifyTicketEmail({ subject, text }) {
     if (!j.emailed) {
       console.warn('Email non inviata:', j.reason || j, j);
     } else {
-      console.log('Email ticket inviata', j.id || '');
+      console.log('Email ticket inviata', j.id || '', '→', to || getSupportEmail());
     }
     return j;
   } catch (e) {
@@ -7510,8 +7710,29 @@ async function sendSupportMessage(role) {
   if (role === 'ristoratore') {
     notifyTicketEmail({
       subject: `[MenuPro] Nuovo messaggio su ${ticket.numero}`,
-      text: `Il ristoratore ha scritto su ${ticket.numero} (${ticket.titolo})\n\n${text}\n\nApri MenuPro → Richieste.`
+      text: `Il ristoratore ha scritto su ${ticket.numero} (${ticket.titolo})
+
+${text}
+
+Apri MenuPro → Richieste.`
     });
+  }
+  if (role === 'admin') {
+    const dest = (ticket.email_richiedente || '').trim();
+    if (dest) {
+      notifyTicketEmail({
+        to: dest,
+        subject: `[MenuPro] Risposta assistenza su ${ticket.numero}`,
+        text:
+          `L'assistenza MenuPro ha risposto al tuo ticket ${ticket.numero} (${ticket.titolo}).
+
+` +
+          `${text}
+
+` +
+          `Apri MenuPro → FAQ & Assistenza → il tuo ticket per continuare la chat.`
+      });
+    }
   }
 
   await openTicketDetail(_supportSelectedId, role);
