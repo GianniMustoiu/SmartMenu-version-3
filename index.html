@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=16" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1369,11 +1369,37 @@
   
   
 
-<div id="toast" class="toast hidden"></div>
+
+  <!-- Modal storico punti loyalty -->
+  <div id="modal-loy-storico" class="modal hidden">
+    <div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <h3 id="loy-storico-title"><i class="fas fa-clock-rotate-left" style="color:var(--primary);margin-right:8px"></i> Storico punti</h3>
+        <button type="button" class="close-modal" data-modal="modal-loy-storico">&times;</button>
+      </div>
+      <div style="padding:8px 24px 4px">
+        <p id="loy-storico-meta" style="color:var(--muted);font-size:13px;margin:0 0 12px"></p>
+        <div class="table-wrapper" style="max-height:360px;overflow:auto">
+          <table>
+            <thead>
+              <tr><th>Data</th><th>Tipo</th><th>Punti</th><th>Nota</th></tr>
+            </thead>
+            <tbody id="loy-storico-body"></tbody>
+          </table>
+        </div>
+        <p id="loy-storico-hint" class="hint-inline" style="margin:12px 0 0;display:none"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal" data-modal="modal-loy-storico">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=15"></script>
-  <script src="script.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="script.js?v=16"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
