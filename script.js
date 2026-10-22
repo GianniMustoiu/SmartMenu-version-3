@@ -7456,20 +7456,22 @@ function formatSupportTime(iso) {
 
 async function notifyTicketEmail({ subject, text, to }) {
   try {
+    // Se `to` è valorizzato → email al ristoratore (o altro destinatario esplicito)
+    // Se `to` manca → l'API usa SUPPORT_EMAIL di Vercel (admin). NON usare config.js fittizia.
+    const payload = { subject, text };
+    const dest = (to || '').trim();
+    if (dest) payload.to = dest;
+
     const res = await fetch('/api/notify-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: (to || getSupportEmail() || '').trim(),
-        subject,
-        text
-      })
+      body: JSON.stringify(payload)
     });
     const j = await res.json().catch(() => ({}));
     if (!j.emailed) {
       console.warn('Email non inviata:', j.reason || j, j);
     } else {
-      console.log('Email ticket inviata', j.id || '', '→', to || getSupportEmail());
+      console.log('Email ticket inviata', j.id || '', '→', j.to || dest || 'admin(SUPPORT_EMAIL)');
     }
     return j;
   } catch (e) {
