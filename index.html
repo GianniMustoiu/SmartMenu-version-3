@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -57,6 +57,7 @@
         <a href="#" class="nav-item" data-page="miei-incassi"><i class="fas fa-wallet"></i> <span>I miei incassi</span></a>
         <a href="#" class="nav-item" data-page="incassi-rist"><i class="fas fa-chart-line"></i> <span>Incassi ristoranti</span></a>
         <a href="#" class="nav-item" data-page="richieste"><i class="fas fa-headset"></i> <span>Richieste</span> <span id="badge-richieste" class="nav-badge hidden">0</span></a>
+        <a href="#" class="nav-item" data-page="recensioni"><i class="fas fa-star"></i> <span>Recensioni</span></a>
         <a href="#" class="nav-item" data-page="impostazioni"><i class="fas fa-cog"></i> <span>Impostazioni</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -197,6 +198,33 @@
       </section>
 
       
+      
+      <section id="page-recensioni" class="page hidden">
+        <div class="toolbar" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="search-box" style="flex:1;min-width:180px">
+            <i class="fas fa-search"></i>
+            <input type="text" id="search-recensioni-admin" placeholder="Cerca locale, tavolo, note…" />
+          </div>
+          <button type="button" id="btn-refresh-recensioni-admin" class="btn btn-secondary"><i class="fas fa-sync"></i> Aggiorna</button>
+        </div>
+        <div class="cards" id="recensioni-admin-stats" style="margin-bottom:16px">
+          <div class="card"><div class="card-icon orange"><i class="fas fa-star"></i></div><div><h3 id="rec-adm-media-serv">—</h3><p>Media servizio</p></div></div>
+          <div class="card"><div class="card-icon purple"><i class="fas fa-utensils"></i></div><div><h3 id="rec-adm-media-cibo">—</h3><p>Media cibo</p></div></div>
+          <div class="card"><div class="card-icon blue"><i class="fas fa-comments"></i></div><div><h3 id="rec-adm-count">0</h3><p>Recensioni</p></div></div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th><th>Locale</th><th>Tavolo</th><th>Ordine</th>
+                <th>Servizio</th><th>Cibo</th><th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="recensioni-admin-body"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section id="page-richieste" class="page hidden">
         <div class="toolbar" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <div class="search-box" style="flex:1;min-width:180px">
@@ -250,6 +278,7 @@
         <a href="#" class="nav-item" data-page="rist-tavoli"><i class="fas fa-qrcode"></i> <span>Tavoli &amp; QR</span></a>
         <a href="#" class="nav-item" data-page="rist-loyalty"><i class="fas fa-gift"></i> <span>Loyalty card</span></a>
         <a href="#" class="nav-item" data-page="rist-chiusura"><i class="fas fa-cash-register"></i> <span>Chiusura fiscale</span></a>
+        <a href="#" class="nav-item" data-page="rist-recensioni"><i class="fas fa-star"></i> <span>Recensioni</span></a>
         <a href="#" class="nav-item" data-page="rist-assistenza"><i class="fas fa-life-ring"></i> <span>FAQ &amp; Assistenza</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -542,6 +571,30 @@
         </div>
       </section>
 
+      
+      <section id="page-rist-recensioni" class="page hidden">
+        <div class="toolbar" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <p class="hint-inline" style="margin:0;flex:1">Valutazioni lasciate dai clienti dopo l'ordine.</p>
+          <button type="button" id="btn-refresh-recensioni-rist" class="btn btn-secondary"><i class="fas fa-sync"></i> Aggiorna</button>
+        </div>
+        <div class="cards" style="margin-bottom:16px">
+          <div class="card"><div class="card-icon orange"><i class="fas fa-star"></i></div><div><h3 id="rec-rist-media-serv">—</h3><p>Media servizio</p></div></div>
+          <div class="card"><div class="card-icon purple"><i class="fas fa-utensils"></i></div><div><h3 id="rec-rist-media-cibo">—</h3><p>Media cibo</p></div></div>
+          <div class="card"><div class="card-icon blue"><i class="fas fa-comments"></i></div><div><h3 id="rec-rist-count">0</h3><p>Recensioni</p></div></div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th><th>Tavolo</th><th>Ordine</th>
+                <th>Servizio</th><th>Cibo</th><th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="recensioni-rist-body"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section id="page-rist-assistenza" class="page hidden">
         <div class="assistenza-grid">
           <div class="assistenza-card">
@@ -820,7 +873,7 @@
           </div>
           <div id="ricevuta-items" class="ricevuta-items"></div>
           <div class="ricevuta-totale">
-            <span>Totale</span>
+            <span id="ricevuta-totale-label">Totale</span>
             <strong id="ricevuta-totale">€0,00</strong>
           </div>
           <div class="ricevuta-stato">
@@ -1436,8 +1489,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=19"></script>
-  <script src="script.js?v=19"></script>
+  <script src="config.js?v=20"></script>
+  <script src="script.js?v=20"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
