@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=17" />
+  <link rel="stylesheet" href="style.css?v=19" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -835,6 +835,28 @@
           <button id="btn-aggiorna-stato" class="btn btn-secondary btn-block" style="margin-top:10px;display:none">
             <i class="fas fa-sync"></i> Aggiorna stato
           </button>
+
+          <div id="cliente-recensione-box" class="cliente-recensione-box">
+            <h3 class="recensione-title"><i class="fas fa-star"></i> Com'è andata?</h3>
+            <p class="recensione-hint">Valuta servizio e cibo (1–5 stelle). Opzionale.</p>
+            <div class="recensione-row">
+              <span class="recensione-label">Servizio</span>
+              <div class="star-rating" id="stars-servizio" data-value="0" role="group" aria-label="Valutazione servizio"></div>
+            </div>
+            <div class="recensione-row">
+              <span class="recensione-label">Cibo</span>
+              <div class="star-rating" id="stars-cibo" data-value="0" role="group" aria-label="Valutazione cibo"></div>
+            </div>
+            <div class="form-group" style="padding:0;margin:10px 0 0">
+              <label style="text-transform:none;letter-spacing:0;font-size:12px">Note (opzionale)</label>
+              <textarea id="recensione-note" rows="2" maxlength="500" placeholder="Cosa ti è piaciuto o cosa migliorare…"></textarea>
+            </div>
+            <button type="button" id="btn-invia-recensione" class="btn btn-secondary btn-block" style="margin-top:10px">
+              <i class="fas fa-paper-plane"></i> Invia valutazione
+            </button>
+            <p id="recensione-done" class="recensione-done hidden">Grazie per la tua valutazione!</p>
+          </div>
+
           <button id="btn-nuovo-ordine" class="btn btn-primary btn-block" style="margin-top:10px">
             <i class="fas fa-plus"></i> Ordina ancora
           </button>
@@ -1414,8 +1436,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=17"></script>
-  <script src="script.js?v=17"></script>
+  <script src="config.js?v=19"></script>
+  <script src="script.js?v=19"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
