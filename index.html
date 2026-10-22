@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=15" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -56,6 +56,7 @@
         <a href="#" class="nav-item" data-page="abbonamenti"><i class="fas fa-crown"></i> <span>Abbonamenti</span></a>
         <a href="#" class="nav-item" data-page="miei-incassi"><i class="fas fa-wallet"></i> <span>I miei incassi</span></a>
         <a href="#" class="nav-item" data-page="incassi-rist"><i class="fas fa-chart-line"></i> <span>Incassi ristoranti</span></a>
+        <a href="#" class="nav-item" data-page="richieste"><i class="fas fa-headset"></i> <span>Richieste</span> <span id="badge-richieste" class="nav-badge hidden">0</span></a>
         <a href="#" class="nav-item" data-page="impostazioni"><i class="fas fa-cog"></i> <span>Impostazioni</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -195,6 +196,32 @@
         </div>
       </section>
 
+      
+      <section id="page-richieste" class="page hidden">
+        <div class="toolbar" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="search-box" style="flex:1;min-width:180px">
+            <i class="fas fa-search"></i>
+            <input type="text" id="search-richieste" placeholder="Cerca numero, titolo, locale…" />
+          </div>
+          <select id="filter-richieste-stato" style="max-width:180px">
+            <option value="">Tutti gli stati</option>
+            <option value="nuovo">Nuovo</option>
+            <option value="in_gestione">In gestione</option>
+            <option value="feedback">Feedback</option>
+            <option value="chiuso">Chiuso</option>
+          </select>
+          <button type="button" id="btn-refresh-richieste" class="btn btn-secondary"><i class="fas fa-sync"></i> Aggiorna</button>
+        </div>
+        <div class="support-layout">
+          <div class="support-list-panel">
+            <div id="admin-tickets-list" class="support-ticket-list"></div>
+          </div>
+          <div class="support-chat-panel" id="admin-ticket-detail">
+            <div class="support-empty">Seleziona una richiesta dalla lista</div>
+          </div>
+        </div>
+      </section>
+
       <section id="page-impostazioni" class="page hidden">
         <div class="settings-card">
           <h3>Impostazioni</h3>
@@ -223,6 +250,7 @@
         <a href="#" class="nav-item" data-page="rist-tavoli"><i class="fas fa-qrcode"></i> <span>Tavoli &amp; QR</span></a>
         <a href="#" class="nav-item" data-page="rist-loyalty"><i class="fas fa-gift"></i> <span>Loyalty card</span></a>
         <a href="#" class="nav-item" data-page="rist-chiusura"><i class="fas fa-cash-register"></i> <span>Chiusura fiscale</span></a>
+        <a href="#" class="nav-item" data-page="rist-assistenza"><i class="fas fa-life-ring"></i> <span>FAQ &amp; Assistenza</span></a>
       </nav>
       <div class="sidebar-footer">
         <button class="btn-icon theme-toggle" title="Tema chiaro/scuro"><i class="fas fa-sun"></i></button>
@@ -498,6 +526,111 @@
         <div class="recent-box" style="margin-top:22px">
           <h3>Ultime chiusure registrate</h3>
           <div id="chiusura-storico" class="recent-list"></div>
+        </div>
+      </section>
+
+      <section id="page-rist-assistenza" class="page hidden">
+        <div class="assistenza-grid">
+          <div class="assistenza-card">
+            <div class="assistenza-card-head">
+              <i class="fas fa-book"></i>
+              <div>
+                <h3>Manuale d'uso</h3>
+                <p>Consultalo prima di aprire un ticket: spesso la soluzione è già qui.</p>
+              </div>
+            </div>
+            <div class="assistenza-actions">
+              <a id="link-manuale-pdf" href="/Manuale_MenuPro.pdf" target="_blank" rel="noopener" class="btn btn-primary">
+                <i class="fas fa-file-pdf"></i> Apri manuale
+              </a>
+              <a id="link-manuale-download" href="/Manuale_MenuPro.pdf" download="Manuale_MenuPro.pdf" class="btn btn-secondary">
+                <i class="fas fa-download"></i> Scarica
+              </a>
+            </div>
+            <iframe id="manuale-iframe" class="manuale-iframe" title="Manuale MenuPro" src="/Manuale_MenuPro.pdf"></iframe>
+          </div>
+
+          <div class="assistenza-card">
+            <div class="assistenza-card-head">
+              <i class="fas fa-ticket"></i>
+              <div>
+                <h3>Apri un ticket</h3>
+                <p>Descrivi il problema: riceverai risposta nella chat qui sotto.</p>
+              </div>
+            </div>
+            <form id="form-nuovo-ticket" novalidate>
+              <div class="form-group" style="padding:0;margin-top:4px">
+                <label>Titolo *</label>
+                <input type="text" id="ticket-titolo" required maxlength="120" placeholder="Es. Stampa comande non funziona" />
+              </div>
+              <div class="form-group" style="padding:0">
+                <label>Descrizione *</label>
+                <textarea id="ticket-descrizione" required rows="5" maxlength="4000" placeholder="Cosa succede, da quale dispositivo, cosa hai già provato…"></textarea>
+              </div>
+              <div class="form-group" style="padding:0">
+                <label>Allegato (opzionale, max 10 MB)</label>
+                <input type="file" id="ticket-allegato" accept="image/*,application/pdf" />
+                <small style="color:var(--muted);display:block;margin-top:4px">Screenshot o PDF. Formati: JPG, PNG, WebP, GIF, PDF.</small>
+              </div>
+              <button type="submit" id="btn-invia-ticket" class="btn btn-primary btn-block">
+                <i class="fas fa-paper-plane"></i> Invia ticket
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="assistenza-card" style="margin-top:18px">
+          <div class="assistenza-card-head">
+            <i class="fas fa-comments"></i>
+            <div>
+              <h3>I tuoi ticket</h3>
+              <p>Stato e chat con l'assistenza MenuPro.</p>
+            </div>
+          </div>
+          <div class="support-layout" style="margin-top:8px">
+            <div class="support-list-panel">
+              <div id="rist-tickets-list" class="support-ticket-list"></div>
+            </div>
+            <div class="support-chat-panel" id="rist-ticket-detail">
+              <div class="support-empty">Seleziona un ticket o aprine uno nuovo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="assistenza-card" style="margin-top:18px">
+          <div class="assistenza-card-head">
+            <i class="fas fa-circle-question"></i>
+            <div>
+              <h3>Domande frequenti</h3>
+              <p>Risposte rapide ai dubbi più comuni.</p>
+            </div>
+          </div>
+          <div class="faq-list" id="faq-list">
+            <details class="faq-item">
+              <summary>Il cliente deve installare un'app?</summary>
+              <p>No. Basta la fotocamera del telefono e il browser per aprire il link del QR del tavolo.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Come si paga l'ordine?</summary>
+              <p>Il cliente ordina dal telefono e paga <strong>in cassa</strong> (contanti o POS del locale). MenuPro non incassa online.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Come mostro solo il menu cena?</summary>
+              <p>In <em>Menu</em> crea o seleziona il menu «Cena» e impostalo come <strong>menu pubblico</strong>.</p>
+            </details>
+            <details class="faq-item">
+              <summary>La stampa comande non parte</summary>
+              <p>Verifica di avere ordini attivi, consenti le finestre di stampa del browser e disattiva eventuali blocchi popup per questo sito.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Il QR non apre il menu</summary>
+              <p>Controlla la connessione, ristampa il QR da <em>Tavoli &amp; QR</em> e non usare QR vecchi dopo un cambio di indirizzo del sito.</p>
+            </details>
+            <details class="faq-item">
+              <summary>MenuPro sostituisce lo scontrino fiscale?</summary>
+              <p>No. La comanda è un documento di lavoro per la cucina. Lo scontrino resta sul registratore di cassa del locale.</p>
+            </details>
+          </div>
         </div>
       </section>
 
@@ -1239,8 +1372,8 @@
 <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=13"></script>
-  <script src="script.js?v=13"></script>
+  <script src="config.js?v=15"></script>
+  <script src="script.js?v=15"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
