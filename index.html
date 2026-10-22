@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=22" />
+  <link rel="stylesheet" href="style.css?v=23" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -267,7 +267,7 @@
       <section id="page-impostazioni" class="page hidden">
         <div class="settings-card">
           <h3>Impostazioni</h3>
-          <p>I dati locali restano su questo browser. Puoi cancellarli quando vuoi.</p>
+          <p>Cancella dal database ristoranti, ordini, ticket di assistenza, recensioni e dati collegati. Operazione irreversibile.</p>
           <button id="btn-reset" class="btn btn-danger"><i class="fas fa-trash"></i> Cancella tutti i dati</button>
         </div>
       </section>
@@ -1275,6 +1275,41 @@
     </div>
   </div>
 
+  
+  <!-- Modal conferma cancellazione dati (admin) -->
+  <div id="modal-reset-dati" class="modal hidden">
+    <div class="modal-content" style="max-width:440px">
+      <div class="modal-header">
+        <h3><i class="fas fa-exclamation-triangle" style="color:var(--danger);margin-right:8px"></i> Cancella tutti i dati</h3>
+        <button type="button" class="close-modal" data-modal="modal-reset-dati">&times;</button>
+      </div>
+      <div style="padding:8px 24px 0">
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.45;color:var(--muted)">
+          Stai per eliminare <strong>definitivamente</strong> dal database:
+        </p>
+        <ul style="margin:0 0 14px;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.5">
+          <li>Ristoranti, menu, ordini, tavoli</li>
+          <li>Ticket e messaggi di assistenza (richieste)</li>
+          <li>Recensioni clienti</li>
+          <li>Account ristoratore / cassa collegati</li>
+        </ul>
+        <div class="form-group" style="padding:0;margin:0">
+          <label>Password account admin *</label>
+          <input type="password" id="reset-admin-password" required minlength="4"
+            placeholder="Inserisci la password admin" autocomplete="current-password" />
+          <small style="color:var(--muted);display:block;margin-top:6px">Conferma con la password del tuo account admin</small>
+        </div>
+        <p id="reset-dati-error" class="hidden" style="margin:10px 0 0;font-size:13px;color:var(--danger)"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal" data-modal="modal-reset-dati">Annulla</button>
+        <button type="button" id="btn-reset-confirm" class="btn btn-danger">
+          <i class="fas fa-trash"></i> Elimina tutto
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-conferma-stato" class="modal hidden">
     <div class="modal-content" style="max-width:420px">
       <div class="modal-header">
@@ -1503,8 +1538,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=22"></script>
-  <script src="script.js?v=22"></script>
+  <script src="config.js?v=23"></script>
+  <script src="script.js?v=23"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
