@@ -1,4 +1,3 @@
-
 // =====================================================
 // MenuPro – Versione collegata a Supabase
 // =====================================================
@@ -2410,20 +2409,140 @@ $('#select-rist-incassi')?.addEventListener('change', async () => {
   `;
 });
 
-// RESET
-$('#btn-reset')?.addEventListener('click', async () => {
-  await sb.from('pagamenti_abbonamento').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('ordini').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('piatti').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('categorie').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('tavoli').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('ristoranti').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await sb.from('utenti').delete().eq('ruolo', 'ristoratore');
-  await renderAdminTable();
-  await renderAdminDashboard();
-  await renderAbbonamenti();
-  await renderMieiIncassi();
-  toast('Dati cancellati');
+// RESET dati admin — conferma in-app con password (niente alert nativo)
+async function verifyAdminPassword(pass) {
+  const pwd = String(pass || '').trim();
+  if (!pwd) return { ok: false, error: 'Inserisci la password' };
+  if (!currentUser || currentUser.role !== 'admin') return { ok: false, error: 'Solo admin' };
+  const email = (currentUser.email || '').trim().toLowerCase();
+  if (!email || !sb) return { ok: false, error: 'Sessione non valida' };
+
+  // 1) tabella utenti (password_hash in chiaro come nel login MenuPro)
+  try {
+    const { data } = await sb.from('utenti')
+      .select('id,email,ruolo')
+      .eq('email', email)
+      .eq('password_hash', pwd)
+      .eq('ruolo', 'admin')
+      .limit(1);
+    if (data && data.length) return { ok: true };
+  } catch (e) {}
+
+  // 2) Supabase Auth
+  try {
+    const { data: auth, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    if (!error && auth && auth.user) return { ok: true };
+  } catch (e) {}
+
+  // 3) API login se presente
+  try {
+    const res = await fetch('/api/utenti', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', email, password: pwd })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (j && j.ok && j.user && (j.user.ruolo === 'admin' || j.user.role === 'admin')) return { ok: true };
+  } catch (e) {}
+
+  return { ok: false, error: 'Password non corretta' };
+}
+
+async function eseguiCancellazioneDatiAdmin() {
+  if (!sb) { toast('Database non collegato'); return; }
+  const zero = '00000000-0000-0000-0000-000000000000';
+  // ordine: prima figli / messaggi, poi ticket e resto
+  const steps = [
+    ['support_messages', () => sb.from('support_messages').delete().neq('id', zero)],
+    ['support_tickets', () => sb.from('support_tickets').delete().neq('id', zero)],
+    ['recensioni', () => sb.from('recensioni').delete().neq('id', zero)],
+    ['pagamenti_abbonamento', () => sb.from('pagamenti_abbonamento').delete().neq('id', zero)],
+    ['ordini', () => sb.from('ordini').delete().neq('id', zero)],
+    ['piatti', () => sb.from('piatti').delete().neq('id', zero)],
+    ['categorie', () => sb.from('categorie').delete().neq('id', zero)],
+    ['tavoli', () => sb.from('tavoli').delete().neq('id', zero)],
+    ['clienti_fedelta', () => sb.from('clienti_fedelta').delete().neq('id', zero)],
+    ['loyalty_movimenti', () => sb.from('loyalty_movimenti').delete().neq('id', zero)],
+    ['premi', () => sb.from('premi').delete().neq('id', zero)],
+    ['ristoranti', () => sb.from('ristoranti').delete().neq('id', zero)],
+    ['utenti ristoratore', () => sb.from('utenti').delete().eq('ruolo', 'ristoratore')],
+    ['utenti cassa', () => sb.from('utenti').delete().eq('ruolo', 'cassa')],
+  ];
+  const errori = [];
+  for (const [name, fn] of steps) {
+    try {
+      const { error } = await fn();
+      if (error) {
+        console.warn('Reset', name, error);
+        errori.push(name);
+      }
+    } catch (e) {
+      console.warn('Reset', name, e);
+      errori.push(name);
+    }
+  }
+  try { _recensioniRistMeta = null; } catch (e) {}
+  try { await renderAdminTable(); } catch (e) {}
+  try { await renderAdminDashboard(); } catch (e) {}
+  try { await renderAbbonamenti(); } catch (e) {}
+  try { await renderMieiIncassi(); } catch (e) {}
+  try { await renderAdminRichieste(); } catch (e) {}
+  try { await renderAdminRecensioni(); } catch (e) {}
+  if (errori.length) {
+    toast('Cancellazione parziale. Non eliminati: ' + errori.join(', '));
+  } else {
+    toast('Tutti i dati sono stati cancellati (incluse le richieste)');
+  }
+}
+
+function apriModalResetDati() {
+  const modal = document.getElementById('modal-reset-dati');
+  const inp = document.getElementById('reset-admin-password');
+  const err = document.getElementById('reset-dati-error');
+  if (err) { err.textContent = ''; err.classList.add('hidden'); }
+  if (inp) inp.value = '';
+  modal?.classList.remove('hidden');
+  setTimeout(() => inp?.focus(), 80);
+}
+
+$('#btn-reset')?.addEventListener('click', () => {
+  apriModalResetDati();
+});
+
+document.getElementById('btn-reset-confirm')?.addEventListener('click', async () => {
+  const inp = document.getElementById('reset-admin-password');
+  const err = document.getElementById('reset-dati-error');
+  const btn = document.getElementById('btn-reset-confirm');
+  const pass = (inp?.value || '').trim();
+  if (err) { err.classList.add('hidden'); err.textContent = ''; }
+  if (!pass) {
+    if (err) { err.textContent = 'Inserisci la password admin'; err.classList.remove('hidden'); }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifica…'; }
+  try {
+    const check = await verifyAdminPassword(pass);
+    if (!check.ok) {
+      if (err) { err.textContent = check.error || 'Password non corretta'; err.classList.remove('hidden'); }
+      return;
+    }
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminazione…';
+    await eseguiCancellazioneDatiAdmin();
+    document.getElementById('modal-reset-dati')?.classList.add('hidden');
+    if (inp) inp.value = '';
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-trash"></i> Elimina tutto';
+    }
+  }
+});
+
+document.getElementById('reset-admin-password')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btn-reset-confirm')?.click();
+  }
 });
 
 // DEMO UTENTE
