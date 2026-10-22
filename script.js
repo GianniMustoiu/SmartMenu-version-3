@@ -7040,8 +7040,9 @@ async function renderLoyaltyAdmin() {
         <td>${m.email || '—'}</td>
         <td><code>${m.codice || '—'}</code></td>
         <td><strong>${m.punti || 0}</strong></td>
-        <td class="actions">
-          ${isCassa ? '—' : `<button class="btn btn-secondary btn-sm" onclick="aggiungiPuntiManuali('${m.id}')" title="Aggiungi punti">+ pt</button>`}
+        <td class="actions" style="white-space:nowrap">
+          <button class="btn btn-secondary btn-sm" onclick="apriStoricoPunti('${m.id}')" title="Storico punti"><i class="fas fa-clock-rotate-left"></i></button>
+          ${isCassa ? '' : `<button class="btn btn-secondary btn-sm" onclick="aggiungiPuntiManuali('${m.id}')" title="Aggiungi punti">+ pt</button>`}
         </td>
       </tr>
     `).join('');
@@ -7135,8 +7136,22 @@ window.aggiungiPuntiManuali = async function(memberId) {
   if (raw == null) return;
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n) || n === 0) return;
-  const j = await loyRpc('loyalty_staff_rettifica', { p_id: memberId, p_punti: n, p_nota: 'rettifica da ' + ((currentUser && currentUser.email) || 'staff') });
+  const nota = 'rettifica da ' + ((currentUser && currentUser.email) || 'staff');
+  const j = await loyRpc('loyalty_staff_rettifica', { p_id: memberId, p_punti: n, p_nota: nota });
   if (j.error) { toast(j.error); return; }
+  // log best-effort (se esiste tabella / trigger può già aver scritto)
+  try {
+    if (sb && j.punti != null) {
+      await sb.from('loyalty_movimenti').insert({
+        id_cliente: memberId,
+        id_ristorante: currentRistorante ? String(currentRistorante.id) : null,
+        delta: n,
+        saldo_dopo: j.punti,
+        tipo: n >= 0 ? 'rettifica_piu' : 'rettifica_meno',
+        nota
+      });
+    }
+  } catch (e) {}
   renderLoyaltyAdmin();
   toast('Punti aggiornati: ' + j.punti);
 };
@@ -7241,7 +7256,7 @@ function formatSupportTime(iso) {
 
 async function notifyTicketEmail({ subject, text }) {
   try {
-    await fetch('/api/notify-ticket', {
+    const res = await fetch('/api/notify-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -7250,8 +7265,16 @@ async function notifyTicketEmail({ subject, text }) {
         text
       })
     });
+    const j = await res.json().catch(() => ({}));
+    if (!j.emailed) {
+      console.warn('Email non inviata:', j.reason || j, j);
+    } else {
+      console.log('Email ticket inviata', j.id || '');
+    }
+    return j;
   } catch (e) {
     console.warn('notify email skip', e);
+    return { ok: false, emailed: false, reason: String(e) };
   }
 }
 
@@ -7679,3 +7702,103 @@ async function refreshRichiesteBadge() {
     } else badge.classList.add('hidden');
   } catch (e) {}
 }
+
+// --- Storico punti tesserato ---
+async function fetchLoyaltyStorico(memberId) {
+  if (!memberId || !sb) return { rows: [], source: null, error: 'Database non collegato' };
+
+  // 1) RPC se presente
+  try {
+    const { data, error } = await sb.rpc('loyalty_storico', { p_id: memberId });
+    if (!error && data) {
+      const rows = Array.isArray(data) ? data : (data.rows || data.movimenti || []);
+      if (Array.isArray(rows)) return { rows, source: 'rpc' };
+    }
+  } catch (e) {}
+
+  // 2) Tabella loyalty_movimenti
+  try {
+    const { data, error } = await sb.from('loyalty_movimenti')
+      .select('*')
+      .eq('id_cliente', memberId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (!error && data) return { rows: data, source: 'loyalty_movimenti' };
+    if (error) console.warn('loyalty_movimenti', error.message);
+  } catch (e) {}
+
+  // 3) Alias comuni
+  for (const table of ['punti_movimenti', 'loyalty_transazioni', 'loyalty_log']) {
+    try {
+      const { data, error } = await sb.from(table)
+        .select('*')
+        .or(`id_cliente.eq.${memberId},id_membro.eq.${memberId},cliente_id.eq.${memberId}`)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data && data.length) return { rows: data, source: table };
+    } catch (e) {}
+  }
+
+  return { rows: [], source: null };
+}
+
+function formatLoyMovimento(row) {
+  const delta = row.delta != null ? Number(row.delta)
+    : (row.punti != null ? Number(row.punti)
+    : (row.amount != null ? Number(row.amount) : 0));
+  const tipo = row.tipo || row.type || row.motivo || (delta >= 0 ? 'accredito' : 'addebito');
+  const nota = row.nota || row.note || row.descrizione || row.description || '—';
+  const when = row.created_at || row.data || row.timestamp || null;
+  let dataStr = '—';
+  try {
+    if (when) dataStr = new Date(when).toLocaleString('it-IT', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  } catch (e) {}
+  const deltaStr = (delta > 0 ? '+' : '') + delta;
+  return { dataStr, tipo, deltaStr, delta, nota: String(nota) };
+}
+
+window.apriStoricoPunti = async function(memberId) {
+  if (!currentRistorante) return;
+  const members = await fetchLoyaltyMembers(currentRistorante.id);
+  const m = members.find(x => String(x.id) === String(memberId));
+  const nome = m ? `${m.nome || ''} ${m.cognome || ''}`.trim() || m.email : 'Tesserato';
+  const punti = m ? (m.punti || 0) : '—';
+
+  const title = document.getElementById('loy-storico-title');
+  const meta = document.getElementById('loy-storico-meta');
+  const body = document.getElementById('loy-storico-body');
+  const hint = document.getElementById('loy-storico-hint');
+  if (meta) meta.textContent = `${nome} · saldo attuale: ${punti} pt · codice ${m && m.codice ? m.codice : '—'}`;
+  if (body) body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Caricamento…</td></tr>';
+  if (hint) { hint.style.display = 'none'; hint.textContent = ''; }
+  document.getElementById('modal-loy-storico')?.classList.remove('hidden');
+
+  const { rows, source } = await fetchLoyaltyStorico(memberId);
+  if (!body) return;
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Nessun movimento registrato</td></tr>';
+    if (hint) {
+      hint.style.display = 'block';
+      hint.innerHTML = 'Se lo storico resta sempre vuoto, esegui su Supabase lo script <code>loyalty_storico.sql</code> (crea la tabella movimenti e il log automatico). I movimenti futuri (ordini, rettifiche) compariranno qui.';
+    }
+    return;
+  }
+
+  body.innerHTML = rows.map(r => {
+    const f = formatLoyMovimento(r);
+    const color = f.delta > 0 ? 'var(--success, #059669)' : (f.delta < 0 ? 'var(--danger, #dc2626)' : 'inherit');
+    return `<tr>
+      <td style="font-size:12px;white-space:nowrap">${f.dataStr}</td>
+      <td style="font-size:12px">${String(f.tipo).replace(/</g, '&lt;')}</td>
+      <td style="font-weight:700;color:${color}">${f.deltaStr}</td>
+      <td style="font-size:12px;color:var(--muted)">${f.nota.replace(/</g, '&lt;')}</td>
+    </tr>`;
+  }).join('');
+  if (hint && source) {
+    hint.style.display = 'block';
+    hint.textContent = 'Fonte dati: ' + source;
+  }
+};
