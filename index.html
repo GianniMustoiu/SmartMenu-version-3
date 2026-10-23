@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=26" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -381,8 +381,14 @@
         </div>
         <div id="menu-pubblico-banner" class="menu-pubblico-banner">
           <i class="fas fa-qrcode"></i>
-          <span>I clienti dal QR vedono il menu: <strong id="menu-pubblico-label">—</strong></span>
-          <span class="menu-pubblico-hint">I clienti dal QR possono passare tra tutti i menu (es. piatti + vini). Qui scegli solo quale aprire di default.</span>
+          <div style="flex:1;min-width:0">
+            <span>I clienti dal QR vedono il menu: <strong id="menu-pubblico-label">—</strong></span>
+            <span class="menu-pubblico-hint" id="menu-pubblico-hint-text">Con un solo menu pubblico i clienti non vedono le altre carte.</span>
+          </div>
+          <label class="check-line menu-multi-toggle" style="margin:0;white-space:nowrap">
+            <input type="checkbox" id="toggle-menu-multi-cliente" />
+            <span>Più menu sul QR</span>
+          </label>
         </div>
         <div class="toolbar">
           <div class="search-box">
@@ -1630,8 +1636,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=25"></script>
-  <script src="script.js?v=25"></script>
+  <script src="config.js?v=26"></script>
+  <script src="script.js?v=26"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
