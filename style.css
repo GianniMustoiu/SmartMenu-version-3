@@ -1621,3 +1621,29 @@ tr.rec-segnalata { background: color-mix(in srgb, #f59e0b 12%, transparent); }
 #toast.hidden { display: none !important; }
 #toast.toast-error { background: #b91c1c; }
 #toast.toast-ok { background: #047857; }
+
+
+/* Select leggibili in tema scuro e chiaro */
+select {
+  color: var(--text);
+  background-color: var(--bg-2);
+}
+select option,
+select optgroup {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+html[data-theme="light"] select option,
+html[data-theme="light"] select optgroup {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+/* Firefox */
+select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 var(--text);
+}
+.menu-multi-toggle {
+  font-size: 12px;
+  font-weight: 600;
+}
