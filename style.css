@@ -1738,3 +1738,51 @@ html[data-theme="light"] .mqv-badge {
   font-size: 12px;
   margin-top: 4px;
 }
+
+
+/* Top vendite dashboard ristoratore */
+.top-vendite-row { margin-top: 4px; }
+.top-vendite-box h3 {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.top-vendite-box h3 i { color: var(--primary); opacity: 0.9; }
+.top-vendite-list { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.top-vendite-empty {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.top-vendite-item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.top-vendite-rank { font-size: 16px; text-align: center; }
+.top-vendite-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.top-vendite-meta {
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+.top-vendite-sub {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  margin-left: 4px;
+}
