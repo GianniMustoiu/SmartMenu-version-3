@@ -1597,3 +1597,27 @@ tr.rec-segnalata { background: color-mix(in srgb, #f59e0b 12%, transparent); }
   gap: 12px;
   align-items: center;
 }
+
+
+/* Toast / notifiche */
+#toast.toast,
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 100000;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  text-align: center;
+  line-height: 1.35;
+}
+#toast.hidden { display: none !important; }
+#toast.toast-error { background: #b91c1c; }
+#toast.toast-ok { background: #047857; }
