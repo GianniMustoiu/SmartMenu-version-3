@@ -137,6 +137,16 @@ const UI_I18N = {
     authSubmitReg: 'Crea account e attiva card', authTitleLogin: 'Accedi', authTitleReg: 'Registrati',
     tabMenu: 'Menu', tabPremi: 'Premi',
     ordineRicevuto: 'Ordine ricevuto', statoOrdine: 'Stato ordine',
+    regTitle: 'Regolamento loyalty card',
+    regEuroPt: 'Ogni €{euro} di spesa (ordini pagati e consegnati) ti fa guadagnare {pt} punt{ptS}.',
+    regEsempio: 'Esempio: un conto da €{ex} → {ptEx} pt.',
+    regScadeFine: 'I punti accumulati in questo periodo sono validi fino al {fine} ({mesi} mes{mesiS}).',
+    regScadeMesi: 'I punti scadono dopo {mesi} mes{mesiS} dal programma in corso.',
+    regNoScade: 'I punti non scadono (nessuna data di fine impostata).',
+    regPremi: 'I premi si riscattano dal menu «Premi» quando hai abbastanza punti.',
+    regUpdate: 'Il regolamento può essere aggiornato dal ristorante: valgono sempre le condizioni mostrate qui al momento dell\'uso.',
+    regPeriodo: 'Periodo corrente: dal {inizio}{finePart}',
+    regScaduto: 'scaduto',
     recTitle: 'Com\'è andata?',
     recHint: 'Valuta servizio e cibo (1–5 stelle). Opzionale.',
     recServizio: 'Servizio',
@@ -190,6 +200,16 @@ const UI_I18N = {
     authSubmitReg: 'Create account and activate card', authTitleLogin: 'Sign in', authTitleReg: 'Register',
     tabMenu: 'Menu', tabPremi: 'Rewards',
     ordineRicevuto: 'Order received', statoOrdine: 'Order status',
+    regTitle: 'Loyalty card rules',
+    regEuroPt: 'Every €{euro} spent (paid and delivered orders) earns you {pt} point{ptS}.',
+    regEsempio: 'Example: a €{ex} bill → {ptEx} pts.',
+    regScadeFine: 'Points earned in this period are valid until {fine} ({mesi} month{mesiS}).',
+    regScadeMesi: 'Points expire after {mesi} month{mesiS} from the current program.',
+    regNoScade: 'Points do not expire (no end date set).',
+    regPremi: 'Redeem rewards from the «Rewards» menu when you have enough points.',
+    regUpdate: 'Rules may be updated by the restaurant: the conditions shown here always apply at the time of use.',
+    regPeriodo: 'Current period: from {inizio}{finePart}',
+    regScaduto: 'expired',
     recTitle: 'How was it?',
     recHint: 'Rate service and food (1–5 stars). Optional.',
     recServizio: 'Service',
@@ -243,6 +263,16 @@ const UI_I18N = {
     authSubmitReg: 'Crear cuenta y activar tarjeta', authTitleLogin: 'Iniciar sesión', authTitleReg: 'Registrarse',
     tabMenu: 'Menú', tabPremi: 'Premios',
     ordineRicevuto: 'Pedido recibido', statoOrdine: 'Estado del pedido',
+    regTitle: 'Reglamento de la tarjeta loyalty',
+    regEuroPt: 'Cada €{euro} de gasto (pedidos pagados y entregados) te da {pt} punto{ptS}.',
+    regEsempio: 'Ejemplo: una cuenta de €{ex} → {ptEx} pts.',
+    regScadeFine: 'Los puntos de este período valen hasta el {fine} ({mesi} mes{mesiS}).',
+    regScadeMesi: 'Los puntos caducan tras {mesi} mes{mesiS} del programa actual.',
+    regNoScade: 'Los puntos no caducan (sin fecha de fin).',
+    regPremi: 'Canjea premios desde el menú «Premios» cuando tengas puntos suficientes.',
+    regUpdate: 'El local puede actualizar el reglamento: siempre valen las condiciones mostradas aquí.',
+    regPeriodo: 'Período actual: desde {inizio}{finePart}',
+    regScaduto: 'caducado',
     recTitle: '¿Qué tal?',
     recHint: 'Valora el servicio y la comida (1–5 estrellas). Opcional.',
     recServizio: 'Servicio',
@@ -296,6 +326,16 @@ const UI_I18N = {
     authSubmitReg: 'Konto erstellen und Karte aktivieren', authTitleLogin: 'Anmelden', authTitleReg: 'Registrieren',
     tabMenu: 'Menü', tabPremi: 'Prämien',
     ordineRicevuto: 'Bestellung erhalten', statoOrdine: 'Bestellstatus',
+    regTitle: 'Regeln der Loyalty-Karte',
+    regEuroPt: 'Je €{euro} Umsatz (bezahlt und ausgeliefert) erhältst du {pt} Punkt{ptS}.',
+    regEsempio: 'Beispiel: Rechnung über €{ex} → {ptEx} Pkt.',
+    regScadeFine: 'Punkte aus diesem Zeitraum gelten bis {fine} ({mesi} Monat{mesiS}).',
+    regScadeMesi: 'Punkte verfallen nach {mesi} Monat{mesiS} im laufenden Programm.',
+    regNoScade: 'Punkte verfallen nicht (kein Enddatum).',
+    regPremi: 'Prämien im Menü «Prämien» einlösen, wenn genug Punkte vorhanden sind.',
+    regUpdate: 'Das Restaurant kann die Regeln ändern: es gelten die hier gezeigten Bedingungen.',
+    regPeriodo: 'Aktueller Zeitraum: ab {inizio}{finePart}',
+    regScaduto: 'abgelaufen',
     recTitle: 'Wie war es?',
     recHint: 'Bewerte Service und Essen (1–5 Sterne). Optional.',
     recServizio: 'Service',
@@ -349,6 +389,16 @@ const UI_I18N = {
     authSubmitReg: 'Créer le compte et activer la carte', authTitleLogin: 'Connexion', authTitleReg: 'Inscription',
     tabMenu: 'Menu', tabPremi: 'Récompenses',
     ordineRicevuto: 'Commande reçue', statoOrdine: 'État de la commande',
+    regTitle: 'Règlement de la carte de fidélité',
+    regEuroPt: 'Chaque €{euro} de dépense (commandes payées et livrées) vous rapporte {pt} point{ptS}.',
+    regEsempio: 'Exemple : une addition de €{ex} → {ptEx} pts.',
+    regScadeFine: 'Les points de cette période sont valables jusqu\'au {fine} ({mesi} mois).',
+    regScadeMesi: 'Les points expirent après {mesi} mois du programme en cours.',
+    regNoScade: 'Les points n\'expirent pas (pas de date de fin).',
+    regPremi: 'Échangez des récompenses dans le menu « Récompenses » dès que vous avez assez de points.',
+    regUpdate: 'Le restaurant peut mettre à jour le règlement : les conditions affichées ici s\'appliquent toujours.',
+    regPeriodo: 'Période en cours : du {inizio}{finePart}',
+    regScaduto: 'expiré',
     recTitle: 'Comment c\'était ?',
     recHint: 'Notez le service et la nourriture (1–5 étoiles). Facultatif.',
     recServizio: 'Service',
@@ -402,6 +452,16 @@ const UI_I18N = {
     authSubmitReg: 'Criar conta e ativar cartão', authTitleLogin: 'Entrar', authTitleReg: 'Registar',
     tabMenu: 'Menu', tabPremi: 'Prémios',
     ordineRicevuto: 'Pedido recebido', statoOrdine: 'Estado do pedido',
+    regTitle: 'Regulamento do cartão loyalty',
+    regEuroPt: 'Cada €{euro} de gasto (pedidos pagos e entregues) dá {pt} ponto{ptS}.',
+    regEsempio: 'Exemplo: uma conta de €{ex} → {ptEx} pts.',
+    regScadeFine: 'Os pontos deste período valem até {fine} ({mesi} mes{mesiS}).',
+    regScadeMesi: 'Os pontos expiram após {mesi} mes{mesiS} do programa atual.',
+    regNoScade: 'Os pontos não expiram (sem data de fim).',
+    regPremi: 'Troque prémios no menu «Prémios» quando tiver pontos suficientes.',
+    regUpdate: 'O restaurante pode atualizar o regulamento: valem as condições mostradas aqui.',
+    regPeriodo: 'Período atual: de {inizio}{finePart}',
+    regScaduto: 'expirado',
     recTitle: 'Como foi?',
     recHint: 'Avalie o serviço e a comida (1–5 estrelas). Opcional.',
     recServizio: 'Serviço',
@@ -455,6 +515,16 @@ const UI_I18N = {
     authSubmitReg: '创建账户并开通会员卡', authTitleLogin: '登录', authTitleReg: '注册',
     tabMenu: '菜单', tabPremi: '奖励',
     ordineRicevuto: '订单已接收', statoOrdine: '订单状态',
+    regTitle: '会员卡规则',
+    regEuroPt: '每消费 €{euro}（已付款并送达的订单）可获得 {pt} 积分。',
+    regEsempio: '例如：€{ex} 的账单 → {ptEx} 积分。',
+    regScadeFine: '本周期积分有效期至 {fine}（{mesi} 个月）。',
+    regScadeMesi: '积分在当前计划开始后 {mesi} 个月到期。',
+    regNoScade: '积分永不过期（未设置结束日期）。',
+    regPremi: '积分足够时可在「奖励」菜单兑换奖品。',
+    regUpdate: '餐厅可能更新规则：以此处显示的条件为准。',
+    regPeriodo: '当前周期：自 {inizio}{finePart}',
+    regScaduto: '已过期',
     recTitle: '感觉如何？',
     recHint: '请为服务和菜品打分（1–5星）。可选。',
     recServizio: '服务',
@@ -686,6 +756,55 @@ function menuPubblicoStorageKey(rid) {
 }
 
 /** Menu che vedono i clienti dopo il QR */
+
+
+function syncMenuMultiToggleUI() {
+  const el = document.getElementById('toggle-menu-multi-cliente');
+  if (!el || !currentRistorante) return;
+  el.checked = isMenuMultiCliente(currentRistorante);
+  const hint = document.getElementById('menu-pubblico-hint-text');
+  if (hint) {
+    hint.textContent = el.checked
+      ? 'I clienti dal QR possono passare tra tutti i menu (es. piatti + vini). Il menu sopra è quello di default.'
+      : 'I clienti dal QR vedono solo il menu pubblico selezionato (nessuna tab).';
+  }
+}
+document.getElementById('toggle-menu-multi-cliente')?.addEventListener('change', async (e) => {
+  if (!currentRistorante) return;
+  if (currentUser && currentUser.role === 'cassa') {
+    e.target.checked = isMenuMultiCliente(currentRistorante);
+    toast('Solo il ristoratore può modificare questa opzione');
+    return;
+  }
+  await setMenuMultiCliente(currentRistorante, e.target.checked);
+  syncMenuMultiToggleUI();
+});
+
+function isMenuMultiCliente(r) {
+  const rist = r || currentRistorante;
+  if (!rist) return false;
+  if (rist.menu_multi_cliente === true || rist.menu_multi_cliente === 'true' || rist.menu_multi_cliente === 1) return true;
+  try {
+    return localStorage.getItem('menupro_menu_multi_' + rist.id) === '1';
+  } catch (e) { return false; }
+}
+
+async function setMenuMultiCliente(r, on) {
+  if (!r) return;
+  r.menu_multi_cliente = !!on;
+  try { localStorage.setItem('menupro_menu_multi_' + r.id, on ? '1' : '0'); } catch (e) {}
+  if (sb) {
+    try {
+      const { error } = await sb.from('ristoranti').update({ menu_multi_cliente: !!on }).eq('id', r.id);
+      if (error) console.warn('menu_multi_cliente non salvato:', error.message || error);
+    } catch (e) {}
+  }
+  try { updateMenuPubblicoBanner(); } catch (e) {}
+  toast(on
+    ? 'I clienti vedranno tutti i menu sul QR'
+    : 'I clienti vedranno solo il menu pubblico');
+}
+
 function getMenuPubblicoId(r) {
   if (!r) return 'default';
   const menus = ensureMenus(r);
@@ -4488,14 +4607,14 @@ function renderClienteMenuTabs() {
   const wrap = document.getElementById('cliente-menu-tabs');
   if (!wrap || !currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
-  if (menus.length <= 1) {
+  const multi = isMenuMultiCliente(currentRistorante) && menus.length > 1;
+  if (!multi) {
     wrap.innerHTML = '';
     wrap.classList.add('hidden');
-    if (!currentMenuId && menus[0]) currentMenuId = menus[0].id;
+    currentMenuId = getMenuPubblicoId(currentRistorante) || (menus[0] && menus[0].id);
     return;
   }
   wrap.classList.remove('hidden');
-  // default: menu pubblico o primo
   if (!currentMenuId || !menus.some(m => String(m.id) === String(currentMenuId))) {
     currentMenuId = getMenuPubblicoId(currentRistorante) || menus[0].id;
   }
@@ -4516,7 +4635,10 @@ function renderClienteMenu(skipTranslate) {
   if (!currentRistorante) return;
   applyClienteChromeI18n();
   try { renderClienteMenuTabs(); } catch (e) {}
-  const menuId = currentMenuId || getMenuPubblicoId(currentRistorante);
+  // se multi disattivo → sempre solo menu pubblico
+  const menuId = isMenuMultiCliente(currentRistorante)
+    ? (currentMenuId || getMenuPubblicoId(currentRistorante))
+    : getMenuPubblicoId(currentRistorante);
   const menu = piattiDelMenu(currentRistorante, menuId).filter(p => p.disponibile !== false);
   // Ordine categorie come in gestione menu (posizione DB), non casuale
   const ordered = (currentRistorante.categorie || []).filter(Boolean);
@@ -6499,6 +6621,7 @@ $('#fat-sdi')?.addEventListener('input', (e) => {
 // MULTI-MENU + LINGUA CLIENTE
 // =====================================================
 function populateMenuSwitcher() {
+  try { syncMenuMultiToggleUI(); } catch (e) {}
   const sel = document.getElementById('menu-switcher');
   if (!currentRistorante) return;
   const menus = ensureMenus(currentRistorante);
@@ -6527,6 +6650,7 @@ function updateMenuPubblicoBanner() {
   const pubId = String(getMenuPubblicoId(currentRistorante));
   const m = menus.find(x => String(x.id) === pubId);
   el.textContent = (m && m.nome) || pubId || '—';
+  try { syncMenuMultiToggleUI(); } catch (e) {}
 }
 
 function populateMenuPubblicoSelects() {
@@ -6701,6 +6825,7 @@ $('#cliente-lang')?.addEventListener('change', async (e) => {
   try { localStorage.setItem('menupro_cliente_lang', clienteLang); } catch (err) {}
   _trBusy = false;
   applyClienteChromeI18n();
+  try { refreshRegolamentoClienteUI(); } catch (e) {}
   renderClienteMenu();
   if (!$('#cliente-carrello-view')?.classList.contains('hidden')) renderCarrello();
   if (!$('#cliente-premi-view')?.classList.contains('hidden')) renderClientePremi();
@@ -7021,6 +7146,12 @@ function refreshRegolamentoClienteUI() {
   } catch (e) {}
 }
 
+function _regFill(template, map) {
+  let s = template || '';
+  Object.keys(map).forEach(k => { s = s.split('{' + k + '}').join(String(map[k])); });
+  return s;
+}
+
 function buildRegolamentoLoyaltyHtml(r) {
   const rist = r || currentRistorante;
   if (!rist || !isFidelityEnabled(rist)) return '';
@@ -7031,27 +7162,37 @@ function buildRegolamentoLoyaltyHtml(r) {
   const inizio = cfg.periodo_inizio ? formatDataLoy(cfg.periodo_inizio) : null;
   const fine = cfg.periodo_fine ? formatDataLoy(cfg.periodo_fine) : null;
   const scaduto = isPeriodoScaduto(cfg);
+  const ptS = (clienteLang === 'en' || clienteLang === 'de') ? (pt === 1 ? '' : 's') : (pt === 1 ? 'o' : 'i');
+  const mesiS = (clienteLang === 'en' || clienteLang === 'de') ? (mesi === 1 ? '' : 's') : (mesi === 1 ? 'e' : 'i');
+  const ex = (euro * 3).toFixed(euro % 1 ? 1 : 0);
+  const ptEx = pt * 3;
 
   let scadTxt = '';
   if (mesi > 0) {
     scadTxt = fine
-      ? `I punti accumulati in questo periodo sono validi fino al <strong>${fine}</strong> (${mesi} mes${mesi === 1 ? 'e' : 'i'}).`
-      : `I punti scadono dopo <strong>${mesi}</strong> mes${mesi === 1 ? 'e' : 'i'} dal programma in corso.`;
+      ? _regFill(tUI('regScadeFine'), { fine: '<strong>' + fine + '</strong>', mesi: '<strong>' + mesi + '</strong>', mesiS })
+      : _regFill(tUI('regScadeMesi'), { mesi: '<strong>' + mesi + '</strong>', mesiS });
   } else {
-    scadTxt = 'I punti <strong>non scadono</strong> (nessuna data di fine impostata).';
+    scadTxt = tUI('regNoScade').replace('non scadono', '<strong>non scadono</strong>').replace('do not expire', '<strong>do not expire</strong>');
   }
+
+  const finePart = fine ? (' al ' + fine).replace(' al ', clienteLang === 'en' ? ' to ' : clienteLang === 'de' ? ' bis ' : clienteLang === 'fr' ? ' au ' : clienteLang === 'es' ? ' hasta ' : clienteLang === 'pt' ? ' até ' : clienteLang === 'zh' ? ' 至 ' : ' al ') : '';
+  const meta = inizio
+    ? ('<p class="loy-reg-meta">' + _regFill(tUI('regPeriodo'), { inizio, finePart }) +
+       (scaduto ? ' · <span style="color:#dc2626">' + tUI('regScaduto') + '</span>' : '') + '</p>')
+    : '';
 
   return `
     <div class="loy-regolamento">
-      <h4><i class="fas fa-scroll"></i> Regolamento loyalty card</h4>
+      <h4><i class="fas fa-scroll"></i> ${tUI('regTitle')}</h4>
       <ul>
-        <li>Ogni <strong>€${euro}</strong> di spesa (ordini pagati e consegnati) ti fa guadagnare <strong>${pt} punt${pt === 1 ? 'o' : 'i'}</strong>.</li>
-        <li>Esempio: un conto da €${(euro * 3).toFixed(euro % 1 ? 1 : 0)} → <strong>${pt * 3} pt</strong>.</li>
+        <li>${_regFill(tUI('regEuroPt'), { euro: '<strong>€' + euro + '</strong>', pt: '<strong>' + pt + '</strong>', ptS })}</li>
+        <li>${_regFill(tUI('regEsempio'), { ex, ptEx: '<strong>' + ptEx + '</strong>' })}</li>
         <li>${scadTxt}</li>
-        <li>I premi si riscattano dal menu «Premi» quando hai abbastanza punti.</li>
-        <li>Il regolamento può essere aggiornato dal ristorante: valgono sempre le condizioni mostrate qui al momento dell'uso.</li>
+        <li>${tUI('regPremi')}</li>
+        <li>${tUI('regUpdate')}</li>
       </ul>
-      ${inizio ? `<p class="loy-reg-meta">Periodo corrente: dal ${inizio}${fine ? ' al ' + fine : ''}${scaduto ? ' · <span style="color:#dc2626">scaduto</span>' : ''}</p>` : ''}
+      ${meta}
     </div>`;
 }
 
