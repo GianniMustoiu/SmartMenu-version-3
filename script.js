@@ -1225,7 +1225,7 @@ async function _fetchRistoranteFull(id) {
     sb.from('tavoli').select('*').eq('id_ristorante', id).order('numero'),
     sb.from('piatti').select('id,id_ristorante,nome,descrizione,prezzo,categoria,disponibile,allergeni,immagine,iva,traduzioni,id_menu').eq('id_ristorante', id).order('nome'),
     sb.from('categorie').select('*').eq('id_ristorante', id).order('posizione'),
-    sb.from('ordini').select('id,id_ristorante,codice,tavolo,stato,stato_pagamento,pagamento,totale,note,items,created_at,circuito_pagamento,fattura').eq('id_ristorante', id).order('created_at', { ascending: false }).limit(60)
+    sb.from('ordini').select('id,id_ristorante,codice,tavolo,stato,stato_pagamento,pagamento,totale,note,items,created_at,circuito_pagamento,fattura').eq('id_ristorante', id).order('created_at', { ascending: false }).limit(200)
   ]);
   const failed = [tavoli, piatti, categorie, ordini].find(x => x.error);
   if (failed) throw failed.error;
@@ -2833,6 +2833,118 @@ $$('.period-btn').forEach(btn => {
   });
 });
 
+
+/** True se la categoria/nome indica una bevanda */
+function isBevandaItem(item, menuById, menuByName) {
+  if (!item || item.isPremio) return false;
+  const catRaw = (
+    item.categoria ||
+    (item.id && menuById[String(item.id)] && menuById[String(item.id)].categoria) ||
+    (item.nome && menuByName[String(item.nome).toLowerCase()] && menuByName[String(item.nome).toLowerCase()].categoria) ||
+    ''
+  );
+  const cat = String(catRaw).toLowerCase().trim();
+  if (!cat) {
+    // fallback sul nome
+    const n = String(item.nome || '').toLowerCase();
+    return /birra|vino|acqua|coca|cola|succo|bibita|cocktail|caff|th[eè]|aperitiv|drink|bevanda|spritz|prosecco|amaro|digestiv|soft\s*drink|fanta|sprite|chinotto/.test(n);
+  }
+  return /bevand|drink|bibit|cocktail|vini|vino|birre|birra|caff|bar\b|soft/.test(cat);
+}
+
+function buildMenuLookup(menu) {
+  const byId = {};
+  const byName = {};
+  (menu || []).forEach(p => {
+    if (p && p.id != null) byId[String(p.id)] = p;
+    if (p && p.nome) byName[String(p.nome).toLowerCase()] = p;
+  });
+  return { byId, byName };
+}
+
+/**
+ * Aggrega vendite da ordini del periodo.
+ * Ritorna { piatti: {qty, rev}, bevande: {qty, rev} } ciascuno array top ordinato.
+ */
+function computeTopVendite(ordini, menu, period, limit) {
+  limit = limit || 3;
+  const { byId, byName } = buildMenuLookup(menu);
+  const acc = {}; // key -> { nome, qty, rev, isBevanda }
+
+  (ordini || []).forEach(o => {
+    if (period && !inPeriod(o.createdAt || o.created_at, period)) return;
+    (o.items || []).forEach(it => {
+      if (!it || it.isPremio) return;
+      const nome = String(it.nome || '—').trim() || '—';
+      const qty = Number(it.qty) || 1;
+      let prezzo = Number(it.prezzo);
+      if (!Number.isFinite(prezzo) || prezzo < 0) {
+        const p = (it.id && byId[String(it.id)]) || byName[nome.toLowerCase()];
+        prezzo = p ? (Number(p.prezzo) || 0) : 0;
+      }
+      const key = (it.id != null ? 'id:' + it.id : 'n:' + nome.toLowerCase());
+      if (!acc[key]) {
+        acc[key] = {
+          nome,
+          qty: 0,
+          rev: 0,
+          isBevanda: isBevandaItem(it, byId, byName)
+        };
+      }
+      acc[key].qty += qty;
+      acc[key].rev += qty * prezzo;
+    });
+  });
+
+  const all = Object.values(acc);
+  const piatti = all.filter(x => !x.isBevanda);
+  const bevande = all.filter(x => x.isBevanda);
+
+  const topQty = (arr) => [...arr].sort((a, b) => b.qty - a.qty || b.rev - a.rev).slice(0, limit);
+  const topRev = (arr) => [...arr].sort((a, b) => b.rev - a.rev || b.qty - a.qty).slice(0, limit);
+
+  return {
+    piattiQty: topQty(piatti),
+    piattiRev: topRev(piatti),
+    bevandeQty: topQty(bevande),
+    bevandeRev: topRev(bevande)
+  };
+}
+
+function renderTopVenditeList(el, rows, mode) {
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = '<p class="top-vendite-empty">Nessun dato nel periodo</p>';
+    return;
+  }
+  el.innerHTML = rows.map((r, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+    const meta = mode === 'rev'
+      ? `<strong>${formatPrice(r.rev)}</strong> <span class="top-vendite-sub">${r.qty}×</span>`
+      : `<strong>${r.qty}×</strong> <span class="top-vendite-sub">${formatPrice(r.rev)}</span>`;
+    return `<div class="top-vendite-item">
+      <span class="top-vendite-rank">${medal}</span>
+      <span class="top-vendite-name">${String(r.nome).replace(/</g, '&lt;')}</span>
+      <span class="top-vendite-meta">${meta}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderRistTopVendite() {
+  if (!currentRistorante) return;
+  const tops = computeTopVendite(
+    currentRistorante.ordini || [],
+    currentRistorante.menu || [],
+    currentPeriod,
+    3
+  );
+  renderTopVenditeList(document.getElementById('top-piatti-qty'), tops.piattiQty, 'qty');
+  renderTopVenditeList(document.getElementById('top-piatti-rev'), tops.piattiRev, 'rev');
+  renderTopVenditeList(document.getElementById('top-bevande-qty'), tops.bevandeQty, 'qty');
+  renderTopVenditeList(document.getElementById('top-bevande-rev'), tops.bevandeRev, 'rev');
+}
+
+
 async function renderRistDashboard() {
   if (!currentRistorante) return;
   currentRistorante = await getRistorante(currentRistorante.id);
@@ -2871,6 +2983,7 @@ async function renderRistDashboard() {
     }).join('');
   }
   renderRistCharts();
+  try { renderRistTopVendite(); } catch (e) { console.warn(e); }
 }
 
 function renderRistCharts() {
