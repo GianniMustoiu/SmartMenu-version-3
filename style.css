@@ -1647,3 +1647,54 @@ select:-moz-focusring {
   font-size: 12px;
   font-weight: 600;
 }
+
+
+/* Selezione menu visibili sul QR */
+.menu-qr-visibili-box {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg-2, #f8fafc);
+}
+.menu-qr-visibili-box.hidden { display: none; }
+.menu-qr-visibili-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu-qr-visibili-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+.menu-qr-visibili-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.menu-qr-visibile-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--card, #fff);
+}
+.menu-qr-visibile-item input { margin: 0; }
+.mqv-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--primary, #2563eb);
+  background: color-mix(in srgb, var(--primary, #2563eb) 14%, transparent);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
