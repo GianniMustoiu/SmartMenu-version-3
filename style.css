@@ -8,6 +8,7 @@
   --bg-2: #131c30;
   --surface: #182238;
   --surface-2: #1f2b45;
+  --card: #1a2740;
   --border: #2a3857;
   --text: #e8edf7;
   --muted: #8d9bb8;
@@ -30,6 +31,7 @@ html[data-theme="light"] {
   --bg-2: #ffffff;
   --surface: #ffffff;
   --surface-2: #f0f3f9;
+  --card: #ffffff;
   --border: #dde3ef;
   --text: #17203a;
   --muted: #667394;
@@ -1463,12 +1465,13 @@ body.dark .loy-regolamento,
   align-items: center;
   gap: 0;
   height: 42px;
-  background: var(--bg-2, #f1f5f9);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   min-width: 180px;
   flex: 0 1 200px;
+  color: var(--text);
 }
 .rec-filter-field .rec-filter-icon {
   width: 40px;
@@ -1483,6 +1486,7 @@ body.dark .loy-regolamento,
 .rec-filter-field select {
   border: none !important;
   background: transparent !important;
+  color: var(--text) !important;
   height: 42px;
   padding: 0 12px;
   min-width: 0;
@@ -1623,45 +1627,49 @@ tr.rec-segnalata { background: color-mix(in srgb, #f59e0b 12%, transparent); }
 #toast.toast-ok { background: #047857; }
 
 
-/* Select leggibili in tema scuro e chiaro */
-select {
-  color: var(--text);
-  background-color: var(--bg-2);
+/* Select e option leggibili in tema scuro e chiaro */
+select,
+.form-group select,
+#menu-switcher,
+#filter-rec-locale,
+#filter-rec-ristoratore,
+#filter-rec-segnalate {
+  color: var(--text) !important;
+  background-color: var(--surface-2) !important;
+  border-color: var(--border) !important;
 }
 select option,
 select optgroup {
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: #152038 !important;
+  color: #f1f5f9 !important;
 }
 html[data-theme="light"] select option,
 html[data-theme="light"] select optgroup {
-  background-color: #ffffff;
-  color: #0f172a;
-}
-/* Firefox */
-select:-moz-focusring {
-  color: transparent;
-  text-shadow: 0 0 0 var(--text);
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
 .menu-multi-toggle {
   font-size: 12px;
   font-weight: 600;
+  color: var(--text);
 }
 
 
-/* Selezione menu visibili sul QR */
+/* Selezione menu visibili sul QR — leggibile in dark/light */
 .menu-qr-visibili-box {
   margin: 0 0 14px;
   padding: 12px 14px;
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--bg-2, #f8fafc);
+  background: var(--surface);
+  color: var(--text);
 }
 .menu-qr-visibili-box.hidden { display: none; }
 .menu-qr-visibili-title {
   margin: 0 0 4px;
   font-size: 13px;
   font-weight: 700;
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1669,32 +1677,64 @@ select:-moz-focusring {
 .menu-qr-visibili-hint {
   margin: 0 0 10px;
   font-size: 12px;
-  color: var(--muted, #64748b);
+  color: var(--muted);
 }
 .menu-qr-visibili-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 8px 12px;
 }
 .menu-qr-visibile-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #e2e8f0);
-  background: var(--card, #fff);
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text) !important;
 }
-.menu-qr-visibile-item input { margin: 0; }
+.menu-qr-visibile-item .mqv-name {
+  color: var(--text) !important;
+}
+.menu-qr-visibile-item input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.menu-qr-visibile-item:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
 .mqv-badge {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--primary, #2563eb);
-  background: color-mix(in srgb, var(--primary, #2563eb) 14%, transparent);
-  padding: 2px 6px;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.25);
+  padding: 2px 7px;
   border-radius: 999px;
+}
+html[data-theme="light"] .mqv-badge {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+/* Banner menu pubblico leggibile */
+.menu-pubblico-banner {
+  color: var(--text);
+}
+.menu-pubblico-banner .menu-pubblico-hint,
+#menu-pubblico-hint-text {
+  color: var(--muted) !important;
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
 }
