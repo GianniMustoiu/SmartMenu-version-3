@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=23" />
+  <link rel="stylesheet" href="style.css?v=24" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -217,6 +217,14 @@
             <i class="fas fa-search"></i>
             <input type="text" id="search-recensioni-admin" placeholder="Filtra per nome locale o ristoratore…" />
           </div>
+          <div class="rec-filter-field" style="flex:0 0 auto;min-width:140px">
+            <i class="fas fa-flag rec-filter-icon" title="Segnalate"></i>
+            <select id="filter-rec-segnalate" aria-label="Segnalate">
+              <option value="tutte">Tutte</option>
+              <option value="segnalate">Solo segnalate</option>
+              <option value="ok">Non segnalate</option>
+            </select>
+          </div>
           <button type="button" id="btn-refresh-recensioni-admin" class="btn btn-secondary rec-filter-btn">
             <i class="fas fa-sync"></i> Aggiorna
           </button>
@@ -231,7 +239,7 @@
             <thead>
               <tr>
                 <th>Data</th><th>Locale</th><th>Ristoratore</th><th>Tavolo</th><th>Ordine</th>
-                <th>Servizio</th><th>Cibo</th><th>Note</th>
+                <th>Servizio</th><th>Cibo</th><th>Note</th><th>Azioni</th>
               </tr>
             </thead>
             <tbody id="recensioni-admin-body"></tbody>
@@ -296,6 +304,7 @@
         <a href="#" class="nav-item" data-page="rist-assistenza"><i class="fas fa-life-ring"></i> <span>FAQ &amp; Assistenza</span></a>
       </nav>
       <div class="sidebar-footer">
+        <button class="btn-icon" id="btn-rist-cambia-password" title="Cambia password"><i class="fas fa-key"></i></button>
         <button class="btn-icon theme-toggle" title="Tema chiaro/scuro"><i class="fas fa-sun"></i></button>
         <button class="btn-icon logout-btn" title="Esci"><i class="fas fa-sign-out-alt"></i></button>
       </div>
@@ -373,7 +382,7 @@
         <div id="menu-pubblico-banner" class="menu-pubblico-banner">
           <i class="fas fa-qrcode"></i>
           <span>I clienti dal QR vedono il menu: <strong id="menu-pubblico-label">—</strong></span>
-          <span class="menu-pubblico-hint">Cambiando il menu sopra, pubblichi quello selezionato ai tavoli.</span>
+          <span class="menu-pubblico-hint">I clienti dal QR possono passare tra tutti i menu (es. piatti + vini). Qui scegli solo quale aprire di default.</span>
         </div>
         <div class="toolbar">
           <div class="search-box">
@@ -477,6 +486,10 @@
                 <i class="fas fa-calendar-plus"></i> Avvia nuovo periodo
               </button>
             </div>
+            <label class="check-line" style="margin-top:10px">
+              <input type="checkbox" id="loy-auto-rinnovo" />
+              <span>Rinnova automaticamente il periodo alla scadenza (stesse regole €/pt e mesi)</span>
+            </label>
             <small style="color:var(--muted);margin-top:8px;display:block">
               «Salva regolamento» aggiorna subito cosa vede il cliente. «Nuovo periodo» fissa le date di inizio/fine (es. dopo una scadenza, con nuove regole €/pt).
             </small>
@@ -601,7 +614,7 @@
             <thead>
               <tr>
                 <th>Data</th><th>Tavolo</th><th>Ordine</th>
-                <th>Servizio</th><th>Cibo</th><th>Note</th>
+                <th>Servizio</th><th>Cibo</th><th>Note</th><th></th>
               </tr>
             </thead>
             <tbody id="recensioni-rist-body"></tbody>
@@ -772,6 +785,22 @@
             <label>Password *</label>
             <input type="password" id="auth-password" required minlength="4" autocomplete="current-password" />
           </div>
+          <div id="auth-privacy-block" class="auth-privacy-block">
+            <p class="auth-privacy-lead">Privacy e consensi (programma loyalty)</p>
+            <label class="check-line">
+              <input type="checkbox" id="auth-consenso-privacy" required />
+              <span>Ho letto e accetto l’<strong>informativa privacy</strong> e il trattamento dei dati per la loyalty card <em>(obbligatorio)</em>.</span>
+            </label>
+            <label class="check-line">
+              <input type="checkbox" id="auth-consenso-marketing" />
+              <span>Acconsento a ricevere comunicazioni promozionali del locale <em>(facoltativo)</em>.</span>
+            </label>
+            <label class="check-line">
+              <input type="checkbox" id="auth-consenso-profilazione" />
+              <span>Acconsento alla profilazione delle preferenze per offerte personalizzate <em>(facoltativo)</em>.</span>
+            </label>
+            <p class="auth-privacy-note">Per il solo accumulo punti non è obbligatorio il consenso marketing. I consensi facoltativi sono necessari solo se il locale invia promozioni o profila i gusti.</p>
+          </div>
           <button type="submit" id="btn-auth-submit" class="btn btn-primary btn-block">Accedi</button>
         </form>
       </div>
@@ -838,6 +867,7 @@
       </div>
       <section id="cliente-menu-view">
         <div id="loy-regolamento-menu" class="loy-regolamento-wrap"></div>
+        <div id="cliente-menu-tabs" class="cliente-menu-tabs"></div>
         <div class="cliente-categorie" id="cliente-categorie"></div>
         <div id="cliente-menu-list" class="cliente-menu-list"></div>
       </section>
@@ -1399,6 +1429,47 @@
   </div>
 
   <!-- Modal premio -->
+  
+  <div id="modal-rist-password" class="modal hidden">
+    <div class="modal-content" style="max-width:420px">
+      <div class="modal-header">
+        <h3>Cambia password</h3>
+        <button type="button" class="close-modal" data-modal="modal-rist-password">&times;</button>
+      </div>
+      <div style="padding:8px 24px 0">
+        <div class="form-group" style="padding:0">
+          <label>Password attuale *</label>
+          <input type="password" id="rist-pass-attuale" autocomplete="current-password" />
+        </div>
+        <div class="form-group" style="padding:0">
+          <label>Nuova password *</label>
+          <input type="password" id="rist-pass-nuova" minlength="4" autocomplete="new-password" />
+        </div>
+        <div class="form-group" style="padding:0">
+          <label>Conferma nuova password *</label>
+          <input type="password" id="rist-pass-conferma" minlength="4" autocomplete="new-password" />
+        </div>
+        <p id="rist-pass-error" class="hidden" style="color:var(--danger);font-size:13px"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal" data-modal="modal-rist-password">Annulla</button>
+        <button type="button" id="btn-rist-pass-save" class="btn btn-primary">Salva password</button>
+      </div>
+    </div>
+  </div>
+
+    <div id="modal-ordine-dettaglio" class="modal hidden">
+    <div class="modal-content" style="max-width:480px">
+      <div class="modal-header">
+        <h3 id="ord-det-title">Dettaglio ordine</h3>
+        <button type="button" class="close-modal" data-modal="modal-ordine-dettaglio">&times;</button>
+      </div>
+      <div id="ord-det-body" style="padding:12px 24px 20px;font-size:14px"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal" data-modal="modal-ordine-dettaglio">Chiudi</button>
+      </div>
+    </div>
+  </div>
   <div id="modal-premio" class="modal hidden">
     <div class="modal-content" style="max-width:440px">
       <div class="modal-header">
@@ -1538,8 +1609,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=23"></script>
-  <script src="script.js?v=23"></script>
+  <script src="config.js?v=24"></script>
+  <script src="script.js?v=24"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
