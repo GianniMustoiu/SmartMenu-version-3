@@ -733,13 +733,24 @@ function uidMenu() {
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-function toast(msg) {
-  const t = $('#toast');
-  if (!t) return;
-  t.textContent = msg;
+function toast(msg, opts) {
+  opts = opts || {};
+  let t = $('#toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = String(msg || '');
+  t.classList.remove('hidden', 'toast-error', 'toast-ok');
+  if (opts.error) t.classList.add('toast-error');
+  if (opts.ok) t.classList.add('toast-ok');
+  clearTimeout(window._toastTimer);
   t.classList.remove('hidden');
-  setTimeout(() => t.classList.add('hidden'), 2800);
+  window._toastTimer = setTimeout(() => t.classList.add('hidden'), opts.ms || 3200);
 }
+
 
 function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -3333,7 +3344,7 @@ function chiediConfermaChiusura(ymd, stats) {
   return new Promise((resolve) => {
     const modal = $('#modal-chiusura-fiscale');
     if (!modal) {
-      resolve(confirm('Confermi la chiusura fiscale del ' + ymd + '?'));
+      resolve(false); // modal assente: non chiudere
       return;
     }
     const lead = $('#chiusura-modal-lead');
@@ -3593,6 +3604,62 @@ function assertNotCliente() {
   return !(currentUser && currentUser.role === 'cliente');
 }
 
+
+/** Prompt stilizzato (sostituisce window.prompt). Ritorna stringa o null se annulla. */
+function chiediInput(msg, defaultValue, opts) {
+  opts = opts || {};
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-prompt-input');
+    if (!modal) {
+      // fallback silenzioso senza alert nativo: rifiuta
+      resolve(null);
+      return;
+    }
+    const titleEl = document.getElementById('prompt-input-title');
+    const msgEl = document.getElementById('prompt-input-msg');
+    const field = document.getElementById('prompt-input-field');
+    const btnSi = document.getElementById('btn-prompt-si');
+    const btnNo = document.getElementById('btn-prompt-no');
+    const btnX = document.getElementById('btn-prompt-x');
+    if (titleEl) titleEl.textContent = opts.title || 'Inserisci';
+    if (msgEl) msgEl.textContent = msg || '';
+    if (field) {
+      field.type = opts.type || 'text';
+      field.value = defaultValue != null ? String(defaultValue) : '';
+      field.placeholder = opts.placeholder || '';
+    }
+    if (btnSi) btnSi.textContent = opts.confirmLabel || 'Conferma';
+    modal.classList.remove('hidden');
+    setTimeout(() => { try { field?.focus(); field?.select(); } catch (e) {} }, 50);
+
+    const cleanup = (val) => {
+      modal.classList.add('hidden');
+      btnSi?.removeEventListener('click', onSi);
+      btnNo?.removeEventListener('click', onNo);
+      btnX?.removeEventListener('click', onNo);
+      field?.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onEsc);
+      resolve(val);
+    };
+    const onSi = () => cleanup(field ? field.value : '');
+    const onNo = () => cleanup(null);
+    const onKey = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); onSi(); }
+    };
+    const onEsc = (e) => { if (e.key === 'Escape') onNo(); };
+    btnSi?.addEventListener('click', onSi);
+    btnNo?.addEventListener('click', onNo);
+    btnX?.addEventListener('click', onNo);
+    field?.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onEsc);
+  });
+}
+
+/** Alias comodo */
+function chiediConferma(msg, hint, opts) {
+  return chiediConfermaStato(msg, hint, opts);
+}
+
 function stampaRiepilogoChiusura() {
   if (!currentRistorante) return;
   const ymd = ($('#chiusura-data') && $('#chiusura-data').value) || ymdLocal();
@@ -3712,7 +3779,8 @@ function chiediConfermaStato(msgHtml, hintText, opts) {
   return new Promise((resolve) => {
     const modal = $('#modal-conferma-stato');
     if (!modal) {
-      resolve(window.confirm(String(msgHtml).replace(/<[^>]+>/g, '')));
+      // niente alert nativo: se manca il modal, annulla
+      resolve(false);
       return;
     }
     const titleEl = modal.querySelector('.modal-header h3');
@@ -6586,7 +6654,12 @@ document.getElementById('btn-elimina-menu')?.addEventListener('click', async () 
   const msg = nPiatti
     ? ('Eliminare il menu «' + nome + '»? I ' + nPiatti + ' piatti collegati non saranno più mostrati finché non li assegni a un altro menu.')
     : ('Eliminare il menu «' + nome + '»?');
-  if (!confirm(msg)) return;
+  const okDel = await chiediConfermaStato(
+    msg.replace(/</g, '&lt;'),
+    'L\'operazione non si può annullare.',
+    { danger: true, title: 'Elimina menu', confirmLabel: 'Elimina', confirmIcon: 'fas fa-trash' }
+  );
+  if (!okDel) return;
   currentRistorante.menus = menus.filter(x => String(x.id) !== mid);
   const next = currentRistorante.menus[0];
   currentMenuId = next.id;
@@ -7546,11 +7619,13 @@ document.getElementById('btn-loy-nuovo-periodo')?.addEventListener('click', asyn
   const punti = parseInt(document.getElementById('loy-punti')?.value, 10) || 0;
   const rawM = (document.getElementById('loy-scadenza-mesi')?.value || '').trim();
   const mesi = rawM === '' ? 0 : Math.min(36, Math.max(1, parseInt(rawM, 10) || 12));
-  const ok = confirm(
-    'Avviare un nuovo periodo loyalty?\n\n' +
-    `Regole: ogni €${euro} = ${punti} pt` +
+    const ok = await chiediConfermaStato(
+    'Avviare un nuovo periodo loyalty?<br><br>' +
+    `<strong>Regole:</strong> ogni €${euro} = ${punti} pt` +
     (mesi ? `, validità ${mesi} mesi` : ', senza scadenza') +
-    '.\nIl regolamento lato cliente si aggiorna subito.'
+    '.<br>Il regolamento lato cliente si aggiorna subito.',
+    '',
+    { title: 'Nuovo periodo loyalty', confirmLabel: 'Avvia', confirmIcon: 'fas fa-calendar-plus' }
   );
   if (!ok) return;
   const inizio = new Date().toISOString();
@@ -7645,7 +7720,10 @@ document.getElementById('form-premio')?.addEventListener('submit', async (e) => 
 
 window.aggiungiPuntiManuali = async function(memberId) {
   if (currentUser && currentUser.role === 'cassa') { toast('Solo il ristoratore può modificare i punti'); return; }
-  const raw = prompt('Quanti punti aggiungere? (usa negativo per togliere)', '10');
+  const raw = await chiediInput('Quanti punti aggiungere? (usa negativo per togliere)', '10', {
+    title: 'Rettifica punti',
+    confirmLabel: 'Applica'
+  });
   if (raw == null) return;
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n) || n === 0) return;
@@ -9188,7 +9266,10 @@ window.segnalaRecensione = async function(id) {
     toast('Solo il ristoratore può segnalare');
     return;
   }
-  const motivo = prompt('Motivo della segnalazione (spam, offensivo, falso…)', 'Contenuto non appropriato');
+  const motivo = await chiediInput('Motivo della segnalazione (spam, offensivo, falso…)', 'Contenuto non appropriato', {
+    title: 'Segnala recensione',
+    confirmLabel: 'Segnala'
+  });
   if (motivo == null) return;
   const { error } = await sb.from('recensioni').update({
     segnalata: true,
