@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MenuPro – Gestione ristorante</title>
-  <link rel="stylesheet" href="style.css?v=28" />
+  <link rel="stylesheet" href="style.css?v=29" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -353,6 +353,26 @@
           <div class="chart-box">
             <h3>Stato ordini e pagamenti</h3>
             <canvas id="chart-stati-rist" height="180"></canvas>
+          </div>
+        </div>
+        <div class="charts-row top-vendite-row">
+          <div class="chart-box top-vendite-box">
+            <h3><i class="fas fa-utensils"></i> Top 3 piatti · più venduti</h3>
+            <div id="top-piatti-qty" class="top-vendite-list"></div>
+          </div>
+          <div class="chart-box top-vendite-box">
+            <h3><i class="fas fa-coins"></i> Top 3 piatti · più guadagno</h3>
+            <div id="top-piatti-rev" class="top-vendite-list"></div>
+          </div>
+        </div>
+        <div class="charts-row top-vendite-row">
+          <div class="chart-box top-vendite-box">
+            <h3><i class="fas fa-glass-martini-alt"></i> Top 3 bevande · più vendute</h3>
+            <div id="top-bevande-qty" class="top-vendite-list"></div>
+          </div>
+          <div class="chart-box top-vendite-box">
+            <h3><i class="fas fa-wine-glass-alt"></i> Top 3 bevande · più guadagno</h3>
+            <div id="top-bevande-rev" class="top-vendite-list"></div>
           </div>
         </div>
         <div class="recent-box">
@@ -1641,8 +1661,8 @@
   <div id="toast" class="toast hidden"></div>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=28"></script>
-  <script src="script.js?v=28"></script>
+  <script src="config.js?v=29"></script>
+  <script src="script.js?v=29"></script>
   <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js');
