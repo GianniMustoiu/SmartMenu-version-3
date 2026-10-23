@@ -3269,9 +3269,10 @@ async function renderChiusuraFiscale() {
         const ps = o.stato_pagamento || defaultPagStato(o.pagamento);
         const metodo = o.pagamento === 'cassa' ? 'Cassa' : 'Carta';
         const circ = o.circuito_pagamento ? labelCircuito(o.circuito_pagamento) : '—';
+        const oid = o.id || '';
         return `<tr>
           <td>${formatTime(o.createdAt || o.created_at)}</td>
-          <td>#${o.codice || ''}</td>
+          <td><button type="button" class="link-ordine-codice" data-ordine-id="${oid}" title="Vedi piatti ordinati">#${o.codice || ''}</button></td>
           <td>${o.tavolo}</td>
           <td><span class="badge-stato ${o.stato}">${labelStato(o.stato)}</span></td>
           <td>${metodo} · <span class="badge-pag ${ps}">${labelPagamentoStato(ps)}</span></td>
@@ -3279,6 +3280,9 @@ async function renderChiusuraFiscale() {
           <td><strong>${formatPrice(o.totale)}</strong></td>
         </tr>`;
       }).join('');
+      tbody.querySelectorAll('.link-ordine-codice').forEach(btn => {
+        btn.addEventListener('click', () => apriDettaglioOrdineChiusura(btn.dataset.ordineId));
+      });
     }
   }
 
@@ -4386,6 +4390,7 @@ async function renderClientePremi() {
     if (inCart && !terminato) statusTxt += ' · in carrello ×' + inCart.qty;
     return `
       <div class="loyalty-premio-item ${terminato ? 'inactive' : ''}">
+        ${pr.immagine ? `<img src="${pr.immagine}" alt="" class="premio-img" onerror="this.style.display='none'" />` : ''}
         <div style="flex:1;min-width:0">
           <strong>${pr.nome || 'Premio'}</strong>
           ${pr.descrizione ? `<div style="font-size:12px;color:var(--muted)">${pr.descrizione}</div>` : ''}
@@ -4411,12 +4416,40 @@ document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
   showClienteView('premi');
 });
 
+function renderClienteMenuTabs() {
+  const wrap = document.getElementById('cliente-menu-tabs');
+  if (!wrap || !currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  if (menus.length <= 1) {
+    wrap.innerHTML = '';
+    wrap.classList.add('hidden');
+    if (!currentMenuId && menus[0]) currentMenuId = menus[0].id;
+    return;
+  }
+  wrap.classList.remove('hidden');
+  // default: menu pubblico o primo
+  if (!currentMenuId || !menus.some(m => String(m.id) === String(currentMenuId))) {
+    currentMenuId = getMenuPubblicoId(currentRistorante) || menus[0].id;
+  }
+  wrap.innerHTML = menus.map(m =>
+    `<button type="button" class="cliente-menu-tab ${String(m.id) === String(currentMenuId) ? 'active' : ''}" data-menu-id="${m.id}">${(m.nome || 'Menu').replace(/</g, '&lt;')}</button>`
+  ).join('');
+  wrap.querySelectorAll('.cliente-menu-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentMenuId = btn.dataset.menuId;
+      menuFilterCat = 'tutti';
+      renderClienteMenu();
+    });
+  });
+}
+
 function renderClienteMenu(skipTranslate) {
   try { refreshRegolamentoClienteUI(); } catch (e) {}
   if (!currentRistorante) return;
   applyClienteChromeI18n();
-  const pubId = getMenuPubblicoId(currentRistorante);
-  const menu = piattiDelMenu(currentRistorante, pubId).filter(p => p.disponibile !== false);
+  try { renderClienteMenuTabs(); } catch (e) {}
+  const menuId = currentMenuId || getMenuPubblicoId(currentRistorante);
+  const menu = piattiDelMenu(currentRistorante, menuId).filter(p => p.disponibile !== false);
   // Ordine categorie come in gestione menu (posizione DB), non casuale
   const ordered = (currentRistorante.categorie || []).filter(Boolean);
   const fromMenu = [...new Set(menu.map(p => p.categoria).filter(Boolean))];
@@ -6716,7 +6749,7 @@ async function restoreLoyaltySession() {
   } catch (e) {}
 }
 
-async function registraLoyaltyCliente({ nome, cognome, email, telefono, password }) {
+async function registraLoyaltyCliente({ nome, cognome, email, telefono, password, consensi }) {
   if (!currentRistorante || !currentRistorante.id) return { error: 'Ristorante non disponibile' };
   const em = String(email || '').toLowerCase().trim();
   if (!em || !password) return { error: 'Email e password obbligatorie' };
@@ -6812,7 +6845,8 @@ function getLoyaltyConfig(r) {
       punti: Number(cfg.punti) || 0,
       scadenza_mesi: cfg.scadenza_mesi != null ? Number(cfg.scadenza_mesi) : mesiFallback,
       periodo_inizio: cfg.periodo_inizio || null,
-      periodo_fine: cfg.periodo_fine || null
+      periodo_fine: cfg.periodo_fine || null,
+      auto_rinnovo: !!cfg.auto_rinnovo
     };
   }
   try {
@@ -6828,7 +6862,7 @@ function getLoyaltyConfig(r) {
     }
   } catch (e) {}
   const d = defaultLoyaltyConfig();
-  return { ...d, scadenza_mesi: mesiFallback, periodo_inizio: null, periodo_fine: null };
+  return { ...d, scadenza_mesi: mesiFallback, periodo_inizio: null, periodo_fine: null, auto_rinnovo: false };
 }
 
 function computePeriodoFine(inizioIso, mesi) {
@@ -6854,6 +6888,28 @@ function isPeriodoScaduto(cfg) {
   try { return new Date(cfg.periodo_fine).getTime() < Date.now(); } catch (e) { return false; }
 }
 
+
+async function maybeAutoRinnovaLoyalty(r) {
+  if (!r) return;
+  const cfg = getLoyaltyConfig(r);
+  if (!cfg.auto_rinnovo) return;
+  if (!cfg.periodo_fine || !isPeriodoScaduto(cfg)) return;
+  const mesi = Number(cfg.scadenza_mesi) || 0;
+  if (mesi <= 0) return;
+  const inizio = new Date().toISOString();
+  const fine = computePeriodoFine(inizio, mesi);
+  await saveLoyaltyConfig(r, {
+    euro: cfg.euro,
+    punti: cfg.punti,
+    scadenza_mesi: mesi,
+    periodo_inizio: inizio,
+    periodo_fine: fine,
+    auto_rinnovo: true
+  });
+  console.info('[MenuPro] Periodo loyalty rinnovato automaticamente fino al', fine);
+  try { toast('Periodo loyalty rinnovato automaticamente'); } catch (e) {}
+}
+
 async function saveLoyaltyConfig(r, cfg) {
   if (!r) return;
   const full = {
@@ -6861,7 +6917,8 @@ async function saveLoyaltyConfig(r, cfg) {
     punti: Number(cfg.punti) || 0,
     scadenza_mesi: cfg.scadenza_mesi != null && cfg.scadenza_mesi !== '' ? Number(cfg.scadenza_mesi) : 0,
     periodo_inizio: cfg.periodo_inizio || null,
-    periodo_fine: cfg.periodo_fine || null
+    periodo_fine: cfg.periodo_fine || null,
+    auto_rinnovo: !!cfg.auto_rinnovo
   };
   if (full.scadenza_mesi > 0 && full.periodo_inizio && !full.periodo_fine) {
     full.periodo_fine = computePeriodoFine(full.periodo_inizio, full.scadenza_mesi);
@@ -7068,6 +7125,7 @@ async function savePremio(premio) {
     id_ristorante: ristId,
     nome: String(premio.nome || '').trim(),
     descrizione: String(premio.descrizione || '').trim(),
+    immagine: (premio.immagine || '').trim() || null,
     punti_richiesti: parseInt(premio.punti_richiesti, 10) || 1,
     quantita_max: Math.max(0, parseInt(premio.quantita_max, 10) || 0),
     quantita_usati: Math.max(0, parseInt(premio.quantita_usati, 10) || 0),
@@ -7099,7 +7157,8 @@ async function savePremio(premio) {
       punti_richiesti: premio.punti_richiesti,
       quantita_max: premio.quantita_max || 0,
       quantita_usati: premio.quantita_usati || 0,
-      attivo: premio.attivo !== false
+      attivo: premio.attivo !== false,
+      immagine: premio.immagine || null
     };
     try {
       if (premio.id && !String(premio.id).startsWith('p_')) {
@@ -7149,6 +7208,13 @@ function showClienteAuthGate(show) {
 }
 
 function showClienteAuthForm(mode) {
+  try {
+    const priv = document.getElementById('auth-privacy-block');
+    if (priv) priv.classList.toggle('hidden', mode !== 'register');
+    const cp = document.getElementById('auth-consenso-privacy');
+    if (cp) cp.required = mode === 'register';
+  } catch (e) {}
+
   try { refreshRegolamentoClienteUI(); } catch (e) {}
   document.getElementById('cliente-auth-gate')?.classList.add('hidden');
   const formWrap = document.getElementById('cliente-auth-form');
@@ -7228,7 +7294,28 @@ document.getElementById('form-cliente-auth')?.addEventListener('submit', async (
     const cognome = document.getElementById('auth-cognome')?.value || '';
     const tel = document.getElementById('auth-tel')?.value || '';
     if (!nome.trim() || !cognome.trim()) { toast('Inserisci nome e cognome'); return; }
-    const res = await registraLoyaltyCliente({ nome, cognome, email, telefono: tel, password });
+    if ((document.getElementById('auth-mode')?.value || mode) === 'register' || document.getElementById('auth-register-fields') && !document.getElementById('auth-register-fields').classList.contains('hidden')) {
+      if (!document.getElementById('auth-consenso-privacy')?.checked) {
+        toast('Devi accettare l\'informativa privacy per attivare la card');
+        return;
+      }
+    }
+    const consensi = {
+      privacy: !!document.getElementById('auth-consenso-privacy')?.checked,
+      marketing: !!document.getElementById('auth-consenso-marketing')?.checked,
+      profilazione: !!document.getElementById('auth-consenso-profilazione')?.checked
+    };
+    const res = await registraLoyaltyCliente({ nome, cognome, email, telefono: tel, password, consensi: typeof consensi !== "undefined" ? consensi : undefined });
+    if (res && !res.error && res.id && typeof consensi !== 'undefined' && sb) {
+      try {
+        await sb.from('clienti_fedelta').update({
+          consenso_privacy: !!consensi.privacy,
+          consenso_marketing: !!consensi.marketing,
+          consenso_profilazione: !!consensi.profilazione,
+          consensi_at: new Date().toISOString()
+        }).eq('id', res.id);
+      } catch (e) { console.warn('consensi', e); }
+    }
     if (res.error) { toast(res.error); return; }
     setLoyaltySession(res.member);
     showClienteAuthGate(false);
@@ -7339,6 +7426,8 @@ document.getElementById('btn-loy-copy-code')?.addEventListener('click', async ()
 
 // --- Admin loyalty page ---
 async function renderLoyaltyAdmin() {
+  try { await maybeAutoRinnovaLoyalty(currentRistorante); } catch (e) {}
+
   if (!currentRistorante) return;
   currentRistorante = await loadRistoranteFull(currentRistorante.id) || currentRistorante;
   if (!isFidelityEnabled(currentRistorante)) {
@@ -7357,6 +7446,8 @@ async function renderLoyaltyAdmin() {
   if (puntiEl) puntiEl.value = cfg.punti;
   const mesiEl = document.getElementById('loy-scadenza-mesi');
   if (mesiEl) mesiEl.value = cfg.scadenza_mesi > 0 ? cfg.scadenza_mesi : '';
+  const autoEl = document.getElementById('loy-auto-rinnovo');
+  if (autoEl) autoEl.checked = !!cfg.auto_rinnovo;
   const prev = document.getElementById('loy-config-preview');
   if (prev) {
     const fine = cfg.periodo_fine ? formatDataLoy(cfg.periodo_fine) : null;
@@ -7436,11 +7527,13 @@ document.getElementById('btn-salva-loy-config')?.addEventListener('click', async
   const rawM = (document.getElementById('loy-scadenza-mesi')?.value || '').trim();
   const mesi = rawM === '' ? 0 : Math.min(36, Math.max(0, parseInt(rawM, 10) || 0));
   const prev = getLoyaltyConfig(currentRistorante);
+  const auto = !!document.getElementById('loy-auto-rinnovo')?.checked;
   await saveLoyaltyConfig(currentRistorante, {
     euro, punti,
     scadenza_mesi: mesi,
     periodo_inizio: prev.periodo_inizio,
-    periodo_fine: mesi > 0 && prev.periodo_inizio ? computePeriodoFine(prev.periodo_inizio, mesi) : (mesi > 0 ? prev.periodo_fine : null)
+    periodo_fine: mesi > 0 && prev.periodo_inizio ? computePeriodoFine(prev.periodo_inizio, mesi) : (mesi > 0 ? prev.periodo_fine : null),
+    auto_rinnovo: auto
   });
   toast('Regolamento loyalty aggiornato');
   renderLoyaltyAdmin();
@@ -7462,8 +7555,9 @@ document.getElementById('btn-loy-nuovo-periodo')?.addEventListener('click', asyn
   if (!ok) return;
   const inizio = new Date().toISOString();
   const fine = mesi > 0 ? computePeriodoFine(inizio, mesi) : null;
+  const auto = !!document.getElementById('loy-auto-rinnovo')?.checked;
   await saveLoyaltyConfig(currentRistorante, {
-    euro, punti, scadenza_mesi: mesi, periodo_inizio: inizio, periodo_fine: fine
+    euro, punti, scadenza_mesi: mesi, periodo_inizio: inizio, periodo_fine: fine, auto_rinnovo: auto
   });
   toast('Nuovo periodo loyalty avviato' + (fine ? ' · fino al ' + formatDataLoy(fine) : ''));
   renderLoyaltyAdmin();
@@ -7477,6 +7571,9 @@ document.getElementById('btn-nuovo-premio')?.addEventListener('click', () => {
   document.getElementById('premio-edit-id').value = '';
   document.getElementById('premio-nome').value = '';
   document.getElementById('premio-desc').value = '';
+  if (document.getElementById('premio-immagine')) document.getElementById('premio-immagine').value = '';
+  const pw = document.getElementById('premio-preview-wrap');
+  if (pw) pw.classList.add('hidden');
   document.getElementById('premio-punti').value = '100';
   if (document.getElementById('premio-qty-max')) document.getElementById('premio-qty-max').value = '0';
   if (document.getElementById('premio-qty-usati')) document.getElementById('premio-qty-usati').value = '0';
@@ -7493,6 +7590,11 @@ window.editPremio = async function(id) {
   document.getElementById('premio-edit-id').value = pr.id;
   document.getElementById('premio-nome').value = pr.nome || '';
   document.getElementById('premio-desc').value = pr.descrizione || '';
+  if (document.getElementById('premio-immagine')) document.getElementById('premio-immagine').value = pr.immagine || '';
+  const pw = document.getElementById('premio-preview-wrap');
+  const pimg = document.getElementById('premio-preview');
+  if (pr.immagine && pw && pimg) { pimg.src = pr.immagine; pw.classList.remove('hidden'); }
+  else if (pw) pw.classList.add('hidden');
   document.getElementById('premio-punti').value = pr.punti_richiesti || 100;
   if (document.getElementById('premio-qty-max')) document.getElementById('premio-qty-max').value = pr.quantita_max || 0;
   if (document.getElementById('premio-qty-usati')) document.getElementById('premio-qty-usati').value = pr.quantita_usati || 0;
@@ -7529,6 +7631,7 @@ document.getElementById('form-premio')?.addEventListener('submit', async (e) => 
     id_ristorante: currentRistorante.id,
     nome,
     descrizione: (document.getElementById('premio-desc')?.value || '').trim(),
+    immagine: (document.getElementById('premio-immagine')?.value || '').trim() || null,
     punti_richiesti: parseInt(document.getElementById('premio-punti')?.value, 10) || 1,
     quantita_max: parseInt(document.getElementById('premio-qty-max')?.value, 10) || 0,
     quantita_usati: parseInt(document.getElementById('premio-qty-usati')?.value, 10) || 0,
@@ -8760,17 +8863,21 @@ async function renderRistRecensioni() {
   const body = document.getElementById('recensioni-rist-body');
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione ancora</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione ancora</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => `
-    <tr>
+    <tr class="${r.segnalata ? 'rec-segnalata' : ''}">
       <td style="white-space:nowrap;font-size:12px">${formatSupportTime ? formatSupportTime(r.created_at) : (r.created_at || '')}</td>
       <td>${(r.tavolo || '—').toString().replace(/</g, '&lt;')}</td>
       <td><code>${(r.codice_ordine || r.id_ordine || '—').toString().replace(/</g, '&lt;')}</code></td>
       <td>${starsHtml(r.stelle_servizio)}</td>
       <td>${starsHtml(r.stelle_cibo)}</td>
-      <td style="font-size:12px;max-width:240px">${(r.note || '—').toString().replace(/</g, '&lt;')}</td>
+      <td style="font-size:12px;max-width:240px">${(r.note || '—').toString().replace(/</g, '&lt;')}${r.segnalata ? ' <span class="badge-stato-ticket chiuso">Segnalata</span>' : ''}</td>
+      <td>
+        ${r.segnalata ? '<span style="color:var(--muted);font-size:12px">Già segnalata</span>' :
+          '<button type="button" class="btn btn-secondary btn-sm" onclick="segnalaRecensione(\'' + r.id + '\')"><i class="fas fa-flag"></i></button>'}
+      </td>
     </tr>
   `).join('');
 }
@@ -8858,6 +8965,10 @@ async function renderAdminRecensioni() {
     rows = rows.filter(r => ids.has(String(r.id_ristorante)));
   }
 
+  const filterSeg = (document.getElementById('filter-rec-segnalate')?.value || 'tutte');
+  if (filterSeg === 'segnalate') rows = rows.filter(r => !!r.segnalata);
+  if (filterSeg === 'ok') rows = rows.filter(r => !r.segnalata);
+
   // testo libero: nome locale O nome ristoratore (titolare/email)
   if (q) {
     rows = rows.filter(r => {
@@ -8883,15 +8994,19 @@ async function renderAdminRecensioni() {
   const body = document.getElementById('recensioni-admin-body');
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione con questi filtri</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">Nessuna recensione con questi filtri</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => {
     const info = meta.byId[String(r.id_ristorante)] || {};
     const nomeLoc = (info.nome || r.id_ristorante || '—').toString().replace(/</g, '&lt;');
     const nomeRis = (info.titolare || info.email || '—').toString().replace(/</g, '&lt;');
+    const note = (r.note || '—').toString().replace(/</g, '&lt;');
+    const flag = r.segnalata
+      ? '<span class="badge-stato-ticket chiuso" title="' + String(r.segnalata_motivo || '').replace(/"/g, '') + '">Segnalata</span>'
+      : '';
     return `
-    <tr>
+    <tr class="${r.segnalata ? 'rec-segnalata' : ''}">
       <td style="white-space:nowrap;font-size:12px">${formatSupportTime ? formatSupportTime(r.created_at) : (r.created_at || '')}</td>
       <td>${nomeLoc}</td>
       <td style="font-size:12px">${nomeRis}</td>
@@ -8899,10 +9014,17 @@ async function renderAdminRecensioni() {
       <td><code>${(r.codice_ordine || '—').toString().replace(/</g, '&lt;')}</code></td>
       <td>${starsHtml(r.stelle_servizio)}</td>
       <td>${starsHtml(r.stelle_cibo)}</td>
-      <td style="font-size:12px;max-width:220px">${(r.note || '—').toString().replace(/</g, '&lt;')}</td>
+      <td style="font-size:12px;max-width:200px">${note} ${flag}</td>
+      <td style="white-space:nowrap">
+        ${r.segnalata ? '<button type="button" class="btn btn-secondary btn-sm" onclick="togliSegnalazioneRecensione(\'' + r.id + '\')" title="Togli segnalazione"><i class="fas fa-flag"></i></button> ' : ''}
+        <button type="button" class="btn btn-danger btn-sm" onclick="eliminaRecensioneAdmin(\'' + r.id + '\')" title="Elimina"><i class="fas fa-trash"></i></button>
+      </td>
     </tr>`;
   }).join('');
 }
+
+document.getElementById('filter-rec-segnalate')?.addEventListener('change', () => renderAdminRecensioni());
+
 
 document.getElementById('btn-refresh-recensioni-rist')?.addEventListener('click', () => renderRistRecensioni());
 document.getElementById('btn-refresh-recensioni-admin')?.addEventListener('click', () => {
@@ -8928,3 +9050,180 @@ document.getElementById('filter-rec-ristoratore')?.addEventListener('change', ()
   }
   renderAdminRecensioni();
 });
+
+document.getElementById('premio-immagine')?.addEventListener('input', (e) => {
+  const url = (e.target.value || '').trim();
+  const wrap = document.getElementById('premio-preview-wrap');
+  const img = document.getElementById('premio-preview');
+  if (url && wrap && img) { img.src = url; wrap.classList.remove('hidden'); }
+  else if (wrap) wrap.classList.add('hidden');
+});
+
+
+// =====================================================
+// CAMBIO PASSWORD RISTORATORE
+// =====================================================
+document.getElementById('btn-rist-cambia-password')?.addEventListener('click', () => {
+  if (currentUser && currentUser.role === 'cassa') {
+    toast('La cassa non può cambiare la password del ristoratore');
+    return;
+  }
+  document.getElementById('rist-pass-attuale').value = '';
+  document.getElementById('rist-pass-nuova').value = '';
+  document.getElementById('rist-pass-conferma').value = '';
+  const err = document.getElementById('rist-pass-error');
+  if (err) { err.classList.add('hidden'); err.textContent = ''; }
+  document.getElementById('modal-rist-password')?.classList.remove('hidden');
+});
+
+document.getElementById('btn-rist-pass-save')?.addEventListener('click', async () => {
+  const err = document.getElementById('rist-pass-error');
+  const showErr = (m) => { if (err) { err.textContent = m; err.classList.remove('hidden'); } else toast(m); };
+  if (err) err.classList.add('hidden');
+  const attuale = (document.getElementById('rist-pass-attuale')?.value || '').trim();
+  const nuova = (document.getElementById('rist-pass-nuova')?.value || '').trim();
+  const conf = (document.getElementById('rist-pass-conferma')?.value || '').trim();
+  if (!attuale || !nuova || !conf) { showErr('Compila tutti i campi'); return; }
+  if (nuova.length < 4) { showErr('La nuova password deve avere almeno 4 caratteri'); return; }
+  if (nuova !== conf) { showErr('Le password non coincidono'); return; }
+  if (!sb || !currentUser) { showErr('Sessione non valida'); return; }
+  const email = (currentUser.email || currentRistorante?.email || '').trim().toLowerCase();
+  if (!email) { showErr('Email non trovata'); return; }
+
+  // verifica password attuale
+  let ok = false;
+  try {
+    const { data: u } = await sb.from('utenti').select('id,password_hash,ruolo')
+      .eq('email', email).maybeSingle();
+    if (u && u.password_hash && u.password_hash === attuale) ok = true;
+    if (!ok && u && !u.password_hash) {
+      const { data: auth, error } = await sb.auth.signInWithPassword({ email, password: attuale });
+      if (!error && auth?.user) ok = true;
+    }
+    if (!ok && currentRistorante) {
+      const { data: rr } = await sb.from('ristoranti').select('id')
+        .eq('id', currentRistorante.id).eq('password', attuale).maybeSingle();
+      if (rr) ok = true;
+    }
+  } catch (e) { console.warn(e); }
+  if (!ok) { showErr('Password attuale non corretta'); return; }
+
+  // aggiorna
+  try {
+    const { data: u } = await sb.from('utenti').select('id').eq('email', email).maybeSingle();
+    if (u) {
+      await sb.from('utenti').update({ password_hash: nuova }).eq('id', u.id);
+    } else {
+      await sb.from('utenti').insert({
+        email, password_hash: nuova, ruolo: 'ristoratore',
+        id_ristorante: currentRistorante?.id || null
+      });
+    }
+    try {
+      await sb.from('ristoranti').update({ password: nuova }).eq('id', currentRistorante.id);
+    } catch (e) {}
+    document.getElementById('modal-rist-password')?.classList.add('hidden');
+    toast('Password aggiornata');
+  } catch (e) {
+    showErr('Salvataggio non riuscito: ' + (e.message || e));
+  }
+});
+
+// =====================================================
+// DETTAGLIO ORDINE DA CHIUSURA FISCALE
+// =====================================================
+async function apriDettaglioOrdineChiusura(ordineId) {
+  if (!ordineId || !sb) { toast('Ordine non disponibile'); return; }
+  const modal = document.getElementById('modal-ordine-dettaglio');
+  const body = document.getElementById('ord-det-body');
+  const title = document.getElementById('ord-det-title');
+  if (body) body.innerHTML = '<p style="color:var(--muted)">Caricamento…</p>';
+  modal?.classList.remove('hidden');
+  try {
+    const { data: o, error } = await sb.from('ordini').select('*').eq('id', ordineId).single();
+    if (error || !o) {
+      if (body) body.innerHTML = '<p>Ordine non trovato</p>';
+      return;
+    }
+    let items = o.items || [];
+    if (!items.length) {
+      try {
+        const { data: righe } = await sb.from('ordine_riga').select('*').eq('id_ordine', ordineId);
+        items = (righe || []).map(r => ({
+          nome: r.piatto || r.nome,
+          qty: r.qty_piatti || r.qty || 1,
+          prezzo: r.prezzo_pagato && (r.qty_piatti || r.qty)
+            ? Number(r.prezzo_pagato) / (r.qty_piatti || r.qty) : Number(r.prezzo) || 0
+        }));
+      } catch (e) {}
+    }
+    if (title) title.textContent = 'Ordine #' + (o.codice || '') + ' · Tavolo ' + (o.tavolo || '');
+    const rows = (items || []).map(i => {
+      const nome = (i.nome || '—').toString().replace(/</g, '&lt;');
+      const qty = i.qty || 1;
+      const line = i.isPremio
+        ? (qty + '× ' + nome + ' (premio)')
+        : (qty + '× ' + nome + ' · ' + formatPrice(Number(i.prezzo || 0) * qty));
+      return '<div class="ord-det-line"><span>' + line + '</span></div>';
+    }).join('') || '<p style="color:var(--muted)">Nessuna riga salvata</p>';
+    if (body) {
+      body.innerHTML =
+        '<p style="margin:0 0 10px;color:var(--muted);font-size:13px">' +
+        formatTime(o.created_at) + ' · ' + labelStato(o.stato) + ' · ' + formatPrice(o.totale) +
+        '</p>' + rows +
+        (o.note ? '<p style="margin-top:12px;font-size:13px"><strong>Note:</strong> ' +
+          String(o.note).replace(/</g, '&lt;') + '</p>' : '');
+    }
+  } catch (e) {
+    if (body) body.innerHTML = '<p>Errore caricamento</p>';
+  }
+}
+
+// =====================================================
+// RECENSIONI: segnalazione (ristoratore) + gestione admin
+// =====================================================
+window.segnalaRecensione = async function(id) {
+  if (!sb || !id) return;
+  if (currentUser && currentUser.role === 'cassa') {
+    toast('Solo il ristoratore può segnalare');
+    return;
+  }
+  const motivo = prompt('Motivo della segnalazione (spam, offensivo, falso…)', 'Contenuto non appropriato');
+  if (motivo == null) return;
+  const { error } = await sb.from('recensioni').update({
+    segnalata: true,
+    segnalata_motivo: (motivo || '').trim().slice(0, 300) || 'Segnalata',
+    segnalata_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) {
+    toast('Segnalazione non riuscita. Esegui feature_pack_loyalty_recensioni.sql');
+    console.warn(error);
+    return;
+  }
+  toast('Recensione segnalata');
+  try { await renderRistRecensioni(); } catch (e) {}
+};
+
+window.eliminaRecensioneAdmin = async function(id) {
+  if (!sb || !id) return;
+  const ok = await chiediConfermaStato(
+    'Eliminare definitivamente questa recensione?',
+    'L\'azione non si può annullare.',
+    { danger: true, title: 'Elimina recensione', confirmLabel: 'Elimina', confirmIcon: 'fas fa-trash' }
+  );
+  if (!ok) return;
+  const { error } = await sb.from('recensioni').delete().eq('id', id);
+  if (error) { toast('Eliminazione non riuscita'); return; }
+  toast('Recensione eliminata');
+  await renderAdminRecensioni();
+};
+
+window.togliSegnalazioneRecensione = async function(id) {
+  if (!sb || !id) return;
+  const { error } = await sb.from('recensioni').update({
+    segnalata: false, segnalata_motivo: null, segnalata_at: null
+  }).eq('id', id);
+  if (error) { toast('Operazione non riuscita'); return; }
+  toast('Segnalazione rimossa');
+  await renderAdminRecensioni();
+};
