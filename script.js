@@ -2931,19 +2931,124 @@ function renderTopVenditeList(el, rows, mode) {
 }
 
 function renderRistTopVendite() {
-  if (!currentRistorante) return;
-  const tops = computeTopVendite(
-    currentRistorante.ordini || [],
-    currentRistorante.menu || [],
-    currentPeriod,
-    3
-  );
-  renderTopVenditeList(document.getElementById('top-piatti-qty'), tops.piattiQty, 'qty');
-  renderTopVenditeList(document.getElementById('top-piatti-rev'), tops.piattiRev, 'rev');
-  renderTopVenditeList(document.getElementById('top-bevande-qty'), tops.bevandeQty, 'qty');
-  renderTopVenditeList(document.getElementById('top-bevande-rev'), tops.bevandeRev, 'rev');
+  // compat: ridisegna il grafico switchabile a destra
+  try { renderRistSideChart(); } catch (e) { console.warn(e); }
 }
 
+let chartRistView = 'stati';
+const CHART_RIST_TITLES = {
+  stati: 'Stato ordini',
+  piatti_qty: 'Top piatti · più venduti',
+  piatti_rev: 'Top piatti · più guadagno',
+  bevande_qty: 'Top bevande · più vendute',
+  bevande_rev: 'Top bevande · più guadagno'
+};
+const CHART_TOP_COLORS = ['#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ef4444'];
+
+function renderRistSideChart() {
+  if (typeof Chart === 'undefined' || !currentRistorante) return;
+  const view = chartRistView || (document.getElementById('chart-rist-view')?.value) || 'stati';
+  chartRistView = view;
+  const titleEl = document.getElementById('chart-rist-switch-title');
+  if (titleEl) titleEl.textContent = CHART_RIST_TITLES[view] || 'Grafico';
+  const emptyEl = document.getElementById('chart-rist-empty');
+  const ctx2 = document.getElementById('chart-stati-rist');
+  if (!ctx2) return;
+  if (chartStatiRist) { try { chartStatiRist.destroy(); } catch (e) {} chartStatiRist = null; }
+
+  const ordini = (currentRistorante.ordini || []).filter(o => inPeriod(o.createdAt || o.created_at, currentPeriod));
+
+  if (view === 'stati') {
+    const stati = { nuovo: 0, in_preparazione: 0, pronto: 0, consegnato: 0 };
+    ordini.forEach(o => { if (stati[o.stato] !== undefined) stati[o.stato]++; });
+    const data = [stati.nuovo, stati.in_preparazione, stati.pronto, stati.consegnato];
+    const has = data.some(n => n > 0);
+    if (emptyEl) emptyEl.classList.toggle('hidden', has);
+    ctx2.style.display = has ? '' : 'none';
+    if (!has) return;
+    chartStatiRist = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: ['Nuovo', 'In prep.', 'Pronto', 'Consegnato'],
+        datasets: [{ data, backgroundColor: ['#f59e0b', '#3b82f6', '#22c55e', '#94a3b8'], borderWidth: 0 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#94a3b8' } } }
+      }
+    });
+    return;
+  }
+
+  const tops = computeTopVendite(currentRistorante.ordini || [], currentRistorante.menu || [], currentPeriod, 3);
+  let rows = [];
+  let mode = 'qty';
+  if (view === 'piatti_qty') { rows = tops.piattiQty; mode = 'qty'; }
+  else if (view === 'piatti_rev') { rows = tops.piattiRev; mode = 'rev'; }
+  else if (view === 'bevande_qty') { rows = tops.bevandeQty; mode = 'qty'; }
+  else if (view === 'bevande_rev') { rows = tops.bevandeRev; mode = 'rev'; }
+
+  const has = rows && rows.length;
+  if (emptyEl) emptyEl.classList.toggle('hidden', !!has);
+  ctx2.style.display = has ? '' : 'none';
+  if (!has) return;
+
+  const labels = rows.map(r => {
+    const n = String(r.nome || '');
+    return n.length > 22 ? n.slice(0, 20) + '…' : n;
+  });
+  const values = rows.map(r => mode === 'rev' ? Math.round(r.rev * 100) / 100 : r.qty);
+  const colors = CHART_TOP_COLORS.slice(0, values.length);
+
+  chartStatiRist = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            color: '#94a3b8',
+            generateLabels(chart) {
+              const ds = chart.data.datasets[0];
+              return chart.data.labels.map((lab, i) => {
+                const v = ds.data[i];
+                const full = rows[i];
+                const extra = mode === 'rev'
+                  ? (formatPrice(full.rev) + ' · ' + full.qty + '×')
+                  : (full.qty + '× · ' + formatPrice(full.rev));
+                return {
+                  text: lab + ' (' + extra + ')',
+                  fillStyle: ds.backgroundColor[i],
+                  strokeStyle: ds.backgroundColor[i],
+                  index: i,
+                  hidden: false
+                };
+              });
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const full = rows[ctx.dataIndex];
+              if (!full) return ctx.label;
+              if (mode === 'rev') return full.nome + ': ' + formatPrice(full.rev) + ' (' + full.qty + '×)';
+              return full.nome + ': ' + full.qty + '× (' + formatPrice(full.rev) + ')';
+            }
+          }
+        }
+      }
+    }
+  });
+}
 
 async function renderRistDashboard() {
   if (!currentRistorante) return;
@@ -2988,8 +3093,7 @@ async function renderRistDashboard() {
 
 function renderRistCharts() {
   if (typeof Chart === 'undefined' || !currentRistorante) return;
-  const ordini = (currentRistorante.ordini || []).filter(o => inPeriod(o.createdAt, currentPeriod));
-  // chart semplificato
+  const ordini = (currentRistorante.ordini || []).filter(o => inPeriod(o.createdAt || o.created_at, currentPeriod));
   const ctx1 = document.getElementById('chart-incassi-rist');
   if (ctx1) {
     if (chartIncassiRist) chartIncassiRist.destroy();
@@ -3001,21 +3105,14 @@ function renderRistCharts() {
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
   }
-  const stati = { nuovo: 0, in_preparazione: 0, pronto: 0, consegnato: 0 };
-  ordini.forEach(o => { if (stati[o.stato] !== undefined) stati[o.stato]++; });
-  const ctx2 = document.getElementById('chart-stati-rist');
-  if (ctx2) {
-    if (chartStatiRist) chartStatiRist.destroy();
-    chartStatiRist = new Chart(ctx2, {
-      type: 'doughnut',
-      data: {
-        labels: ['Nuovo', 'In prep.', 'Pronto', 'Consegnato'],
-        datasets: [{ data: [stati.nuovo, stati.in_preparazione, stati.pronto, stati.consegnato], backgroundColor: ['#d4890f', '#3d6b8c', '#3d7a5a', '#7a6f62'], borderWidth: 0 }]
-      },
-      options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
-    });
-  }
+  renderRistSideChart();
 }
+
+document.getElementById('chart-rist-view')?.addEventListener('change', (e) => {
+  chartRistView = e.target.value || 'stati';
+  renderRistSideChart();
+});
+
 
 // =====================================================
 // MENU
