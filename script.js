@@ -1,444 +1,4 @@
-// =====================================================
-// MenuPro – Versione collegata a Supabase
-// =====================================================
-
-const BUILD = 'build-2026-10-21-cassa-v12';
-console.info('[MenuPro]', BUILD);
-const cfg = window.MENUPRO_CONFIG || {};
-let sb = null;
-try {
-  if (window.supabase && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY &&
-      !String(cfg.SUPABASE_ANON_KEY).includes('INCOLLA')) {
-    sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-  } else {
-    console.warn('Supabase non configurato correttamente in config.js');
-  }
-} catch (e) {
-  console.error('Errore init Supabase:', e);
-}
-window.sb = sb; // per debug in console
-if (!sb) console.warn('ATTENZIONE: sb è null — controlla config.js');
-
-let currentUser = null;
-let currentRistorante = null;
-let cart = [];
-let currentPeriod = 'oggi';
-let currentSala = 0;
-let menuFilterCat = 'tutti';
-let lastOrdineId = null;
-let sessionOrders = []; // { id, codice } ordini del tavolo in questa sessione
-function saveOfflineOrder(order) {
-
-  const orders =
-    JSON.parse(localStorage.getItem("offline_orders") || "[]");
-
-  orders.push(order);
-
-  localStorage.setItem(
-    "offline_orders",
-    JSON.stringify(orders)
-  );
-}
-let chartRicaviAdmin = null;
-let chartPianiAdmin = null;
-let chartIncassiRist = null;
-let chartStatiRist = null;
-
-const PIANI = {
-  standard: { nome: 'Standard', prezzo: 159, periodo: 'anno', maxCasse: 1 },
-  pro: { nome: 'Pro', prezzo: 189, periodo: 'anno', maxCasse: Infinity },
-  // alias legacy (vecchi record in DB)
-  base: { nome: 'Standard', prezzo: 159, periodo: 'anno', maxCasse: 1 },
-  enterprise: { nome: 'Pro', prezzo: 189, periodo: 'anno', maxCasse: Infinity }
-};
-
-function normalizzaPiano(id) {
-  if (id === 'base' || id === 'standard') return 'standard';
-  if (id === 'enterprise' || id === 'pro') return 'pro';
-  return id === 'pro' ? 'pro' : 'standard';
-}
-
-function maxCassePerPiano(id) {
-  const p = PIANI[normalizzaPiano(id)] || PIANI.standard;
-  return p.maxCasse;
-}
-
-function updateRistSidebarAbbonamento(r) {
-  const el = document.getElementById('rist-piano-sidebar');
-  if (!el) return;
-  const rist = r || currentRistorante;
-  if (!rist) {
-    el.classList.add('hidden');
-    el.textContent = '';
-    return;
-  }
-  const pianoId = normalizzaPiano(rist.id_piano);
-  const piano = PIANI[pianoId] || PIANI.standard;
-  const prezzo = piano.prezzo != null ? piano.prezzo : 0;
-  const periodo = piano.periodo === 'anno' ? '/anno' : '/mese';
-  let scaduto = false;
-  if (rist.scadenza) {
-    const d = new Date(rist.scadenza);
-    const oggi = new Date();
-    oggi.setHours(0, 0, 0, 0);
-    if (!isNaN(d.getTime()) && d < oggi) scaduto = true;
-  }
-  el.className = 'rist-piano-badge piano-' + (scaduto ? 'scaduto' : pianoId);
-  el.classList.remove('hidden');
-  const label = scaduto
-    ? ('Scaduto · era ' + (piano.nome || pianoId))
-    : ((piano.nome || pianoId) + ' · €' + prezzo + periodo);
-  el.innerHTML = '<i class="fas fa-crown" style="font-size:10px"></i> ' + label;
-  if (rist.scadenza && !scaduto) {
-    el.title = 'Scade il ' + formatDataItLong(rist.scadenza);
-  } else if (scaduto && rist.scadenza) {
-    el.title = 'Scaduto il ' + formatDataItLong(rist.scadenza);
-  } else {
-    el.title = 'Abbonamento ' + (piano.nome || pianoId);
-  }
-}
-
-
-const LANGS = ['it', 'en', 'es', 'de', 'fr', 'pt', 'zh'];
-let clienteLang = 'it';
-let currentMenuId = null;
-
-const UI_I18N = {
-  it: {
-    cart: 'Carrello', stato: 'Stato ordine', totale: 'Totale', note: 'Messaggio / richieste (es. togli formaggio)',
-    notePh: 'Allergie, modifiche, richieste speciali...',
-    paga: 'Pagamento', pagaCassa: 'In cassa', invia: 'Conferma ordine', menu: 'Menu', aggiungi: 'Aggiungi',
-    scelto: 'Cosa hai scelto', vuoto: 'Il carrello è vuoto.', tavolo: 'Tavolo',
-    carta: 'Carta', cassa: 'Pago in cassa', indietro: 'Indietro',
-    ricevuta: 'Ordine ricevuto', pagamento: 'Pagamento', codice: 'Codice',
-    sessione: 'Sessione attiva · scade tra', sessioneScaduta: 'Sessione scaduta',
-    sessioneHint: 'Per sicurezza puoi ordinare solo entro 30 minuti dalla scansione del QR.',
-    riscansione: 'Inquadra di nuovo il codice QR sul tavolo per continuare.',
-    ordiniValidi: 'Gli ordini già inviati restano validi: il ristorante li vede comunque.',
-    tutti: 'Tutti', nessunPiatto: 'Nessun piatto disponibile.',
-    aPunto: 'A che punto è il tuo ordine', tornaMenu: 'Torna al menu',
-    scaricaRicevuta: 'Scarica ricevuta', aggiungiAltro: 'Aggiungi altro',
-    circuito: 'Circuito / wallet', circuitoHint: 'Scegli come pagare online. Non memorizziamo i dati della carta.',
-    ordinaAncora: 'Ordina ancora', aggiornaStato: 'Aggiorna stato', autoStato: 'Stato aggiornato automaticamente',
-    tuoiOrdini: 'I tuoi ordini a questo tavolo', nessunOrdine: 'Nessun ordine',
-    pagamentoLabel: 'Pagamento', intestatario: 'Intestatario', numCarta: 'Numero carta',
-    scadenza: 'Scadenza', cvv: 'CVV', pagaOra: 'Paga', pagaCon: 'Paga con',
-    paySecure: 'I dati restano sul tuo dispositivo: salviamo solo il tipo di circuito, non il numero della carta.',
-    payDemo: 'Pagamento in cassa al banco.', payWallet: 'Pagamento in cassa.',
-    less1min: 'meno di 1 min', minSuffix: ' min', scaduta: 'scaduta',
-    sessioneScadTitle: 'Sessione scaduta: riscansione il QR sul tavolo',
-    ordineInviato: 'Ordine inviato!', carrelloVuoto: 'Il carrello è vuoto',
-    sessioneNonValida: 'Sessione cliente non valida. Riscansiona il QR.',
-    premio: 'Premio', puntiInsuff: 'Punti insufficienti',
-    authWelcome: 'Benvenuto', authHint: 'Accedi alla loyalty card per accumulare punti, oppure continua come ospite.',
-    authOspite: 'Continua come ospite', authLogin: 'Accedi', authRegister: 'Registrati e attiva card',
-    authBack: 'Indietro', authNome: 'Nome', authCognome: 'Cognome', authTel: 'Telefono',
-    authEmail: 'Email', authPassword: 'Password', authSubmitLogin: 'Accedi',
-    authSubmitReg: 'Crea account e attiva card', authTitleLogin: 'Accedi', authTitleReg: 'Registrati',
-    tabMenu: 'Menu', tabPremi: 'Premi',
-    ordineRicevuto: 'Ordine ricevuto', statoOrdine: 'Stato ordine',
-    regTitle: 'Regolamento loyalty card',
-    regEuroPt: 'Ogni €{euro} di spesa (ordini pagati e consegnati) ti fa guadagnare {pt} punt{ptS}.',
-    regEsempio: 'Esempio: un conto da €{ex} → {ptEx} pt.',
-    regScadeFine: 'I punti accumulati in questo periodo sono validi fino al {fine} ({mesi} mes{mesiS}).',
-    regScadeMesi: 'I punti scadono dopo {mesi} mes{mesiS} dal programma in corso.',
-    regNoScade: 'I punti non scadono (nessuna data di fine impostata).',
-    regPremi: 'I premi si riscattano dal menu «Premi» quando hai abbastanza punti.',
-    regUpdate: 'Il regolamento può essere aggiornato dal ristorante: valgono sempre le condizioni mostrate qui al momento dell\'uso.',
-    regPeriodo: 'Periodo corrente: dal {inizio}{finePart}',
-    regScaduto: 'scaduto',
-    recTitle: 'Com\'è andata?',
-    recHint: 'Valuta servizio e cibo (1–5 stelle). Opzionale.',
-    recServizio: 'Servizio',
-    recCibo: 'Cibo',
-    recNote: 'Note (opzionale)',
-    recNotePh: 'Cosa ti è piaciuto o cosa migliorare…',
-    recInvia: 'Invia valutazione',
-    recGrazie: 'Grazie per la tua valutazione!',
-    recSeleziona: 'Seleziona le stelle per servizio e cibo',
-    st_nuovo: 'Nuovo', st_in_preparazione: 'In preparazione', st_pronto: 'Pronto',
-    st_consegnato: 'Consegnato', st_chiuso: 'Chiuso',
-    pag_pagato: 'Pagato', pag_in_attesa: 'In attesa', pag_non_pagato: 'Non pagato',
-    all_glutine: 'Glutine', all_latticini: 'Latticini', all_uova: 'Uova',
-    all_frutta_a_guscio: 'Frutta a guscio', all_pesce: 'Pesce', all_crostacei: 'Crostacei',
-    all_soia: 'Soia', all_sesamo: 'Sesamo',
-    cat_antipasti: 'Antipasti', cat_primi: 'Primi', cat_secondi: 'Secondi', cat_contorni: 'Contorni',
-    cat_dolci: 'Dolci', cat_bevande: 'Bevande', cat_pizze: 'Pizze', cat_insalate: 'Insalate',
-    cat_sfizi: 'Sfizi', cat_vini: 'Vini', cat_birre: 'Birre', cat_cocktail: 'Cocktail',
-    cat_caffetteria: 'Caffetteria', cat_aperitivi: 'Aperitivi', cat_dessert: 'Dessert'
-  },
-  en: {
-    cart: 'Cart', stato: 'Order status', totale: 'Total', note: 'Notes / requests (e.g. no cheese)',
-    notePh: 'Allergies, changes, special requests...',
-    paga: 'Payment method', invia: 'Confirm order', menu: 'Menu', aggiungi: 'Add',
-    scelto: 'Your selection', vuoto: 'Your cart is empty.', tavolo: 'Table',
-    carta: 'Card', cassa: 'Pay at counter', indietro: 'Back',
-    ricevuta: 'Order received', pagamento: 'Payment', codice: 'Code',
-    sessione: 'Session active · expires in', sessioneScaduta: 'Session expired',
-    sessioneHint: 'For security you can only order within 30 minutes of scanning the QR.',
-    riscansione: 'Scan the table QR code again to continue.',
-    ordiniValidi: 'Orders already sent remain valid: the restaurant still sees them.',
-    tutti: 'All', nessunPiatto: 'No dishes available.',
-    aPunto: 'Where is your order', tornaMenu: 'Back to menu',
-    scaricaRicevuta: 'Download receipt', aggiungiAltro: 'Add more',
-    circuito: 'Card network / wallet', circuitoHint: 'Choose how to pay online. We never store card numbers.',
-    ordinaAncora: 'Order again', aggiornaStato: 'Refresh status', autoStato: 'Status updates automatically',
-    tuoiOrdini: 'Your orders at this table', nessunOrdine: 'No orders',
-    pagamentoLabel: 'Payment', intestatario: 'Cardholder', numCarta: 'Card number',
-    scadenza: 'Expiry', cvv: 'CVV', pagaOra: 'Pay', pagaCon: 'Pay with',
-    paySecure: 'Data stays on your device: we only save the card type, not the number.',
-    payDemo: 'Pay at the counter.', payWallet: 'Pay at the counter.',
-    less1min: 'less than 1 min', minSuffix: ' min', scaduta: 'expired',
-    sessioneScadTitle: 'Session expired: scan the table QR again',
-    ordineInviato: 'Order sent!', carrelloVuoto: 'Cart is empty',
-    sessioneNonValida: 'Invalid client session. Scan the QR again.',
-    premio: 'Reward', puntiInsuff: 'Not enough points',
-    authWelcome: 'Welcome', authHint: 'Sign in to the loyalty card to earn points, or continue as guest.',
-    authOspite: 'Continue as guest', authLogin: 'Sign in', authRegister: 'Register and activate card',
-    authBack: 'Back', authNome: 'First name', authCognome: 'Last name', authTel: 'Phone',
-    authEmail: 'Email', authPassword: 'Password', authSubmitLogin: 'Sign in',
-    authSubmitReg: 'Create account and activate card', authTitleLogin: 'Sign in', authTitleReg: 'Register',
-    tabMenu: 'Menu', tabPremi: 'Rewards',
-    ordineRicevuto: 'Order received', statoOrdine: 'Order status',
-    regTitle: 'Loyalty card rules',
-    regEuroPt: 'Every €{euro} spent (paid and delivered orders) earns you {pt} point{ptS}.',
-    regEsempio: 'Example: a €{ex} bill → {ptEx} pts.',
-    regScadeFine: 'Points earned in this period are valid until {fine} ({mesi} month{mesiS}).',
-    regScadeMesi: 'Points expire after {mesi} month{mesiS} from the current program.',
-    regNoScade: 'Points do not expire (no end date set).',
-    regPremi: 'Redeem rewards from the «Rewards» menu when you have enough points.',
-    regUpdate: 'Rules may be updated by the restaurant: the conditions shown here always apply at the time of use.',
-    regPeriodo: 'Current period: from {inizio}{finePart}',
-    regScaduto: 'expired',
-    recTitle: 'How was it?',
-    recHint: 'Rate service and food (1–5 stars). Optional.',
-    recServizio: 'Service',
-    recCibo: 'Food',
-    recNote: 'Notes (optional)',
-    recNotePh: 'What did you like or what could improve…',
-    recInvia: 'Submit review',
-    recGrazie: 'Thanks for your feedback!',
-    recSeleziona: 'Please select stars for service and food',
-    st_nuovo: 'New', st_in_preparazione: 'Preparing', st_pronto: 'Ready',
-    st_consegnato: 'Delivered', st_chiuso: 'Closed',
-    pag_pagato: 'Paid', pag_in_attesa: 'Pending', pag_non_pagato: 'Unpaid',
-    all_glutine: 'Gluten', all_latticini: 'Dairy', all_uova: 'Eggs',
-    all_frutta_a_guscio: 'Tree nuts', all_pesce: 'Fish', all_crostacei: 'Crustaceans',
-    all_soia: 'Soy', all_sesamo: 'Sesame',
-    cat_antipasti: 'Starters', cat_primi: 'Pasta & first courses', cat_secondi: 'Main courses', cat_contorni: 'Sides',
-    cat_dolci: 'Desserts', cat_bevande: 'Drinks', cat_pizze: 'Pizzas', cat_insalate: 'Salads',
-    cat_sfizi: 'Snacks', cat_vini: 'Wines', cat_birre: 'Beers', cat_cocktail: 'Cocktails',
-    cat_caffetteria: 'Coffee', cat_aperitivi: 'Aperitifs', cat_dessert: 'Dessert'
-  },
-  es: {
-    cart: 'Carrito', stato: 'Estado del pedido', totale: 'Total', note: 'Notas / peticiones (ej. sin queso)',
-    notePh: 'Alergias, cambios, peticiones especiales...',
-    paga: 'Método de pago', invia: 'Confirmar pedido', menu: 'Menú', aggiungi: 'Añadir',
-    scelto: 'Tu selección', vuoto: 'El carrito está vacío.', tavolo: 'Mesa',
-    carta: 'Tarjeta', cassa: 'Pago en caja', indietro: 'Atrás',
-    ricevuta: 'Pedido recibido', pagamento: 'Pago', codice: 'Código',
-    sessione: 'Sesión activa · caduca en', sessioneScaduta: 'Sesión caducada',
-    sessioneHint: 'Por seguridad solo puedes pedir en los 30 minutos tras escanear el QR.',
-    riscansione: 'Escanea de nuevo el código QR de la mesa para continuar.',
-    ordiniValidi: 'Los pedidos ya enviados siguen siendo válidos.',
-    tutti: 'Todos', nessunPiatto: 'No hay platos disponibles.',
-    aPunto: 'Estado de tu pedido', tornaMenu: 'Volver al menú',
-    scaricaRicevuta: 'Descargar recibo', aggiungiAltro: 'Añadir más',
-    circuito: 'Circuito / wallet', circuitoHint: 'Elige cómo pagar online. No guardamos el número de tarjeta.',
-    ordinaAncora: 'Pedir de nuevo', aggiornaStato: 'Actualizar estado', autoStato: 'Estado actualizado automáticamente',
-    tuoiOrdini: 'Tus pedidos en esta mesa', nessunOrdine: 'Ningún pedido',
-    pagamentoLabel: 'Pago', intestatario: 'Titular', numCarta: 'Número de tarjeta',
-    scadenza: 'Caducidad', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar con',
-    paySecure: 'Los datos permanecen en tu dispositivo: solo guardamos el tipo de tarjeta.',
-    payDemo: 'Pago en caja.', payWallet: 'Pago en caja.',
-    less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'caducada',
-    sessioneScadTitle: 'Sesión caducada: escanea de nuevo el QR',
-    ordineInviato: '¡Pedido enviado!', carrelloVuoto: 'El carrito está vacío',
-    sessioneNonValida: 'Sesión no válida. Escanea el QR de nuevo.',
-    premio: 'Premio', puntiInsuff: 'Puntos insuficientes',
-    authWelcome: 'Bienvenido', authHint: 'Accede a la tarjeta loyalty para sumar puntos, o continúa como invitado.',
-    authOspite: 'Continuar como invitado', authLogin: 'Iniciar sesión', authRegister: 'Registrarse y activar tarjeta',
-    authBack: 'Atrás', authNome: 'Nombre', authCognome: 'Apellido', authTel: 'Teléfono',
-    authEmail: 'Email', authPassword: 'Contraseña', authSubmitLogin: 'Entrar',
-    authSubmitReg: 'Crear cuenta y activar tarjeta', authTitleLogin: 'Iniciar sesión', authTitleReg: 'Registrarse',
-    tabMenu: 'Menú', tabPremi: 'Premios',
-    ordineRicevuto: 'Pedido recibido', statoOrdine: 'Estado del pedido',
-    regTitle: 'Reglamento de la tarjeta loyalty',
-    regEuroPt: 'Cada €{euro} de gasto (pedidos pagados y entregados) te da {pt} punto{ptS}.',
-    regEsempio: 'Ejemplo: una cuenta de €{ex} → {ptEx} pts.',
-    regScadeFine: 'Los puntos de este período valen hasta el {fine} ({mesi} mes{mesiS}).',
-    regScadeMesi: 'Los puntos caducan tras {mesi} mes{mesiS} del programa actual.',
-    regNoScade: 'Los puntos no caducan (sin fecha de fin).',
-    regPremi: 'Canjea premios desde el menú «Premios» cuando tengas puntos suficientes.',
-    regUpdate: 'El local puede actualizar el reglamento: siempre valen las condiciones mostradas aquí.',
-    regPeriodo: 'Período actual: desde {inizio}{finePart}',
-    regScaduto: 'caducado',
-    recTitle: '¿Qué tal?',
-    recHint: 'Valora el servicio y la comida (1–5 estrellas). Opcional.',
-    recServizio: 'Servicio',
-    recCibo: 'Comida',
-    recNote: 'Notas (opcional)',
-    recNotePh: 'Qué te gustó o qué mejorar…',
-    recInvia: 'Enviar valoración',
-    recGrazie: '¡Gracias por tu valoración!',
-    recSeleziona: 'Selecciona las estrellas de servicio y comida',
-    st_nuovo: 'Nuevo', st_in_preparazione: 'En preparación', st_pronto: 'Listo',
-    st_consegnato: 'Entregado', st_chiuso: 'Cerrado',
-    pag_pagato: 'Pagado', pag_in_attesa: 'Pendiente', pag_non_pagato: 'No pagado',
-    all_glutine: 'Gluten', all_latticini: 'Lácteos', all_uova: 'Huevos',
-    all_frutta_a_guscio: 'Frutos secos', all_pesce: 'Pescado', all_crostacei: 'Crustáceos',
-    all_soia: 'Soja', all_sesamo: 'Sésamo',
-    cat_antipasti: 'Entrantes', cat_primi: 'Primeros', cat_secondi: 'Segundos', cat_contorni: 'Guarniciones',
-    cat_dolci: 'Postres', cat_bevande: 'Bebidas', cat_pizze: 'Pizzas', cat_insalate: 'Ensaladas',
-    cat_sfizi: 'Aperitivos', cat_vini: 'Vinos', cat_birre: 'Cervezas', cat_cocktail: 'Cócteles',
-    cat_caffetteria: 'Café', cat_aperitivi: 'Aperitivos', cat_dessert: 'Postre'
-  },
-  de: {
-    cart: 'Warenkorb', stato: 'Bestellstatus', totale: 'Gesamt', note: 'Hinweise / Wünsche (z.B. ohne Käse)',
-    notePh: 'Allergien, Änderungen, Sonderwünsche...',
-    paga: 'Zahlungsart', invia: 'Bestellung bestätigen', menu: 'Menü', aggiungi: 'Hinzufügen',
-    scelto: 'Ihre Auswahl', vuoto: 'Der Warenkorb ist leer.', tavolo: 'Tisch',
-    carta: 'Karte', cassa: 'An der Kasse zahlen', indietro: 'Zurück',
-    ricevuta: 'Bestellung erhalten', pagamento: 'Zahlung', codice: 'Code',
-    sessione: 'Sitzung aktiv · endet in', sessioneScaduta: 'Sitzung abgelaufen',
-    sessioneHint: 'Aus Sicherheitsgründen können Sie nur 30 Minuten nach dem QR-Scan bestellen.',
-    riscansione: 'Scannen Sie den QR-Code am Tisch erneut.',
-    ordiniValidi: 'Bereits gesendete Bestellungen bleiben gültig.',
-    tutti: 'Alle', nessunPiatto: 'Keine Gerichte verfügbar.',
-    aPunto: 'Status Ihrer Bestellung', tornaMenu: 'Zurück zum Menü',
-    scaricaRicevuta: 'Beleg herunterladen', aggiungiAltro: 'Mehr hinzufügen',
-    circuito: 'Kartennetz / Wallet', circuitoHint: 'Wählen Sie die Online-Zahlung. Wir speichern keine Kartendaten.',
-    ordinaAncora: 'Erneut bestellen', aggiornaStato: 'Status aktualisieren', autoStato: 'Status wird automatisch aktualisiert',
-    tuoiOrdini: 'Ihre Bestellungen an diesem Tisch', nessunOrdine: 'Keine Bestellungen',
-    pagamentoLabel: 'Zahlung', intestatario: 'Karteninhaber', numCarta: 'Kartennummer',
-    scadenza: 'Gültig bis', cvv: 'CVV', pagaOra: 'Bezahlen', pagaCon: 'Bezahlen mit',
-    paySecure: 'Daten bleiben auf Ihrem Gerät: wir speichern nur den Kartentyp.',
-    payDemo: 'Zahlung an der Kasse.', payWallet: 'Zahlung an der Kasse.',
-    less1min: 'weniger als 1 Min.', minSuffix: ' Min.', scaduta: 'abgelaufen',
-    sessioneScadTitle: 'Sitzung abgelaufen: QR erneut scannen',
-    ordineInviato: 'Bestellung gesendet!', carrelloVuoto: 'Warenkorb ist leer',
-    sessioneNonValida: 'Ungültige Sitzung. QR erneut scannen.',
-    premio: 'Prämie', puntiInsuff: 'Nicht genug Punkte',
-    authWelcome: 'Willkommen', authHint: 'Melden Sie sich bei der Loyalty-Karte an oder fahren Sie als Gast fort.',
-    authOspite: 'Als Gast fortfahren', authLogin: 'Anmelden', authRegister: 'Registrieren und Karte aktivieren',
-    authBack: 'Zurück', authNome: 'Vorname', authCognome: 'Nachname', authTel: 'Telefon',
-    authEmail: 'E-Mail', authPassword: 'Passwort', authSubmitLogin: 'Anmelden',
-    authSubmitReg: 'Konto erstellen und Karte aktivieren', authTitleLogin: 'Anmelden', authTitleReg: 'Registrieren',
-    tabMenu: 'Menü', tabPremi: 'Prämien',
-    ordineRicevuto: 'Bestellung erhalten', statoOrdine: 'Bestellstatus',
-    regTitle: 'Regeln der Loyalty-Karte',
-    regEuroPt: 'Je €{euro} Umsatz (bezahlt und ausgeliefert) erhältst du {pt} Punkt{ptS}.',
-    regEsempio: 'Beispiel: Rechnung über €{ex} → {ptEx} Pkt.',
-    regScadeFine: 'Punkte aus diesem Zeitraum gelten bis {fine} ({mesi} Monat{mesiS}).',
-    regScadeMesi: 'Punkte verfallen nach {mesi} Monat{mesiS} im laufenden Programm.',
-    regNoScade: 'Punkte verfallen nicht (kein Enddatum).',
-    regPremi: 'Prämien im Menü «Prämien» einlösen, wenn genug Punkte vorhanden sind.',
-    regUpdate: 'Das Restaurant kann die Regeln ändern: es gelten die hier gezeigten Bedingungen.',
-    regPeriodo: 'Aktueller Zeitraum: ab {inizio}{finePart}',
-    regScaduto: 'abgelaufen',
-    recTitle: 'Wie war es?',
-    recHint: 'Bewerte Service und Essen (1–5 Sterne). Optional.',
-    recServizio: 'Service',
-    recCibo: 'Essen',
-    recNote: 'Notizen (optional)',
-    recNotePh: 'Was hat dir gefallen oder was verbessern…',
-    recInvia: 'Bewertung senden',
-    recGrazie: 'Danke für dein Feedback!',
-    recSeleziona: 'Bitte Sterne für Service und Essen wählen',
-    st_nuovo: 'Neu', st_in_preparazione: 'In Zubereitung', st_pronto: 'Fertig',
-    st_consegnato: 'Zugestellt', st_chiuso: 'Geschlossen',
-    pag_pagato: 'Bezahlt', pag_in_attesa: 'Ausstehend', pag_non_pagato: 'Nicht bezahlt',
-    all_glutine: 'Gluten', all_latticini: 'Milchprodukte', all_uova: 'Eier',
-    all_frutta_a_guscio: 'Schalenfrüchte', all_pesce: 'Fisch', all_crostacei: 'Krebstiere',
-    all_soia: 'Soja', all_sesamo: 'Sesam',
-    cat_antipasti: 'Vorspeisen', cat_primi: 'Erste Gänge', cat_secondi: 'Hauptgerichte', cat_contorni: 'Beilagen',
-    cat_dolci: 'Desserts', cat_bevande: 'Getränke', cat_pizze: 'Pizzen', cat_insalate: 'Salate',
-    cat_sfizi: 'Snacks', cat_vini: 'Weine', cat_birre: 'Biere', cat_cocktail: 'Cocktails',
-    cat_caffetteria: 'Kaffee', cat_aperitivi: 'Aperitif', cat_dessert: 'Dessert'
-  },
-  fr: {
-    cart: 'Panier', stato: 'État de la commande', totale: 'Total', note: 'Notes / demandes (ex. sans fromage)',
-    notePh: 'Allergies, modifications, demandes spéciales...',
-    paga: 'Mode de paiement', invia: 'Confirmer la commande', menu: 'Menu', aggiungi: 'Ajouter',
-    scelto: 'Votre sélection', vuoto: 'Le panier est vide.', tavolo: 'Table',
-    carta: 'Carte', cassa: 'Payer au comptoir', indietro: 'Retour',
-    ricevuta: 'Commande reçue', pagamento: 'Paiement', codice: 'Code',
-    sessione: 'Session active · expire dans', sessioneScaduta: 'Session expirée',
-    sessioneHint: 'Pour votre sécurité, commande possible uniquement dans les 30 minutes après le QR.',
-    riscansione: 'Scannez à nouveau le QR de la table pour continuer.',
-    ordiniValidi: 'Les commandes déjà envoyées restent valides.',
-    tutti: 'Tous', nessunPiatto: 'Aucun plat disponible.',
-    aPunto: 'Où en est votre commande', tornaMenu: 'Retour au menu',
-    scaricaRicevuta: 'Télécharger le reçu', aggiungiAltro: 'Ajouter autre chose',
-    circuito: 'Réseau / wallet', circuitoHint: 'Choisissez le paiement en ligne. Nous ne stockons pas le numéro de carte.',
-    ordinaAncora: 'Commander à nouveau', aggiornaStato: 'Actualiser le statut', autoStato: 'Statut mis à jour automatiquement',
-    tuoiOrdini: 'Vos commandes à cette table', nessunOrdine: 'Aucune commande',
-    pagamentoLabel: 'Paiement', intestatario: 'Titulaire', numCarta: 'Numéro de carte',
-    scadenza: 'Expiration', cvv: 'CVV', pagaOra: 'Payer', pagaCon: 'Payer avec',
-    paySecure: 'Les données restent sur votre appareil : nous enregistrons seulement le type de carte.',
-    payDemo: 'Paiement au comptoir.', payWallet: 'Paiement au comptoir.',
-    less1min: 'moins d’1 min', minSuffix: ' min', scaduta: 'expirée',
-    sessioneScadTitle: 'Session expirée : rescanez le QR',
-    ordineInviato: 'Commande envoyée !', carrelloVuoto: 'Le panier est vide',
-    sessioneNonValida: 'Session invalide. Rescanez le QR.',
-    premio: 'Récompense', puntiInsuff: 'Points insuffisants',
-    authWelcome: 'Bienvenue', authHint: 'Connectez-vous à la carte fidélité pour gagner des points, ou continuez en invité.',
-    authOspite: 'Continuer en invité', authLogin: 'Connexion', authRegister: 'S’inscrire et activer la carte',
-    authBack: 'Retour', authNome: 'Prénom', authCognome: 'Nom', authTel: 'Téléphone',
-    authEmail: 'E-mail', authPassword: 'Mot de passe', authSubmitLogin: 'Se connecter',
-    authSubmitReg: 'Créer le compte et activer la carte', authTitleLogin: 'Connexion', authTitleReg: 'Inscription',
-    tabMenu: 'Menu', tabPremi: 'Récompenses',
-    ordineRicevuto: 'Commande reçue', statoOrdine: 'État de la commande',
-    regTitle: 'Règlement de la carte de fidélité',
-    regEuroPt: 'Chaque €{euro} de dépense (commandes payées et livrées) vous rapporte {pt} point{ptS}.',
-    regEsempio: 'Exemple : une addition de €{ex} → {ptEx} pts.',
-    regScadeFine: 'Les points de cette période sont valables jusqu\'au {fine} ({mesi} mois).',
-    regScadeMesi: 'Les points expirent après {mesi} mois du programme en cours.',
-    regNoScade: 'Les points n\'expirent pas (pas de date de fin).',
-    regPremi: 'Échangez des récompenses dans le menu « Récompenses » dès que vous avez assez de points.',
-    regUpdate: 'Le restaurant peut mettre à jour le règlement : les conditions affichées ici s\'appliquent toujours.',
-    regPeriodo: 'Période en cours : du {inizio}{finePart}',
-    regScaduto: 'expiré',
-    recTitle: 'Comment c\'était ?',
-    recHint: 'Notez le service et la nourriture (1–5 étoiles). Facultatif.',
-    recServizio: 'Service',
-    recCibo: 'Nourriture',
-    recNote: 'Notes (facultatif)',
-    recNotePh: 'Ce qui vous a plu ou à améliorer…',
-    recInvia: 'Envoyer l\'avis',
-    recGrazie: 'Merci pour votre avis !',
-    recSeleziona: 'Sélectionnez les étoiles pour service et nourriture',
-    st_nuovo: 'Nouveau', st_in_preparazione: 'En préparation', st_pronto: 'Prêt',
-    st_consegnato: 'Servi', st_chiuso: 'Clos',
-    pag_pagato: 'Payé', pag_in_attesa: 'En attente', pag_non_pagato: 'Non payé',
-    all_glutine: 'Gluten', all_latticini: 'Produits laitiers', all_uova: 'Œufs',
-    all_frutta_a_guscio: 'Fruits à coque', all_pesce: 'Poisson', all_crostacei: 'Crustacés',
-    all_soia: 'Soja', all_sesamo: 'Sésame',
-    cat_antipasti: 'Entrées', cat_primi: 'Plats de pâtes', cat_secondi: 'Plats principaux', cat_contorni: 'Accompagnements',
-    cat_dolci: 'Desserts', cat_bevande: 'Boissons', cat_pizze: 'Pizzas', cat_insalate: 'Salades',
-    cat_sfizi: 'Amuse-bouches', cat_vini: 'Vins', cat_birre: 'Bières', cat_cocktail: 'Cocktails',
-    cat_caffetteria: 'Café', cat_aperitivi: 'Apéritifs', cat_dessert: 'Dessert'
-  },
-  pt: {
-    cart: 'Carrinho', stato: 'Estado do pedido', totale: 'Total', note: 'Notas / pedidos (ex. sem queijo)',
-    notePh: 'Alergias, alterações, pedidos especiais...',
-    paga: 'Método de pagamento', invia: 'Confirmar pedido', menu: 'Menu', aggiungi: 'Adicionar',
-    scelto: 'A sua seleção', vuoto: 'O carrinho está vazio.', tavolo: 'Mesa',
-    carta: 'Cartão', cassa: 'Pagar no balcão', indietro: 'Voltar',
-    ricevuta: 'Pedido recebido', pagamento: 'Pagamento', codice: 'Código',
-    sessione: 'Sessão ativa · expira em', sessioneScaduta: 'Sessão expirada',
-    sessioneHint: 'Por segurança só pode pedir nos 30 minutos após ler o QR.',
-    riscansione: 'Leia novamente o código QR da mesa para continuar.',
-    ordiniValidi: 'Os pedidos já enviados continuam válidos.',
-    tutti: 'Todos', nessunPiatto: 'Nenhum prato disponível.',
-    aPunto: 'Onde está o seu pedido', tornaMenu: 'Voltar ao menu',
-    scaricaRicevuta: 'Descarregar recibo', aggiungiAltro: 'Adicionar mais',
-    circuito: 'Rede / wallet', circuitoHint: 'Escolha como pagar online. Não guardamos o número do cartão.',
-    ordinaAncora: 'Pedir de novo', aggiornaStato: 'Atualizar estado', autoStato: 'Estado atualizado automaticamente',
-    tuoiOrdini: 'Os seus pedidos nesta mesa', nessunOrdine: 'Nenhum pedido',
-    pagamentoLabel: 'Pagamento', intestatario: 'Titular', numCarta: 'Número do cartão',
-    scadenza: 'Validade', cvv: 'CVV', pagaOra: 'Pagar', pagaCon: 'Pagar com',
-    paySecure: 'Os dados ficam no seu dispositivo: só guardamos o tipo de cartão.',
+Os dados ficam no seu dispositivo: só guardamos o tipo de cartão.',
     payDemo: 'Pagamento no balcão.', payWallet: 'Pagamento no balcão.',
     less1min: 'menos de 1 min', minSuffix: ' min', scaduta: 'expirada',
     sessioneScadTitle: 'Sessão expirada: leia o QR novamente',
@@ -765,9 +325,10 @@ function syncMenuMultiToggleUI() {
   const hint = document.getElementById('menu-pubblico-hint-text');
   if (hint) {
     hint.textContent = el.checked
-      ? 'I clienti dal QR possono passare tra tutti i menu (es. piatti + vini). Il menu sopra è quello di default.'
+      ? 'Scegli sotto quali menu far vedere sul QR. Il menu in gestione può essere impostato come default.'
       : 'I clienti dal QR vedono solo il menu pubblico selezionato (nessuna tab).';
   }
+  try { renderMenuQrVisibiliList(); } catch (e) {}
 }
 document.getElementById('toggle-menu-multi-cliente')?.addEventListener('change', async (e) => {
   if (!currentRistorante) return;
@@ -777,8 +338,94 @@ document.getElementById('toggle-menu-multi-cliente')?.addEventListener('change',
     return;
   }
   await setMenuMultiCliente(currentRistorante, e.target.checked);
+  if (e.target.checked) {
+    const menus = ensureMenus(currentRistorante);
+    let changed = false;
+    menus.forEach(m => {
+      if (!Object.prototype.hasOwnProperty.call(m, 'qr')) { m.qr = true; changed = true; }
+    });
+    if (changed) await salvaMenusSuDb();
+  }
   syncMenuMultiToggleUI();
 });
+
+
+/** Menu mostrati sul QR quando multi è attivo. Default: tutti. */
+function getMenusVisibiliQr(r) {
+  const rist = r || currentRistorante;
+  const menus = ensureMenus(rist);
+  if (!menus.length) return [];
+  const anyFlag = menus.some(m => m && Object.prototype.hasOwnProperty.call(m, 'qr'));
+  if (!anyFlag) return menus.slice(); // nessun flag → tutti visibili
+  const vis = menus.filter(m => m.qr !== false);
+  return vis.length ? vis : [menus.find(m => String(m.id) === String(getMenuPubblicoId(rist))) || menus[0]].filter(Boolean);
+}
+
+function isMenuVisibileQr(r, menuId) {
+  const rist = r || currentRistorante;
+  const menus = ensureMenus(rist);
+  const m = menus.find(x => String(x.id) === String(menuId));
+  if (!m) return false;
+  if (!Object.prototype.hasOwnProperty.call(m, 'qr')) return true;
+  return m.qr !== false;
+}
+
+async function setMenuVisibileQr(menuId, on) {
+  if (!currentRistorante) return;
+  const menus = ensureMenus(currentRistorante);
+  const m = menus.find(x => String(x.id) === String(menuId));
+  if (!m) return;
+  // assicurati che tutti abbiano il flag esplicito (default true)
+  menus.forEach(x => {
+    if (!Object.prototype.hasOwnProperty.call(x, 'qr')) x.qr = true;
+  });
+  m.qr = !!on;
+  // almeno 1 deve restare visibile
+  if (!menus.some(x => x.qr !== false)) {
+    m.qr = true;
+    toast('Deve restare almeno un menu visibile sul QR');
+  }
+  // se il menu pubblico non è più tra i visibili, promuovi il primo visibile
+  const vis = getMenusVisibiliQr(currentRistorante);
+  const pub = String(getMenuPubblicoId(currentRistorante));
+  if (!vis.some(x => String(x.id) === pub) && vis[0]) {
+    await setMenuPubblicoId(currentRistorante, vis[0].id, { silent: true });
+  }
+  await salvaMenusSuDb();
+  renderMenuQrVisibiliList();
+  try { updateMenuPubblicoBanner(); } catch (e) {}
+  toast(on ? 'Menu visibile sul QR' : 'Menu nascosto dal QR');
+}
+
+function renderMenuQrVisibiliList() {
+  const box = document.getElementById('menu-qr-visibili-box');
+  const list = document.getElementById('menu-qr-visibili-list');
+  if (!box || !list || !currentRistorante) return;
+  const multi = isMenuMultiCliente(currentRistorante);
+  const menus = ensureMenus(currentRistorante);
+  if (!multi || menus.length <= 1) {
+    box.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  box.classList.remove('hidden');
+  const pub = String(getMenuPubblicoId(currentRistorante));
+  list.innerHTML = menus.map(m => {
+    const checked = isMenuVisibileQr(currentRistorante, m.id);
+    const isPub = String(m.id) === pub;
+    return `<label class="menu-qr-visibile-item">
+      <input type="checkbox" data-menu-qr-id="${m.id}" ${checked ? 'checked' : ''} />
+      <span class="mqv-name">${(m.nome || 'Menu').replace(/</g, '&lt;')}</span>
+      ${isPub ? '<span class="mqv-badge">default QR</span>' : ''}
+    </label>`;
+  }).join('');
+  list.querySelectorAll('input[data-menu-qr-id]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      setMenuVisibileQr(inp.dataset.menuQrId, inp.checked);
+    });
+  });
+}
+
 
 function isMenuMultiCliente(r) {
   const rist = r || currentRistorante;
@@ -4606,19 +4253,22 @@ document.getElementById('tab-cliente-premi')?.addEventListener('click', () => {
 function renderClienteMenuTabs() {
   const wrap = document.getElementById('cliente-menu-tabs');
   if (!wrap || !currentRistorante) return;
-  const menus = ensureMenus(currentRistorante);
-  const multi = isMenuMultiCliente(currentRistorante) && menus.length > 1;
+  const allMenus = ensureMenus(currentRistorante);
+  const visMenus = getMenusVisibiliQr(currentRistorante);
+  const multi = isMenuMultiCliente(currentRistorante) && visMenus.length > 1;
   if (!multi) {
     wrap.innerHTML = '';
     wrap.classList.add('hidden');
-    currentMenuId = getMenuPubblicoId(currentRistorante) || (menus[0] && menus[0].id);
+    currentMenuId = getMenuPubblicoId(currentRistorante) || (visMenus[0] && visMenus[0].id) || (allMenus[0] && allMenus[0].id);
     return;
   }
   wrap.classList.remove('hidden');
-  if (!currentMenuId || !menus.some(m => String(m.id) === String(currentMenuId))) {
-    currentMenuId = getMenuPubblicoId(currentRistorante) || menus[0].id;
+  if (!currentMenuId || !visMenus.some(m => String(m.id) === String(currentMenuId))) {
+    const pub = getMenuPubblicoId(currentRistorante);
+    currentMenuId = (visMenus.some(m => String(m.id) === String(pub)) ? pub : null)
+      || (visMenus[0] && visMenus[0].id);
   }
-  wrap.innerHTML = menus.map(m =>
+  wrap.innerHTML = visMenus.map(m =>
     `<button type="button" class="cliente-menu-tab ${String(m.id) === String(currentMenuId) ? 'active' : ''}" data-menu-id="${m.id}">${(m.nome || 'Menu').replace(/</g, '&lt;')}</button>`
   ).join('');
   wrap.querySelectorAll('.cliente-menu-tab').forEach(btn => {
